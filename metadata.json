@@ -1,0 +1,6 @@
+{
+  "name": "Avexas CMMS Moçambique",
+  "description": "Sistema de Gestão de Manutenção de Frotas e Chão de Fábrica para Moçambique. Gestão de frotas, ordens de serviço, combustível e múltiplos tenants.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
