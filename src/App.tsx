@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react
 import { AuthProvider, useAuth, User } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/Login';
+import AssetsPage from './pages/Assets';
 import {
   Building2,
   Truck,
@@ -113,130 +114,6 @@ const SuperAdminPage: React.FC = () => {
                   <td className="py-3 px-4 text-center">
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-950/50 text-emerald-400 border border-emerald-500/20">
                       Ativa
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ==========================================
-// ATIVOS E FROTAS
-// ==========================================
-const AssetsPage: React.FC = () => {
-  const [assets, setAssets] = useState([
-    { id: 'ast-1', code: 'CAM-012', model: 'Scania G440 XT 6x4', type: 'Camião Basculante', province: 'Maputo', fuelLevel: '82%', lastMaintenance: '24 Abr 2026', status: 'Disponível' },
-    { id: 'ast-2', code: 'CAM-035', model: 'Volvo FMX 460', type: 'Camião Betoneira', province: 'Sofala (Beira)', fuelLevel: '45%', lastMaintenance: '12 Out 2026', status: 'Em Manutenção' },
-    { id: 'ast-3', code: 'GER-004', model: 'Cummins C500D5', type: 'Gerador Industrial', province: 'Nampula', fuelLevel: '12%', lastMaintenance: '08 Out 2026', status: 'Crítico' },
-    { id: 'ast-4', code: 'EMP-009', model: 'Toyota 8FGF25', type: 'Empilhadora Térmica', province: 'Inhambane', fuelLevel: '95%', lastMaintenance: '19 Ago 2026', status: 'Disponível' }
-  ]);
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white">Ativos e Frotas</h1>
-          <p className="text-slate-400 text-xs mt-1">
-            Registo e acompanhamento de saúde de camiões, geradores e máquinas pesadas.
-          </p>
-        </div>
-        <button className="self-start md:self-auto bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold py-2 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer">
-          <Plus size={16} />
-          <span>Cadastrar Ativo</span>
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center gap-4">
-          <div className="w-10 h-10 bg-emerald-950/40 text-emerald-400 rounded-lg flex items-center justify-center border border-emerald-800/30">
-            <CheckCircle2 size={20} />
-          </div>
-          <div>
-            <span className="text-slate-400 text-xs block">Operacionais</span>
-            <span className="text-lg font-bold text-white font-mono">2 Ativos</span>
-          </div>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center gap-4">
-          <div className="w-10 h-10 bg-amber-950/40 text-amber-400 rounded-lg flex items-center justify-center border border-amber-800/30">
-            <Wrench size={20} />
-          </div>
-          <div>
-            <span className="text-slate-400 text-xs block">Em Oficina</span>
-            <span className="text-lg font-bold text-white font-mono">1 Ativo</span>
-          </div>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center gap-4">
-          <div className="w-10 h-10 bg-red-950/40 text-red-400 rounded-lg flex items-center justify-center border border-red-800/30">
-            <AlertTriangle size={20} />
-          </div>
-          <div>
-            <span className="text-slate-400 text-xs block">Atenção Crítica</span>
-            <span className="text-lg font-bold text-white font-mono">1 Ativo</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-        <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60">
-          <span className="font-semibold text-sm">Lista de Veículos e Equipamentos</span>
-          <div className="flex gap-2">
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-2.5 text-slate-500" />
-              <input type="text" placeholder="Pesquisar ativo..." className="bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50" />
-            </div>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-slate-800 text-slate-400 text-xs uppercase bg-slate-950/30">
-                <th className="py-3 px-4">Código / Ativo</th>
-                <th className="py-3 px-4">Modelo</th>
-                <th className="py-3 px-4">Província</th>
-                <th className="py-3 px-4">Combustível</th>
-                <th className="py-3 px-4">Última Revisão</th>
-                <th className="py-3 px-4">Estado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/50">
-              {assets.map((asset) => (
-                <tr key={asset.id} className="hover:bg-slate-800/10 transition-colors">
-                  <td className="py-3 px-4 font-mono font-bold text-emerald-400">{asset.code}</td>
-                  <td className="py-3 px-4">
-                    <div className="flex flex-col">
-                      <span className="text-white font-medium">{asset.model}</span>
-                      <span className="text-[11px] text-slate-500">{asset.type}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 text-slate-400">{asset.province}</td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 bg-slate-800 rounded-full h-1.5">
-                        <div 
-                          className={`h-1.5 rounded-full ${
-                            parseInt(asset.fuelLevel) < 20 ? 'bg-red-500' : parseInt(asset.fuelLevel) < 50 ? 'bg-amber-500' : 'bg-emerald-500'
-                          }`} 
-                          style={{ width: asset.fuelLevel }}
-                        ></div>
-                      </div>
-                      <span className="text-xs font-mono text-slate-300">{asset.fuelLevel}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 text-slate-400 text-xs">{asset.lastMaintenance}</td>
-                  <td className="py-3 px-4">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${
-                      asset.status === 'Disponível'
-                        ? 'bg-emerald-950/30 text-emerald-400 border-emerald-500/20'
-                        : asset.status === 'Em Manutenção'
-                        ? 'bg-amber-950/30 text-amber-400 border-amber-500/20'
-                        : 'bg-red-950/30 text-red-400 border-red-500/20'
-                    }`}>
-                      {asset.status}
                     </span>
                   </td>
                 </tr>
