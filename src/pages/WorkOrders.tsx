@@ -290,15 +290,16 @@ export const WorkOrdersPage: React.FC = () => {
   // Filtragem local inteligente
   const filteredOrders = orders.filter((order) => {
     const title = (order.title || '').toLowerCase();
-    const assetName = (order.asset_name || order.asset?.name || '').toLowerCase();
-    const assetCode = (order.asset?.code_tag || '').toLowerCase();
+    const matchingAsset = assets.find(a => a.id === order.asset_id || a.id === order.assetId);
+    const assetString = matchingAsset 
+      ? `${matchingAsset.code_tag || matchingAsset.codeTag} ${matchingAsset.name}`.toLowerCase()
+      : `${order.asset?.code_tag || ''} ${order.asset_name || order.asset?.name || ''}`.toLowerCase();
     const woNum = (order.wo_number || order.woNumber || '').toLowerCase();
     const query = searchQuery.toLowerCase();
 
     const matchesSearch = 
       title.includes(query) || 
-      assetName.includes(query) || 
-      assetCode.includes(query) || 
+      assetString.includes(query) || 
       woNum.includes(query);
 
     const matchesPriority = priorityFilter === 'all' || order.priority === priorityFilter;
@@ -453,8 +454,17 @@ export const WorkOrdersPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-800/60">
                 {filteredOrders.map((order) => {
-                  const assetCode = order.asset?.code_tag || order.asset_id;
-                  const assetLabel = order.asset_name || order.asset?.name || 'Equipamento';
+                  const matchingAsset = assets.find(a => a.id === order.asset_id || a.id === order.assetId);
+                  
+                  let assetDisplay = 'Equipamento Geral';
+                  if (matchingAsset) {
+                    assetDisplay = `${matchingAsset.code_tag || matchingAsset.codeTag} • ${matchingAsset.name}`;
+                  } else if (order.asset?.code_tag && (order.asset?.name || order.asset_name)) {
+                    assetDisplay = `${order.asset.code_tag} • ${order.asset.name || order.asset_name}`;
+                  } else if (order.asset_name) {
+                    assetDisplay = order.asset_name;
+                  }
+
                   const openedDate = order.opened_at || order.openedAt;
                   const totalCost = order.total_cost_mzn ?? order.totalCostMzn ?? 0;
 
@@ -475,8 +485,9 @@ export const WorkOrdersPage: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="flex flex-col">
-                          <span className="font-mono text-emerald-400 text-xs font-bold">{assetCode}</span>
-                          <span className="text-[11px] text-slate-400">{assetLabel}</span>
+                          <span className="font-mono text-emerald-400 text-xs font-bold leading-5">
+                            {assetDisplay}
+                          </span>
                         </div>
                       </td>
                       <td className="py-3.5 px-4">

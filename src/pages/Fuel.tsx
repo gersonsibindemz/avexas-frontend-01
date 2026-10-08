@@ -375,8 +375,15 @@ export const FuelPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-800/60">
                 {filteredLogs.map((log) => {
-                  const assetCode = log.asset?.code_tag || log.asset_id;
-                  const assetLabel = log.asset_name || log.asset?.name || 'Equipamento';
+                  const matchingAsset = assets.find(a => a.id === log.asset_id || a.id === log.assetId);
+                  
+                  let assetCode = log.asset?.code_tag || log.asset_id;
+                  let assetLabel = log.asset_name || log.asset?.name || 'Equipamento';
+                  if (matchingAsset) {
+                    assetCode = matchingAsset.code_tag || matchingAsset.codeTag || assetCode;
+                    assetLabel = matchingAsset.name || assetLabel;
+                  }
+
                   const loggedDate = log.logged_at || log.loggedAt;
                   const fuelKind = log.fuel_type || log.fuelType || 'Diesel';
                   const logLiters = log.liters ?? 0;
