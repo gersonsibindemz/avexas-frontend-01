@@ -4,9 +4,6 @@ import axios from 'axios';
 export const api = axios.create({
   baseURL: 'https://cmms-backend-api.onrender.com/api',
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 // Interceptor para tratamento de erros global (ex: deslogar se 401)
