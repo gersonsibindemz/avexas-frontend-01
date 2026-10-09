@@ -124,6 +124,8 @@ export const AssetsPage: React.FC = () => {
 
   // Referência para renderização do QR Code
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Referência para o input de ficheiro de documentos adicionais
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // ==========================================
   // ESTADOS DO FORMULÁRIO MULTI-STEP (4 ETAPAS)
@@ -530,11 +532,14 @@ export const AssetsPage: React.FC = () => {
     formData.append('title', newDocTitle);
 
     try {
-      // NUNCA defina o cabeçalho 'Content-Type' manualmente
+      // Envia os dados usando FormData e deixa o axios gerenciar o boundary
       await api.post(`/assets/${selectedDocAsset.id}/documents`, formData);
       setNewDocTitle('');
       setNewDocFile(null);
-      // Recarrega lista
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      // Recarrega lista de documentos
       await loadDocuments(selectedDocAsset.id);
     } catch (err: any) {
       console.error('Erro ao fazer upload adicional:', err);
@@ -1442,6 +1447,7 @@ export const AssetsPage: React.FC = () => {
                     <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Ficheiro (20MB max) *</label>
                     <input
                       type="file"
+                      ref={fileInputRef}
                       required
                       accept=".pdf,.png,.jpeg,.jpg,.webp"
                       onChange={(e) => setNewDocFile(e.target.files?.[0] || null)}
