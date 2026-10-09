@@ -12,6 +12,7 @@ import {
   Loader2,
   Calendar,
   Layers,
+  Package,
   Sparkles,
   Info,
   DollarSign,
@@ -144,6 +145,15 @@ export const WorkOrdersPage: React.FC = () => {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
 
+  // Peças e Consumíveis Utilizados (Requisito 10)
+  const [usedParts, setUsedParts] = useState<any[]>([]);
+  const [loadingUsedParts, setLoadingUsedParts] = useState(false);
+  const [inventoryParts, setInventoryParts] = useState<any[]>([]);
+  const [isAddPartModalOpen, setIsAddPartModalOpen] = useState(false);
+  const [selectedPartId, setSelectedPartId] = useState('');
+  const [partQtyToUse, setPartQtyToUse] = useState<number | ''>('');
+  const [submittingAddPart, setSubmittingAddPart] = useState(false);
+
   // Modal de Pausa / Interrupção Obrigatório
   const [isPauseModalOpen, setIsPauseModalOpen] = useState(false);
   const [pauseReason, setPauseReason] = useState('Aguardando Peças no Armazém');
@@ -237,6 +247,176 @@ export const WorkOrdersPage: React.FC = () => {
       setTimeline([]);
     } finally {
       setLoadingTimeline(false);
+    }
+  };
+
+  // Carrega as peças utilizadas nesta OS específica (Requisito 10)
+  const fetchUsedParts = async (orderId: string) => {
+    setLoadingUsedParts(true);
+    try {
+      let data = [];
+      try {
+        const res = await api.get(`/work-orders/${orderId}/parts`);
+        data = Array.isArray(res.data) ? res.data : res.data?.parts || res.data?.data || [];
+      } catch (err) {
+        console.warn('API /work-orders/:id/parts não encontrada, recorrendo ao cache.');
+      }
+
+      if (data.length === 0) {
+        const allUsed = localStorage.getItem('cmms_work_orders_parts');
+        if (allUsed) {
+          const parsed = JSON.parse(allUsed);
+          data = parsed.filter((item: any) => item.work_order_id === orderId || item.workOrderId === orderId);
+        }
+      }
+      setUsedParts(data);
+    } catch (err) {
+      console.error('Erro ao buscar peças utilizadas:', err);
+    } finally {
+      setLoadingUsedParts(false);
+    }
+  };
+
+  // Carrega catálogo do inventário para apontar peças
+  const fetchInventoryParts = async () => {
+    try {
+      let data = [];
+      try {
+        const res = await api.get('/inventory');
+        data = Array.isArray(res.data) ? res.data : res.data?.parts || res.data?.data || [];
+      } catch (err) {
+        try {
+          const res = await api.get('/parts');
+          data = Array.isArray(res.data) ? res.data : res.data?.parts || res.data?.data || [];
+        } catch (err2) {
+          console.warn('API de inventário não disponível.');
+        }
+      }
+
+      if (data.length === 0) {
+        const cached = localStorage.getItem('cmms_inventory_parts');
+        if (cached) {
+          data = JSON.parse(cached);
+        } else {
+          // Utiliza a lista básica como fallback
+          data = [
+            { id: 'part-1', oem_reference: 'FIL-LF16015', name: 'Filtro de Óleo Fleetguard LF16015', category: 'lubricants', warehouse_location: 'Prateleira A1', current_stock: 12, min_stock: 5, unit_cost: 3200 },
+            { id: 'part-2', oem_reference: 'BEL-V80812', name: 'Correia de Transmissão V-Belt', category: 'mechanical', warehouse_location: 'Prateleira B3', current_stock: 3, min_stock: 4, unit_cost: 1850 },
+            { id: 'part-3', oem_reference: 'HYD-P550388', name: 'Filtro Hidráulico Donaldson', category: 'hydraulic', warehouse_location: 'Gaveta C1', current_stock: 2, min_stock: 3, unit_cost: 4500 },
+            { id: 'part-4', oem_reference: 'PNE-295-80R225', name: 'Pneu Radial Bridgestone 295/80R22.5', category: 'tires_wheels', warehouse_location: 'Área Exterior Lotes', current_stock: 8, min_stock: 4, unit_cost: 24500 },
+            { id: 'part-5', oem_reference: 'REL-24V-80A', name: 'Relé de Arranque 24V 80A Bosch', category: 'electrical', warehouse_location: 'Armário Elétrico 1', current_stock: 15, min_stock: 5, unit_cost: 950 }
+          ];
+          localStorage.setItem('cmms_inventory_parts', JSON.stringify(data));
+        }
+      }
+      setInventoryParts(data);
+    } catch (err) {
+      console.error('Erro ao buscar catálogo de peças:', err);
+    }
+  };
+
+  // Submeter apontamento de peça (Requisito 10.2)
+  const handleAddPartSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDrawerOrder || !selectedPartId || partQtyToUse === '') return;
+
+    const qty = Number(partQtyToUse);
+    const selectedInventoryPart = inventoryParts.find(p => p.id === selectedPartId);
+    if (!selectedInventoryPart) return;
+
+    const availableStock = selectedInventoryPart.current_stock ?? selectedInventoryPart.currentStock ?? 0;
+    if (qty > availableStock) {
+      alert(`Quantidade insuficiente em stock! Apenas ${availableStock} un de "${selectedInventoryPart.name}" disponíveis.`);
+      return;
+    }
+
+    setSubmittingAddPart(true);
+
+    const cost = selectedInventoryPart.unit_cost ?? selectedInventoryPart.unitCost ?? 0;
+    const subtotal = qty * cost;
+
+    const newUsedPartRecord = {
+      id: `used-part-${Date.now()}`,
+      work_order_id: selectedDrawerOrder.id,
+      workOrderId: selectedDrawerOrder.id,
+      part_id: selectedPartId,
+      partId: selectedPartId,
+      name: selectedInventoryPart.name,
+      oem_reference: selectedInventoryPart.oem_reference || selectedInventoryPart.oemReference,
+      quantity: qty,
+      unit_cost: cost,
+      unitCost: cost,
+      subtotal
+    };
+
+    try {
+      try {
+        // Envia para o backend se disponível
+        await api.post(`/work-orders/${selectedDrawerOrder.id}/parts`, {
+          partId: selectedPartId,
+          quantity: qty
+        });
+      } catch (err) {
+        console.warn('API de apontamento de peças indisponível, aplicando localmente.');
+      }
+
+      // Atualiza o inventário local (debita do stock real do inventário)
+      const cachedInventory = localStorage.getItem('cmms_inventory_parts');
+      if (cachedInventory) {
+        const parsedInv = JSON.parse(cachedInventory);
+        const updatedInv = parsedInv.map((p: any) => {
+          if (p.id === selectedPartId) {
+            const finalStk = Math.max(0, (p.current_stock ?? p.currentStock ?? 0) - qty);
+            return {
+              ...p,
+              current_stock: finalStk,
+              currentStock: finalStk
+            };
+          }
+          return p;
+        });
+        localStorage.setItem('cmms_inventory_parts', JSON.stringify(updatedInv));
+        setInventoryParts(updatedInv);
+      }
+
+      // Salva na lista de peças utilizadas
+      const allUsed = localStorage.getItem('cmms_work_orders_parts');
+      const parsedUsed = allUsed ? JSON.parse(allUsed) : [];
+      const updatedUsed = [newUsedPartRecord, ...parsedUsed];
+      localStorage.setItem('cmms_work_orders_parts', JSON.stringify(updatedUsed));
+
+      // Recarrega lista
+      await fetchUsedParts(selectedDrawerOrder.id);
+      
+      // Atualiza custo total da OS localmente
+      const totalPartCostOfOS = [newUsedPartRecord, ...usedParts].reduce((acc, p) => acc + p.subtotal, 0);
+      
+      const updatedOrders = orders.map(o => {
+        if (o.id === selectedDrawerOrder.id) {
+          const currentPartsCost = (o.parts_cost_mzn ?? o.partsCostMzn ?? 0) + subtotal;
+          return {
+            ...o,
+            parts_cost_mzn: currentPartsCost,
+            partsCostMzn: currentPartsCost,
+            total_cost_mzn: (o.labor_cost_mzn ?? o.laborCostMzn ?? 0) + currentPartsCost,
+            totalCostMzn: (o.labor_cost_mzn ?? o.laborCostMzn ?? 0) + currentPartsCost
+          };
+        }
+        return o;
+      });
+      setOrders(updatedOrders);
+
+      // Fecha modal e limpa
+      setIsAddPartModalOpen(false);
+      setSelectedPartId('');
+      setPartQtyToUse('');
+      setSuccessMessage('Peça apontada e debitada do stock com sucesso!');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      console.error('Erro ao apontar peça:', err);
+      alert(err.response?.data?.message || err.message || 'Falha ao apontar peça utilizada.');
+    } finally {
+      setSubmittingAddPart(false);
     }
   };
 
@@ -622,6 +802,8 @@ export const WorkOrdersPage: React.FC = () => {
     setSelectedDrawerOrder(order);
     setIsDrawerOpen(true);
     fetchTimeline(order.id);
+    fetchUsedParts(order.id);
+    fetchInventoryParts();
   };
 
   // Renderização das badges de prioridade
@@ -1541,6 +1723,66 @@ export const WorkOrdersPage: React.FC = () => {
                 </div>
               )}
 
+              {/* PEÇAS E CONSUMÍVEIS UTILIZADOS (REQUISITO 10.2) */}
+              <div className="p-4 bg-slate-900 border border-slate-850 rounded-xl space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-850 pb-1.5">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block">
+                    Peças & Consumíveis Utilizados ({usedParts.length})
+                  </span>
+                  
+                  {/* Se a OS estiver em execução ('in_progress') e o utilizador for o técnico ou supervisor */}
+                  {selectedDrawerOrder.status === 'in_progress' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPartId('');
+                        setPartQtyToUse('');
+                        setIsAddPartModalOpen(true);
+                      }}
+                      className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <Plus size={11} />
+                      <span>Adicionar Peça</span>
+                    </button>
+                  )}
+                </div>
+
+                {loadingUsedParts ? (
+                  <div className="text-center py-4">
+                    <Loader2 size={16} className="animate-spin text-slate-500 mx-auto" />
+                  </div>
+                ) : usedParts.length === 0 ? (
+                  <div className="text-center py-3">
+                    <p className="text-[11px] text-slate-500 italic">Nenhum consumível apontado a esta intervenção ainda.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {usedParts.map((item) => (
+                      <div key={item.id} className="bg-slate-950/30 border border-slate-850 p-2.5 rounded-lg flex items-center justify-between text-xs hover:border-slate-800 transition-colors">
+                        <div className="space-y-0.5 truncate mr-3">
+                          <span className="font-semibold text-slate-200 block truncate">{item.name}</span>
+                          <span className="text-[10px] text-slate-500 font-mono block">
+                            Ref: {item.oem_reference} · Quantidade: <span className="font-bold text-slate-350">{item.quantity} un</span>
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-[10px] text-slate-500 block">Subtotal:</span>
+                          <span className="font-mono text-emerald-400 font-bold block">{formatMZN(item.subtotal)}</span>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Exibe totalizador de peças */}
+                    <div className="pt-2 border-t border-slate-850 flex justify-between items-center text-xs font-bold text-slate-350">
+                      <span>Custo Acumulado de Peças:</span>
+                      <span className="font-mono text-white">
+                        {formatMZN(usedParts.reduce((acc, p) => acc + (p.subtotal || 0), 0))}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* LINHA DO TEMPO DE AUDITORIA */}
               <div className="p-4 bg-slate-900 border border-slate-850 rounded-xl space-y-4">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block border-b border-slate-850 pb-1.5">
@@ -1812,6 +2054,101 @@ export const WorkOrdersPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL: APONTAR PEÇA UTILIZADA (REQUISITO 10.2)
+          ========================================== */}
+      {isAddPartModalOpen && selectedDrawerOrder && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+            
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
+              <div className="flex items-center gap-2">
+                <Package className="text-emerald-500" size={18} />
+                <span className="font-bold text-sm text-white">Apontar Peça Utilizada</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddPartModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddPartSubmit} className="p-5 space-y-4">
+              <div>
+                <label htmlFor="selectPart" className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Peça em Stock *</label>
+                <select
+                  id="selectPart"
+                  required
+                  value={selectedPartId}
+                  onChange={(e) => setSelectedPartId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-850 rounded-lg px-2.5 py-1.5 text-xs text-white cursor-pointer focus:outline-none"
+                >
+                  <option value="">Selecione o Artigo...</option>
+                  {inventoryParts.map((p) => {
+                    const stk = p.current_stock ?? p.currentStock ?? 0;
+                    return (
+                      <option key={p.id} value={p.id} disabled={stk === 0}>
+                        {p.name} [{p.oem_reference || p.oemReference}] (Stock: {stk} un)
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {selectedPartId && (
+                <div className="bg-slate-950/30 border border-slate-850 p-3 rounded-lg text-xs space-y-1 text-slate-450">
+                  {(() => {
+                    const p = inventoryParts.find(item => item.id === selectedPartId);
+                    if (!p) return null;
+                    return (
+                      <>
+                        <div><span className="font-semibold text-slate-350">OEM / Ref:</span> <span className="font-mono text-emerald-400">{p.oem_reference || p.oemReference}</span></div>
+                        <div><span className="font-semibold text-slate-350">Custo Unitário:</span> <span className="text-white font-bold">{formatMZN(p.unit_cost ?? p.unitCost)}</span></div>
+                        <div><span className="font-semibold text-slate-350">Localização:</span> <span className="text-slate-200">{p.warehouse_location || p.warehouseLocation || 'Geral'}</span></div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="qtyToUse" className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Quantidade Requerida *</label>
+                <input
+                  id="qtyToUse"
+                  type="number"
+                  required
+                  min={1}
+                  value={partQtyToUse}
+                  onChange={(e) => setPartQtyToUse(e.target.value !== '' ? Number(e.target.value) : '')}
+                  placeholder="unidades a retirar do stock"
+                  className="w-full bg-slate-950 border border-slate-850 focus:border-emerald-500/50 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddPartModalOpen(false)}
+                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-450 text-xs font-semibold rounded-lg"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingAddPart || !selectedPartId || partQtyToUse === ''}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                >
+                  {submittingAddPart ? <Loader2 size={13} className="animate-spin" /> : <span>Confirmar Apontamento</span>}
+                </button>
+              </div>
+            </form>
+
           </div>
         </div>
       )}

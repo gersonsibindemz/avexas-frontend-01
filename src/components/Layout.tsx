@@ -18,7 +18,8 @@ import {
   Shield,
   Briefcase,
   QrCode,
-  Users
+  Users,
+  Layers
 } from 'lucide-react';
 
 export const Layout: React.FC = () => {
@@ -161,6 +162,12 @@ export const Layout: React.FC = () => {
         path: '/app/fuel',
         icon: Fuel,
         description: 'Consumos e eficiência de combustível'
+      });
+      items.push({
+        name: 'Inventário',
+        path: '/app/inventory',
+        icon: Layers,
+        description: 'Gestão de peças e consumíveis'
       });
     }
 
