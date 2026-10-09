@@ -444,6 +444,49 @@ export const WorkOrdersPage: React.FC = () => {
     return false;
   };
 
+  const calculateWorkedHours = () => {
+    if (!selectedDrawerOrder) return 0;
+    if (selectedDrawerOrder.downtime_hours || selectedDrawerOrder.downtimeHours) {
+      return Number(selectedDrawerOrder.downtime_hours || selectedDrawerOrder.downtimeHours || 0);
+    }
+    
+    // Calcular a partir da timeline
+    if (!timeline || timeline.length === 0) return 0;
+    
+    // Ordenar a timeline por data ascendente para simular os eventos
+    const sortedEvents = [...timeline].sort((a, b) => {
+      const da = new Date(a.created_at || a.createdAt || 0).getTime();
+      const db = new Date(b.created_at || b.createdAt || 0).getTime();
+      return da - db;
+    });
+    
+    let totalMs = 0;
+    let lastStartTime: number | null = null;
+    
+    for (const ev of sortedEvents) {
+      const type = ev.eventType || ev.event_type;
+      const timeStr = ev.created_at || ev.createdAt || '';
+      const time = timeStr ? new Date(timeStr).getTime() : 0;
+      
+      if (type === 'start' || type === 'resume') {
+        lastStartTime = time;
+      } else if (type === 'pause' || type === 'complete') {
+        if (lastStartTime !== null) {
+          totalMs += (time - lastStartTime);
+          lastStartTime = null;
+        }
+      }
+    }
+    
+    // Se ainda estiver em curso, soma até o momento atual
+    if (selectedDrawerOrder.status === 'in_progress' && lastStartTime !== null) {
+      totalMs += (new Date().getTime() - lastStartTime);
+    }
+    
+    const hours = totalMs / (1000 * 60 * 60);
+    return Number(hours.toFixed(2));
+  };
+
   const fetchNotifications = async () => {
     setLoadingNotifications(true);
     try {
@@ -1699,6 +1742,18 @@ export const WorkOrdersPage: React.FC = () => {
                           type="button"
                           onClick={() => {
                             setSelectedOrder(selectedDrawerOrder);
+                            
+                            // Calcula e preenche valores automaticamente
+                            const materialsCost = usedParts.reduce((acc, p) => acc + (p.subtotal || 0), 0);
+                            const tech = technicians.find(t => t.id === selectedDrawerOrder.technician_id || t.id === selectedDrawerOrder.technicianId);
+                            const hourlyRate = tech?.cost_per_hour || tech?.costPerHour || 0;
+                            const workedHours = calculateWorkedHours();
+                            const laborCost = workedHours * hourlyRate;
+
+                            setPartsCostMzn(materialsCost > 0 ? materialsCost : '');
+                            setLaborCostMzn(laborCost > 0 ? laborCost : '');
+                            setDowntimeHours(workedHours > 0 ? workedHours : '');
+                            
                             setIsCloseModalOpen(true);
                           }}
                           className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-inner cursor-pointer"
@@ -1781,6 +1836,52 @@ export const WorkOrdersPage: React.FC = () => {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* TOTALIZADORES DE CUSTO DA INTERVENÇÃO (REQUISITO 10.3) */}
+              <div className="p-4 bg-slate-900 border border-slate-850 rounded-xl space-y-3">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block border-b border-slate-850 pb-1.5 flex items-center gap-1.5">
+                  <DollarSign size={14} className="text-emerald-500" />
+                  <span>Totalizadores de Custo da Intervenção</span>
+                </span>
+                
+                {(() => {
+                  const materialsCost = usedParts.reduce((acc, p) => acc + (p.subtotal || 0), 0);
+                  const tech = technicians.find(t => t.id === selectedDrawerOrder.technician_id || t.id === selectedDrawerOrder.technicianId);
+                  const hourlyRate = tech?.cost_per_hour || tech?.costPerHour || 0;
+                  const workedHours = calculateWorkedHours();
+                  const laborCost = workedHours * hourlyRate;
+                  const totalCostOfOS = materialsCost + laborCost;
+
+                  return (
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between items-center text-slate-400">
+                        <span>Custo de Materiais (Peças):</span>
+                        <span className="font-mono text-slate-200">{formatMZN(materialsCost)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-slate-400">
+                        <div className="space-y-0.5">
+                          <span>Mão de Obra do Técnico:</span>
+                          {tech && (
+                            <span className="text-[10px] text-slate-500 block">
+                              {tech.name} ({formatMZN(hourlyRate)}/h)
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <span className="font-mono text-slate-200">{formatMZN(laborCost)}</span>
+                          <span className="text-[10px] text-slate-500 block font-mono">({workedHours} horas)</span>
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-sm font-extrabold text-white">
+                        <span className="text-emerald-400">Custo Total da OS:</span>
+                        <span className="font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-900/30 px-2 py-0.5 rounded">
+                          {formatMZN(totalCostOfOS)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* LINHA DO TEMPO DE AUDITORIA */}

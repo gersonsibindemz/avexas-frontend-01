@@ -76,97 +76,13 @@ export const InventoryPage: React.FC = () => {
   const [formUnitCost, setFormUnitCost] = useState<number | ''>('');
   const [submittingPart, setSubmittingPart] = useState(false);
 
-  // Semente local caso o backend não tenha dados ou dê erro
-  const localSeedParts: Part[] = [
-    {
-      id: 'part-1',
-      oem_reference: 'FIL-LF16015',
-      name: 'Filtro de Óleo Fleetguard LF16015',
-      category: 'lubricants',
-      warehouse_location: 'Prateleira A1',
-      current_stock: 12,
-      min_stock: 5,
-      unit_cost: 3200,
-    },
-    {
-      id: 'part-2',
-      oem_reference: 'BEL-V80812',
-      name: 'Correia de Transmissão V-Belt',
-      category: 'mechanical',
-      warehouse_location: 'Prateleira B3',
-      current_stock: 3,
-      min_stock: 4, // Alerta!
-      unit_cost: 1850,
-    },
-    {
-      id: 'part-3',
-      oem_reference: 'HYD-P550388',
-      name: 'Filtro Hidráulico Donaldson',
-      category: 'hydraulic',
-      warehouse_location: 'Gaveta C1',
-      current_stock: 2,
-      min_stock: 3, // Alerta!
-      unit_cost: 4500,
-    },
-    {
-      id: 'part-4',
-      oem_reference: 'PNE-295-80R225',
-      name: 'Pneu Radial Bridgestone 295/80R22.5',
-      category: 'tires_wheels',
-      warehouse_location: 'Área Exterior Lotes',
-      current_stock: 8,
-      min_stock: 4,
-      unit_cost: 24500,
-    },
-    {
-      id: 'part-5',
-      oem_reference: 'REL-24V-80A',
-      name: 'Relé de Arranque 24V 80A Bosch',
-      category: 'electrical',
-      warehouse_location: 'Armário Elétrico 1',
-      current_stock: 15,
-      min_stock: 5,
-      unit_cost: 950,
-    }
-  ];
-
-  // Carregar Peças
+  // Carregar Peças (Requisito 6.2)
   const fetchInventory = async () => {
     setLoading(true);
     setError(null);
     try {
-      let data: Part[] = [];
-      try {
-        const response = await api.get('/inventory');
-        data = Array.isArray(response.data)
-          ? response.data
-          : response.data?.parts || response.data?.data || [];
-      } catch (apiErr) {
-        console.warn('API /inventory indisponível, tentando /parts...');
-        try {
-          const response = await api.get('/parts');
-          data = Array.isArray(response.data)
-            ? response.data
-            : response.data?.parts || response.data?.data || [];
-        } catch (apiErr2) {
-          console.warn('Backend offline, utilizando cache local.');
-        }
-      }
-
-      // Fallback para LocalStorage se a API falhar ou retornar vazia
-      if (data.length === 0) {
-        const cached = localStorage.getItem('cmms_inventory_parts');
-        if (cached) {
-          data = JSON.parse(cached);
-        } else {
-          data = localSeedParts;
-          localStorage.setItem('cmms_inventory_parts', JSON.stringify(localSeedParts));
-        }
-      } else {
-        localStorage.setItem('cmms_inventory_parts', JSON.stringify(data));
-      }
-
-      setParts(data);
+      const response = await api.get('/parts');
+      setParts(response.data.parts || response.data || []);
     } catch (err: any) {
       console.error('Erro ao obter inventário:', err);
       setError('Falha ao comunicar com o servidor de inventário.');
@@ -179,13 +95,7 @@ export const InventoryPage: React.FC = () => {
     fetchInventory();
   }, []);
 
-  // Salvar Peças no Cache local também para garantir sincronia offline
-  const savePartsState = (updatedParts: Part[]) => {
-    setParts(updatedParts);
-    localStorage.setItem('cmms_inventory_parts', JSON.stringify(updatedParts));
-  };
-
-  // Submissão de Cadastro / Edição de Peça
+  // Submissão de Cadastro / Edição de Peça (Requisito 6.3)
   const handleSavePart = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formOemReference.trim() || !formName.trim() || formCurrentStock === '' || formMinStock === '' || formUnitCost === '') {
@@ -194,7 +104,7 @@ export const InventoryPage: React.FC = () => {
     }
 
     setSubmittingPart(true);
-    const payload: Omit<Part, 'id'> = {
+    const payload = {
       oem_reference: formOemReference,
       name: formName,
       category: formCategory,
@@ -206,46 +116,16 @@ export const InventoryPage: React.FC = () => {
 
     try {
       if (partModalMode === 'create') {
-        let created: Part | null = null;
-        try {
-          const res = await api.post('/inventory', payload);
-          created = res.data?.part || res.data?.data || res.data;
-        } catch (err) {
-          try {
-            const res = await api.post('/parts', payload);
-            created = res.data?.part || res.data?.data || res.data;
-          } catch (err2) {
-            console.warn('Falha ao salvar no servidor, criando localmente.');
-          }
-        }
-
-        const newPart: Part = created && created.id ? created : {
-          ...payload,
-          id: `part-local-${Date.now()}`
-        };
-
-        const updated = [newPart, ...parts];
-        savePartsState(updated);
+        await api.post('/parts', payload);
         setSuccessMessage('Nova peça adicionada com sucesso ao inventário!');
       } else {
-        // Modo Edição
-        try {
-          await api.put(`/inventory/${editingPartId}`, payload);
-        } catch (err) {
-          try {
-            await api.put(`/parts/${editingPartId}`, payload);
-          } catch (err2) {
-            console.warn('Falha ao editar no servidor, salvando localmente.');
-          }
-        }
-
-        const updated = parts.map(p => p.id === editingPartId ? { ...p, ...payload } : p);
-        savePartsState(updated);
+        await api.put(`/parts/${editingPartId}`, payload);
         setSuccessMessage('Dados da peça atualizados com sucesso!');
       }
 
       setIsPartModalOpen(false);
       resetPartForm();
+      await fetchInventory(); // Recarrega do banco real
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       console.error('Erro ao guardar peça:', err);
@@ -304,36 +184,35 @@ export const InventoryPage: React.FC = () => {
     const finalStock = (selectedStockPart.current_stock ?? selectedStockPart.currentStock ?? 0) + quantityDelta;
 
     try {
-      try {
-        // Envia para o endpoint de transações ou atualização direta de stock
-        await api.post(`/inventory/${selectedStockPart.id}/stock`, {
-          quantityDelta,
-          unitCost: newCost
-        });
-      } catch (err) {
+      if (stockActionType === 'input') {
         try {
+          // POST /parts/:id/restock
+          await api.post(`/parts/${selectedStockPart.id}/restock`, {
+            quantity: qty,
+            unitCost: newCost,
+            unit_cost: newCost
+          });
+        } catch (apiErr) {
+          // Fallback robusto direto PATCH
           await api.patch(`/parts/${selectedStockPart.id}`, {
             current_stock: finalStock,
             unit_cost: newCost
           });
-        } catch (err2) {
-          console.warn('Falha ao sincronizar com servidor, aplicando localmente.');
+        }
+      } else {
+        try {
+          // POST /parts/:id/withdraw
+          await api.post(`/parts/${selectedStockPart.id}/withdraw`, {
+            quantity: qty
+          });
+        } catch (apiErr) {
+          // Fallback robusto direto PATCH
+          await api.patch(`/parts/${selectedStockPart.id}`, {
+            current_stock: finalStock
+          });
         }
       }
 
-      // Atualiza localmente
-      const updated = parts.map(p => {
-        if (p.id === selectedStockPart.id) {
-          return {
-            ...p,
-            current_stock: finalStock,
-            unit_cost: newCost
-          };
-        }
-        return p;
-      });
-
-      savePartsState(updated);
       setSuccessMessage(
         stockActionType === 'input'
           ? `Adicionadas ${qty} unidades de "${selectedStockPart.name}" ao inventário.`
@@ -344,6 +223,7 @@ export const InventoryPage: React.FC = () => {
       setSelectedStockPart(null);
       setStockQuantity('');
       setStockUnitCost('');
+      await fetchInventory(); // recarrega a lista diretamente do banco de dados
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       console.error('Erro ao atualizar stock:', err);
@@ -367,20 +247,16 @@ export const InventoryPage: React.FC = () => {
 
     try {
       try {
-        await api.delete(`/inventory/${deletingPart.id}`);
+        await api.delete(`/parts/${deletingPart.id}`);
       } catch (err) {
-        try {
-          await api.delete(`/parts/${deletingPart.id}`);
-        } catch (err2) {
-          console.warn('Falha ao eliminar do servidor, apagando localmente.');
-        }
+        // Fallback para delete alternativo
+        await api.delete(`/inventory/${deletingPart.id}`);
       }
 
-      const updated = parts.filter(p => p.id !== deletingPart.id);
-      savePartsState(updated);
       setSuccessMessage(`Peça "${deletingPart.name}" eliminada do inventário.`);
       setIsDeleteModalOpen(false);
       setDeletingPart(null);
+      await fetchInventory(); // Recarrega do banco real
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       console.error('Erro ao eliminar peça:', err);
