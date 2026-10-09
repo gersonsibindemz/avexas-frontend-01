@@ -172,14 +172,26 @@ export const WorkOrdersPage: React.FC = () => {
   // Submissões de Formulários
   const [submittingForm, setSubmittingForm] = useState(false);
 
-  // Campos de Criação / Edição de OS
-  const [formAssetId, setFormAssetId] = useState('');
-  const [formTitle, setFormTitle] = useState('');
-  const [formDescription, setFormDescription] = useState('');
-  const [formOrderType, setFormOrderType] = useState<'corrective' | 'preventive'>('corrective');
-  const [formPriority, setFormPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
-  const [formMeterAtService, setFormMeterAtService] = useState<number | ''>('');
-  const [formTechnicianId, setFormTechnicianId] = useState('');
+  // Campos de Criação / Edição de OS (Conforme Requisito 5)
+  const [formData, setFormData] = useState<any>({
+    assetId: '',
+    asset_id: '',
+    title: '',
+    description: '',
+    orderType: 'corrective',
+    order_type: 'corrective',
+    priority: 'medium',
+    meterAtService: '',
+    meter_at_service: '',
+    assignedTo: '',
+    technicianId: '',
+    technician_id: ''
+  });
+
+  // Secção de Peças no Modal da OS (Criação e Edição - Requisito 5.2)
+  const [selectedPartsList, setSelectedPartsList] = useState<any[]>([]);
+  const [modalSelectedPartId, setModalSelectedPartId] = useState('');
+  const [modalPartQty, setModalPartQty] = useState<number>(1);
 
   // Carrega Ordens de Serviço
   const fetchWorkOrders = async () => {
@@ -547,22 +559,75 @@ export const WorkOrdersPage: React.FC = () => {
     return `${value.toLocaleString('pt-MZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MZN`;
   };
 
+  // Helper para adicionar peças provisórias à OS no próprio Modal (Requisito 5.2)
+  const handleAddPartToModalList = () => {
+    if (!modalSelectedPartId) {
+      alert('Por favor, selecione uma peça.');
+      return;
+    }
+    const part = inventoryParts.find(p => p.id === modalSelectedPartId);
+    if (!part) return;
+
+    const availableStock = part.current_stock ?? part.currentStock ?? 0;
+    if (modalPartQty > availableStock) {
+      alert(`Quantidade superior ao stock disponível! Apenas ${availableStock} un de "${part.name}" disponíveis.`);
+      return;
+    }
+
+    if (modalPartQty <= 0) {
+      alert('A quantidade deve ser superior a zero.');
+      return;
+    }
+
+    // Verificar se já existe na lista provisória
+    const alreadySelected = selectedPartsList.find(p => p.id === part.id);
+    if (alreadySelected) {
+      const newQty = alreadySelected.quantity + modalPartQty;
+      if (newQty > availableStock) {
+        alert(`A quantidade acumulada (${newQty}) excede o stock disponível (${availableStock}).`);
+        return;
+      }
+      setSelectedPartsList(selectedPartsList.map(p => p.id === part.id ? { ...p, quantity: newQty } : p));
+    } else {
+      setSelectedPartsList([...selectedPartsList, {
+        id: part.id,
+        part_number: part.oem_reference || part.oemReference || part.part_number || part.partNumber || '',
+        name: part.name,
+        quantity: modalPartQty,
+        unit_cost: part.unit_cost ?? part.unitCost ?? 0
+      }]);
+    }
+
+    setModalSelectedPartId('');
+    setModalPartQty(1);
+    setSuccessMessage('Peça adicionada à lista provisória!');
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
   // Abre criação de OS
   const handleOpenCreateModal = () => {
     setFormMode('create');
     setEditingEditingOrderId(null);
-    setFormTitle('');
-    setFormDescription('');
-    setFormOrderType('corrective');
-    setFormPriority('medium');
-    setFormMeterAtService('');
-    setFormTechnicianId('');
-    if (assets.length > 0) {
-      setFormAssetId(assets[0].id);
-      setFormMeterAtService(assets[0].current_meter ?? assets[0].currentMeter ?? 0);
-    } else {
-      setFormAssetId('');
-    }
+    const initialAssetId = assets.length > 0 ? assets[0].id : '';
+    const initialMeter = assets.length > 0 ? (assets[0].current_meter ?? assets[0].currentMeter ?? 0) : '';
+    
+    setFormData({
+      assetId: initialAssetId,
+      asset_id: initialAssetId,
+      title: '',
+      description: '',
+      orderType: 'corrective',
+      order_type: 'corrective',
+      priority: 'medium',
+      meterAtService: initialMeter,
+      meter_at_service: initialMeter,
+      assignedTo: '',
+      technicianId: '',
+      technician_id: ''
+    });
+    setSelectedPartsList([]);
+    setModalSelectedPartId('');
+    setModalPartQty(1);
     setIsFormModalOpen(true);
   };
 
@@ -573,23 +638,52 @@ export const WorkOrdersPage: React.FC = () => {
     }
     setFormMode('edit');
     setEditingEditingOrderId(order.id);
-    setFormAssetId(order.asset_id || order.assetId || '');
-    setFormTitle(order.title || '');
-    setFormDescription(order.description || '');
-    setFormOrderType((order.order_type || order.orderType || 'corrective') as any);
-    setFormPriority((order.priority || 'medium') as any);
-    setFormMeterAtService(order.meter_at_service ?? order.meterAtService ?? '');
-    setFormTechnicianId(order.technician_id || order.technicianId || '');
+    
+    // Conforme Requisito 5.1: Correção da Pré-Seleção do Técnico na Edição
+    const currentTechId = order.technician_id || order.technicianId || order.assigned_to || order.assignedTo || '';
+    
+    setFormData({
+      ...order,
+      assetId: order.asset_id || order.assetId || '',
+      asset_id: order.asset_id || order.assetId || '',
+      title: order.title || '',
+      description: order.description || '',
+      orderType: order.order_type || order.orderType || 'corrective',
+      order_type: order.order_type || order.orderType || 'corrective',
+      priority: order.priority || 'medium',
+      meterAtService: order.meter_at_service ?? order.meterAtService ?? '',
+      meter_at_service: order.meter_at_service ?? order.meterAtService ?? '',
+      assignedTo: currentTechId,
+      technicianId: currentTechId,
+      technician_id: currentTechId
+    });
+
+    // Se o modal de edição for aberto, podemos carregar peças já vinculadas a esta OS se existirem
+    const orderParts = usedParts.filter(p => p.work_order_id === order.id || p.workOrderId === order.id);
+    setSelectedPartsList(orderParts.map((p: any) => ({
+      id: p.part_id || p.partId,
+      name: p.name,
+      part_number: p.oem_reference || p.oemReference || p.part_number || p.partNumber || '',
+      quantity: p.quantity,
+      unit_cost: p.unit_cost || p.unitCost || 0,
+    })));
+
+    setModalSelectedPartId('');
+    setModalPartQty(1);
     setIsFormModalOpen(true);
   };
 
   // Trata troca de ativo para herdar o odómetro/horímetro sugerido
   const handleAssetChange = (assetId: string) => {
-    setFormAssetId(assetId);
     const selected = assets.find(a => a.id === assetId);
-    if (selected) {
-      setFormMeterAtService(selected.current_meter ?? selected.currentMeter ?? 0);
-    }
+    const meter = selected ? (selected.current_meter ?? selected.currentMeter ?? 0) : '';
+    setFormData((prev: any) => ({
+      ...prev,
+      assetId,
+      asset_id: assetId,
+      meterAtService: meter,
+      meter_at_service: meter
+    }));
   };
 
   // Cadastro de novo técnico rápido
@@ -619,7 +713,12 @@ export const WorkOrdersPage: React.FC = () => {
 
       // Seleciona automaticamente o técnico criado no formulário de OS
       if (newTech && newTech.id) {
-        setFormTechnicianId(newTech.id);
+        setFormData((prev: any) => ({
+          ...prev,
+          assignedTo: newTech.id,
+          technicianId: newTech.id,
+          technician_id: newTech.id
+        }));
       }
 
       // Fecha modal rápido e limpa
@@ -638,10 +737,10 @@ export const WorkOrdersPage: React.FC = () => {
     }
   };
 
-  // Submeter OS
+  // Submeter OS (Conforme Requisito 5.3)
   const handleSaveOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formAssetId || !formTitle.trim() || !formDescription.trim()) {
+    if (!formData.assetId || !formData.title?.trim() || !formData.description?.trim()) {
       alert('Por favor, preencha todos os campos obrigatórios.');
       return;
     }
@@ -649,18 +748,22 @@ export const WorkOrdersPage: React.FC = () => {
     setSubmittingForm(true);
 
     const payload = {
-      assetId: formAssetId,
-      asset_id: formAssetId,
-      title: formTitle,
-      description: formDescription,
-      orderType: formOrderType,
-      order_type: formOrderType,
-      priority: formPriority,
-      meterAtService: formMeterAtService !== '' ? Number(formMeterAtService) : undefined,
-      meter_at_service: formMeterAtService !== '' ? Number(formMeterAtService) : undefined,
-      technicianId: formTechnicianId || undefined,
-      technician_id: formTechnicianId || undefined,
-      status: formMode === 'create' ? 'open' : undefined
+      ...formData,
+      assetId: formData.assetId,
+      asset_id: formData.assetId,
+      title: formData.title,
+      description: formData.description,
+      orderType: formData.orderType,
+      order_type: formData.orderType,
+      priority: formData.priority,
+      meterAtService: formData.meterAtService !== '' ? Number(formData.meterAtService) : undefined,
+      meter_at_service: formData.meterAtService !== '' ? Number(formData.meterAtService) : undefined,
+      technicianId: formData.assignedTo || undefined,
+      technician_id: formData.assignedTo || undefined,
+      assignedTo: formData.assignedTo || undefined,
+      assigned_to: formData.assignedTo || undefined,
+      status: formMode === 'create' ? 'open' : undefined,
+      parts: selectedPartsList.map(p => ({ partId: p.id, quantity: p.quantity }))
     };
 
     try {
@@ -1399,7 +1502,7 @@ export const WorkOrdersPage: React.FC = () => {
                   id="formAsset"
                   required
                   disabled={formMode === 'edit'}
-                  value={formAssetId}
+                  value={formData.assetId || formData.asset_id || ''}
                   onChange={(e) => handleAssetChange(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:outline-none"
                 >
@@ -1420,8 +1523,8 @@ export const WorkOrdersPage: React.FC = () => {
                   id="formTitle"
                   type="text"
                   required
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
+                  value={formData.title || ''}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="ex: Fuga de óleo no pistão hidráulico ou ruído mecânico"
                   className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                 />
@@ -1435,8 +1538,8 @@ export const WorkOrdersPage: React.FC = () => {
                   id="formDesc"
                   required
                   rows={3}
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
+                  value={formData.description || ''}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Descreva detalhadamente o serviço técnico ou anomalia operacional..."
                   className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                 />
@@ -1449,8 +1552,8 @@ export const WorkOrdersPage: React.FC = () => {
                   </label>
                   <select
                     id="formType"
-                    value={formOrderType}
-                    onChange={(e) => setFormOrderType(e.target.value as any)}
+                    value={formData.orderType || formData.order_type || 'corrective'}
+                    onChange={(e) => setFormData({ ...formData, orderType: e.target.value as any, order_type: e.target.value as any })}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:outline-none"
                   >
                     <option value="corrective">Corretiva (Avaria/Paragem)</option>
@@ -1463,8 +1566,8 @@ export const WorkOrdersPage: React.FC = () => {
                   </label>
                   <select
                     id="formPriority"
-                    value={formPriority}
-                    onChange={(e) => setFormPriority(e.target.value as any)}
+                    value={formData.priority || 'medium'}
+                    onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:outline-none"
                   >
                     <option value="low">Baixa</option>
@@ -1484,8 +1587,8 @@ export const WorkOrdersPage: React.FC = () => {
                     id="formMeter"
                     type="number"
                     min={0}
-                    value={formMeterAtService}
-                    onChange={(e) => setFormMeterAtService(e.target.value !== '' ? Number(e.target.value) : '')}
+                    value={formData.meterAtService ?? formData.meter_at_service ?? ''}
+                    onChange={(e) => setFormData({ ...formData, meterAtService: e.target.value !== '' ? Number(e.target.value) : '', meter_at_service: e.target.value !== '' ? Number(e.target.value) : '' })}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none"
                   />
                 </div>
@@ -1504,19 +1607,114 @@ export const WorkOrdersPage: React.FC = () => {
                       + Novo Técnico
                     </button>
                   </div>
+                  {/* Conforme Requisito 5.1: Seletor de Técnicos corrigido com correspondência exata */}
                   <select
                     id="formTech"
-                    value={formTechnicianId}
-                    onChange={(e) => setFormTechnicianId(e.target.value)}
+                    value={formData.assignedTo || ''}
+                    onChange={(e) => setFormData({...formData, assignedTo: e.target.value})}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:outline-none"
                   >
-                    <option value="">Selecione o Técnico...</option>
-                    {technicians.map((tech) => (
-                      <option key={tech.id} value={tech.id}>
-                        {tech.name} [{tech.specialty || 'Técnico'}]
-                      </option>
+                    <option value="">Selecione o Técnico / Mecânico...</option>
+                    {technicians.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name} — {t.specialty}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              {/* Secção de Peças Requisitadas no Modal da OS (Requisito 5.2) */}
+              <div className="border-t border-slate-800/80 pt-4 space-y-3">
+                <div className="flex items-center gap-1.5 text-emerald-400">
+                  <Package size={14} />
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-250">
+                    Peças & Consumíveis Requisitados (Armazém)
+                  </span>
+                </div>
+
+                <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-850 space-y-3">
+                  {/* Linha de Inserção Rápida */}
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                    <div className="sm:col-span-7">
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Selecione a Peça</label>
+                      <select
+                        value={modalSelectedPartId}
+                        onChange={(e) => setModalSelectedPartId(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-2.5 py-2 text-xs text-white cursor-pointer focus:outline-none"
+                      >
+                        <option value="">Selecione a Peça do Armazém...</option>
+                        {inventoryParts.map((p) => {
+                          const partNumberDisplay = p.oem_reference || p.oemReference || p.part_number || p.partNumber || 'S/N';
+                          const stockCount = p.current_stock ?? p.currentStock ?? 0;
+                          return (
+                            <option key={p.id} value={p.id}>
+                              {partNumberDisplay} - {p.name} (Stock: {stockCount})
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Qtd</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={modalPartQty}
+                        onChange={(e) => setModalPartQty(Number(e.target.value))}
+                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-2 py-2 text-xs text-white font-mono focus:outline-none"
+                      />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <button
+                        type="button"
+                        onClick={handleAddPartToModalList}
+                        className="w-full py-2 bg-slate-850 hover:bg-slate-800 text-emerald-400 hover:text-emerald-300 rounded-lg text-xs font-bold transition-colors cursor-pointer border border-slate-800"
+                      >
+                        + Adicionar
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Lista de Peças Adicionadas */}
+                  {selectedPartsList.length === 0 ? (
+                    <p className="text-[11px] text-slate-500 italic text-center py-2 bg-slate-950/20 rounded">
+                      Nenhuma peça ou consumível requisitado para esta intervenção.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="max-h-[160px] overflow-y-auto space-y-1.5 scrollbar-thin">
+                        {selectedPartsList.map((p) => {
+                          const subtotal = p.quantity * p.unit_cost;
+                          return (
+                            <div key={p.id} className="flex justify-between items-center text-[11px] bg-slate-950/60 p-2 rounded border border-slate-850/60">
+                              <div className="truncate pr-2">
+                                <span className="font-mono text-slate-400 text-[10px] block">[{p.part_number}]</span>
+                                <span className="font-semibold text-slate-200 block truncate">{p.name}</span>
+                              </div>
+                              <div className="flex items-center gap-3 shrink-0">
+                                <div className="text-right">
+                                  <span className="text-white font-bold block">Qtd: {p.quantity}</span>
+                                  <span className="text-emerald-400 text-[10px] font-bold block">{formatMZN(subtotal)}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPartsList(selectedPartsList.filter(item => item.id !== p.id))}
+                                  className="p-1 text-red-500 hover:text-red-400 hover:bg-red-950/30 rounded transition-colors"
+                                  title="Remover Peça"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-850 flex justify-between items-center text-[11px] font-bold text-slate-200">
+                        <span>Subtotal das Peças Requisitadas:</span>
+                        <span className="text-emerald-400 font-extrabold">{formatMZN(selectedPartsList.reduce((acc, p) => acc + (p.quantity * p.unit_cost), 0))}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
