@@ -169,16 +169,16 @@ export const AssetsPage: React.FC = () => {
   const [warrantyExpiry, setWarrantyExpiry] = useState('');
 
   // Etapa 4: Documento Inicial
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [wizardFile, setWizardFile] = useState<File | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
 
   // ==========================================
   // ESTADOS DE DOCUMENTAÇÃO ADICIONAL
   // ==========================================
-  const [newDocFile, setNewDocFile] = useState<File | null>(null);
-  const [newDocType, setNewDocType] = useState('tech_sheet');
-  const [newDocTitle, setNewDocTitle] = useState('');
-  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [docType, setDocType] = useState('tech_sheet');
+  const [docTitle, setDocTitle] = useState('');
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
 
   // ==========================================
   // BUSCA DE DADOS
@@ -284,7 +284,7 @@ export const AssetsPage: React.FC = () => {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
       if (file.size <= 20 * 1024 * 1024) {
-        setSelectedFile(file);
+        setWizardFile(file);
       } else {
         alert('Tamanho limite de ficheiro excedido (máximo 20MB).');
       }
@@ -295,7 +295,7 @@ export const AssetsPage: React.FC = () => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (file.size <= 20 * 1024 * 1024) {
-        setSelectedFile(file);
+        setWizardFile(file);
       } else {
         alert('Tamanho limite de ficheiro excedido (máximo 20MB).');
       }
@@ -412,9 +412,9 @@ export const AssetsPage: React.FC = () => {
         assetId = createdAsset.id;
 
         // PASSO B: Envio do ficheiro se selecionado
-        if (assetId && selectedFile) {
+        if (assetId && wizardFile) {
           const formData = new FormData();
-          formData.append('file', selectedFile);
+          formData.append('file', wizardFile);
           formData.append('documentType', 'tech_sheet');
           formData.append('title', 'Ficha Técnica Inicial');
 
@@ -472,7 +472,7 @@ export const AssetsPage: React.FC = () => {
     setPressureTestExpiry('');
     setLocalSupplierName('');
     setWarrantyExpiry('');
-    setSelectedFile(null);
+    setWizardFile(null);
     setEditingAssetId(null);
   };
 
@@ -519,33 +519,34 @@ export const AssetsPage: React.FC = () => {
   // ==========================================
   const handleAddAdditionalDocument = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDocAsset || !newDocFile || !newDocTitle.trim()) {
+    if (!selectedDocAsset || !selectedFile || !docTitle.trim()) {
       alert('Preencha o título e selecione um documento.');
       return;
     }
 
-    setUploadingDoc(true);
+    setIsUploadingDoc(true);
 
     const formData = new FormData();
-    formData.append('file', newDocFile);
-    formData.append('documentType', newDocType);
-    formData.append('title', newDocTitle);
+    formData.append('file', selectedFile);
+    formData.append('title', docTitle);
+    formData.append('documentType', docType);
 
     try {
-      // Envia os dados usando FormData e deixa o axios gerenciar o boundary
+      // Execute o post diretamente com a instância api sem cabeçalho manual de Content-Type
       await api.post(`/assets/${selectedDocAsset.id}/documents`, formData);
-      setNewDocTitle('');
-      setNewDocFile(null);
+      alert('Documento anexado com sucesso!');
+      setDocTitle('');
+      setSelectedFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-      // Recarrega lista de documentos
+      // atualize a listagem chamando api.get
       await loadDocuments(selectedDocAsset.id);
     } catch (err: any) {
-      console.error('Erro ao fazer upload adicional:', err);
+      console.error('Erro ao fazer upload do documento:', err);
       alert(err.response?.data?.message || err.message || 'Falha ao fazer upload do documento.');
     } finally {
-      setUploadingDoc(false);
+      setIsUploadingDoc(false);
     }
   };
 
@@ -588,9 +589,9 @@ export const AssetsPage: React.FC = () => {
   const formatDocType = (type: string) => {
     switch (type) {
       case 'tech_sheet': return 'Ficha Técnica';
-      case 'manual': return 'Manual de Operações';
-      case 'diagram': return 'Diagrama Elétrico/Mecânico';
-      case 'inspection_certificate': return 'Inspeção INATRO';
+      case 'manual': return 'Manual Técnico';
+      case 'diagram': return 'Diagrama Elétrico / Mecânico';
+      case 'inspection_certificate': return 'Certificado de Inspeção (INATRO/INNOQ)';
       case 'insurance': return 'Apólice de Seguro';
       case 'asset_photo': return 'Fotografia do Ativo';
       default: return type;
@@ -1290,7 +1291,7 @@ export const AssetsPage: React.FC = () => {
                     className={`border-2 border-dashed rounded-xl p-8 text-center transition-all flex flex-col items-center justify-center gap-3 cursor-pointer ${
                       isDragActive 
                         ? 'border-emerald-500 bg-emerald-950/10' 
-                        : selectedFile 
+                        : wizardFile 
                         ? 'border-emerald-500/50 bg-slate-950/40' 
                         : 'border-slate-800 bg-slate-950/10 hover:border-slate-700'
                     }`}
@@ -1304,10 +1305,10 @@ export const AssetsPage: React.FC = () => {
                     />
                     <label htmlFor="wizard-file" className="cursor-pointer flex flex-col items-center gap-2">
                       <UploadCloud size={36} className="text-slate-500 group-hover:text-slate-300" />
-                      {selectedFile ? (
+                      {wizardFile ? (
                         <div className="text-xs font-medium text-emerald-400">
-                          Ficheiro selecionado: <span className="font-mono underline">{selectedFile.name}</span>
-                          <p className="text-[10px] text-slate-500 mt-1">({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)</p>
+                          Ficheiro selecionado: <span className="font-mono underline">{wizardFile.name}</span>
+                          <p className="text-[10px] text-slate-500 mt-1">({(wizardFile.size / 1024 / 1024).toFixed(2)} MB)</p>
                         </div>
                       ) : (
                         <div className="text-xs text-slate-400">
@@ -1398,8 +1399,11 @@ export const AssetsPage: React.FC = () => {
                 onClick={() => {
                   setIsDocModalOpen(false);
                   setSelectedDocAsset(null);
-                  setNewDocFile(null);
-                  setNewDocTitle('');
+                  setSelectedFile(null);
+                  setDocTitle('');
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                  }
                 }}
                 className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
               >
@@ -1420,8 +1424,8 @@ export const AssetsPage: React.FC = () => {
                   <input
                     type="text"
                     required
-                    value={newDocTitle}
-                    onChange={(e) => setNewDocTitle(e.target.value)}
+                    value={docTitle}
+                    onChange={(e) => setDocTitle(e.target.value)}
                     placeholder="ex: Manual do Operador, Apólice de Seguro 2026"
                     className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
                   />
@@ -1431,16 +1435,16 @@ export const AssetsPage: React.FC = () => {
                   <div>
                     <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Tipo *</label>
                     <select
-                      value={newDocType}
-                      onChange={(e) => setNewDocType(e.target.value)}
+                      value={docType}
+                      onChange={(e) => setDocType(e.target.value)}
                       className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
                     >
                       <option value="tech_sheet">Ficha Técnica</option>
                       <option value="manual">Manual Técnico</option>
-                      <option value="diagram">Diagrama</option>
-                      <option value="inspection_certificate">Certificado INATRO</option>
-                      <option value="insurance">Seguro Corporativo</option>
-                      <option value="asset_photo">Foto do Equipamento</option>
+                      <option value="diagram">Diagrama Elétrico / Mecânico</option>
+                      <option value="inspection_certificate">Certificado de Inspeção (INATRO/INNOQ)</option>
+                      <option value="insurance">Apólice de Seguro</option>
+                      <option value="asset_photo">Fotografia do Ativo</option>
                     </select>
                   </div>
                   <div>
@@ -1450,7 +1454,7 @@ export const AssetsPage: React.FC = () => {
                       ref={fileInputRef}
                       required
                       accept=".pdf,.png,.jpeg,.jpg,.webp"
-                      onChange={(e) => setNewDocFile(e.target.files?.[0] || null)}
+                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                       className="w-full text-xs text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-slate-800 file:text-slate-200 file:cursor-pointer"
                     />
                   </div>
@@ -1458,10 +1462,10 @@ export const AssetsPage: React.FC = () => {
 
                 <button
                   type="submit"
-                  disabled={uploadingDoc}
+                  disabled={isUploadingDoc || !selectedFile}
                   className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
                 >
-                  {uploadingDoc ? (
+                  {isUploadingDoc ? (
                     <>
                       <Loader2 size={13} className="animate-spin" />
                       <span>A carregar ficheiro...</span>
