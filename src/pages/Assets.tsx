@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
+import QRCode from 'qrcode';
 import {
   Plus,
   Wrench,
@@ -10,66 +11,191 @@ import {
   RefreshCw,
   Loader2,
   SlidersHorizontal,
-  Info
+  Info,
+  FileText,
+  QrCode,
+  Edit2,
+  Trash2,
+  Download,
+  Printer,
+  UploadCloud,
+  ChevronRight,
+  ChevronLeft,
+  File,
+  Eye,
+  Trash
 } from 'lucide-react';
+
+interface Document {
+  id: string;
+  title: string;
+  document_type: string;
+  documentType?: string;
+  signed_url: string;
+  signedUrl?: string;
+  file_name?: string;
+  fileName?: string;
+  created_at: string;
+}
 
 interface Asset {
   id: string;
   code_tag: string;
-  codeTag?: string; // fallback
+  codeTag?: string;
   name: string;
   brand?: string;
   model: string;
   category: 'vehicle_light' | 'vehicle_heavy' | 'generator' | 'machinery' | string;
+  criticality_level?: 'A' | 'B' | 'C' | string;
+  criticalityLevel?: string;
   current_meter?: number;
+  currentMeter?: number;
   meter_kind?: 'odometer_km' | 'hourmeter_hours' | string;
+  meterKind?: string;
   status: 'operational' | 'breakdown' | 'maintenance' | string;
   cost_center: string;
-  costCenter?: string; // fallback
+  costCenter?: string;
   manufacture_year?: number;
+  manufactureYear?: number;
+  
+  // Detalhes Operacionais e de Conformidade adicionais
+  license_plate?: string;
+  licensePlate?: string;
+  chassis_vin?: string;
+  chassisVin?: string;
+  engine_number?: string;
+  engineNumber?: string;
+  fuel_tank_capacity_liters?: number;
+  fuelTankCapacityLiters?: number;
+  
+  plant_sector?: string;
+  plantSector?: string;
+  voltage_specs?: string;
+  voltageSpecs?: string;
+  power_kw_kva?: number;
+  powerKwKva?: number;
+
+  inatro_inspection_expiry?: string;
+  inatroInspectionExpiry?: string;
+  insurance_company?: string;
+  insuranceCompany?: string;
+  insurance_policy_number?: string;
+  insurancePolicyNumber?: string;
+  insurance_expiry?: string;
+  insuranceExpiry?: string;
+
+  innoq_calibration_expiry?: string;
+  innoqCalibrationExpiry?: string;
+  pressure_test_expiry?: string;
+  pressureTestExpiry?: string;
+  local_supplier_name?: string;
+  localSupplierName?: string;
+  warranty_expiry?: string;
+  warrantyExpiry?: string;
 }
 
 export const AssetsPage: React.FC = () => {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // Estados de filtro e pesquisa
+
+  // Filtros de Pesquisa
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
-  // Controle do Modal de Cadastro
+  // Modais de Controle
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [modalMode, setModalOpenMode] = useState<'create' | 'edit'>('create');
+  const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
+  
+  const [isDocModalOpen, setIsDocModalOpen] = useState(false);
+  const [selectedDocAsset, setSelectedDocAsset] = useState<Asset | null>(null);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [docLoading, setDocLoading] = useState(false);
+  
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [selectedQrAsset, setSelectedQrAsset] = useState<Asset | null>(null);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletingAsset, setDeletingAsset] = useState<Asset | null>(null);
+
+  // Toasts / Feedbacks
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Campos do Formulário de Cadastro
-  const [codeTag, setCodeTag] = useState('');
-  const [name, setName] = useState('');
+  // Referência para renderização do QR Code
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // ==========================================
+  // ESTADOS DO FORMULÁRIO MULTI-STEP (4 ETAPAS)
+  // ==========================================
+  const [currentStep, setCurrentStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Etapa 1: Identificação
   const [category, setCategory] = useState<'vehicle_light' | 'vehicle_heavy' | 'generator' | 'machinery'>('vehicle_light');
+  const [name, setName] = useState('');
+  const [codeTag, setCodeTag] = useState('');
+  const [criticalityLevel, setCriticalityLevel] = useState<'A' | 'B' | 'C'>('B');
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
-  const [manufactureYear, setManufactureYear] = useState(new Date().getFullYear());
-  const [meterKind, setMeterKind] = useState<'odometer_km' | 'hourmeter_hours'>('odometer_km');
+  const [manufactureYear, setManufactureYear] = useState<number>(new Date().getFullYear());
   const [costCenter, setCostCenter] = useState('');
 
-  // Busca inicial dos dados
+  // Etapa 2: Operação
+  // Se Veículo
+  const [licensePlate, setLicensePlate] = useState('');
+  const [chassisVin, setChassisVin] = useState('');
+  const [engineNumber, setEngineNumber] = useState('');
+  const [fuelTankCapacityLiters, setFuelTankCapacityLiters] = useState<number | ''>('');
+  // Se Industrial
+  const [plantSector, setPlantSector] = useState('');
+  const [voltageSpecs, setVoltageSpecs] = useState('');
+  const [powerKwKva, setPowerKwKva] = useState<number | ''>('');
+  // Medidor Comum
+  const [currentMeter, setCurrentMeter] = useState<number>(0);
+
+  // Etapa 3: Conformidade Moçambique
+  // Se Veículo (INATRO e Seguro)
+  const [inatroInspectionExpiry, setInatroInspectionExpiry] = useState('');
+  const [insuranceCompany, setInsuranceCompany] = useState('');
+  const [insurancePolicyNumber, setInsurancePolicyNumber] = useState('');
+  const [insuranceExpiry, setInsuranceExpiry] = useState('');
+  // Se Industrial (INNOQ e Teste Caldeira)
+  const [innoqCalibrationExpiry, setInnoqCalibrationExpiry] = useState('');
+  const [pressureTestExpiry, setPressureTestExpiry] = useState('');
+  const [localSupplierName, setLocalSupplierName] = useState('');
+  const [warrantyExpiry, setWarrantyExpiry] = useState('');
+
+  // Etapa 4: Documento Inicial
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
+
+  // ==========================================
+  // ESTADOS DE DOCUMENTAÇÃO ADICIONAL
+  // ==========================================
+  const [newDocFile, setNewDocFile] = useState<File | null>(null);
+  const [newDocType, setNewDocType] = useState('tech_sheet');
+  const [newDocTitle, setNewDocTitle] = useState('');
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+
+  // ==========================================
+  // BUSCA DE DADOS
+  // ==========================================
   const fetchAssets = async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await api.get('/assets');
-      // Trata a resposta de forma resiliente
-      const data = Array.isArray(response.data) 
-        ? response.data 
+      const data = Array.isArray(response.data)
+        ? response.data
         : response.data?.assets || response.data?.data || [];
       setAssets(data);
     } catch (err: any) {
-      console.error('Erro ao carregar ativos:', err);
+      console.error('Erro ao buscar ativos:', err);
       setError(
-        err.response?.data?.message || 
-        err.message || 
-        'Não foi possível estabelecer ligação ao servidor do Render. O backend pode estar em cold-start.'
+        err.response?.data?.message ||
+        err.message ||
+        'Falha na comunicação com a API de ativos.'
       );
     } finally {
       setLoading(false);
@@ -80,68 +206,365 @@ export const AssetsPage: React.FC = () => {
     fetchAssets();
   }, []);
 
-  // Cadastro de novo ativo
-  const handleCreateAsset = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!codeTag || !name || !model || !costCenter) {
-      alert('Por favor, preencha todos os campos obrigatórios.');
-      return;
+  // ==========================================
+  // CARREGAR DOCUMENTOS DE UM ATIVO
+  // ==========================================
+  const loadDocuments = async (assetId: string) => {
+    setDocLoading(true);
+    try {
+      const response = await api.get(`/assets/${assetId}/documents`);
+      const docs = response.data?.documents || response.data || [];
+      setDocuments(docs);
+    } catch (err) {
+      console.error('Erro ao obter documentos:', err);
+    } finally {
+      setDocLoading(false);
     }
+  };
+
+  // ==========================================
+  // GERAÇÃO DE QR CODE (CANVAS)
+  // ==========================================
+  useEffect(() => {
+    if (isQrModalOpen && selectedQrAsset && qrCanvasRef.current) {
+      const valueToEncode = selectedQrAsset.id;
+      QRCode.toCanvas(
+        qrCanvasRef.current,
+        valueToEncode,
+        {
+          width: 200,
+          margin: 1.5,
+          color: {
+            dark: '#0f172a', // slate-900
+            light: '#ffffff'
+          }
+        },
+        (err) => {
+          if (err) console.error('Erro ao gerar QR Code:', err);
+        }
+      );
+    }
+  }, [isQrModalOpen, selectedQrAsset]);
+
+  // Download do QR Code como PNG
+  const handleDownloadQrCode = () => {
+    if (qrCanvasRef.current && selectedQrAsset) {
+      const url = qrCanvasRef.current.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `qrcode_ativo_${selectedQrAsset.code_tag || selectedQrAsset.id}.png`;
+      link.click();
+    }
+  };
+
+  // Imprimir Etiqueta
+  const handlePrintLabel = () => {
+    window.print();
+  };
+
+  // ==========================================
+  // MANIPULAÇÃO DE ARQUIVOS (DRAG & DROP)
+  // ==========================================
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setIsDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setIsDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.size <= 20 * 1024 * 1024) {
+        setSelectedFile(file);
+      } else {
+        alert('Tamanho limite de ficheiro excedido (máximo 20MB).');
+      }
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size <= 20 * 1024 * 1024) {
+        setSelectedFile(file);
+      } else {
+        alert('Tamanho limite de ficheiro excedido (máximo 20MB).');
+      }
+    }
+  };
+
+  // ==========================================
+  // VALIDAÇÕES POR ETAPA
+  // ==========================================
+  const validateStep = (step: number): boolean => {
+    if (step === 1) {
+      if (!name.trim()) {
+        alert('O Nome do Ativo é obrigatório.');
+        return false;
+      }
+      if (!costCenter.trim()) {
+        alert('O Centro de Custo/Província é obrigatório.');
+        return false;
+      }
+      if (!model.trim()) {
+        alert('O Modelo é obrigatório.');
+        return false;
+      }
+    }
+    // Etapa 2 e 3 são condicionais e possuem defaults, validação flexível de tipo
+    return true;
+  };
+
+  const handleNextStep = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep((prev) => prev + 1);
+    }
+  };
+
+  const handlePrevStep = () => {
+    setCurrentStep((prev) => prev - 1);
+  };
+
+  // ==========================================
+  // SUBMISSÃO MULTI-STEP (CRIAR E EDITAR)
+  // ==========================================
+  const handleSubmitForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateStep(1)) return;
 
     setSubmitting(true);
-    setError(null);
 
-    // Envia o payload duplicando chaves em camelCase e snake_case para maior compatibilidade com o backend
-    const payload = {
-      codeTag,
-      code_tag: codeTag,
+    const isVehicle = category === 'vehicle_light' || category === 'vehicle_heavy';
+    const meterKind = isVehicle ? 'odometer_km' : 'hourmeter_hours';
+
+    // Construção do Payload completo mapeado para garantir conformidade
+    const payload: any = {
       name,
       category,
+      codeTag,
+      code_tag: codeTag || undefined,
+      criticalityLevel,
+      criticality_level: criticalityLevel,
       brand,
       model,
       manufactureYear: Number(manufactureYear),
       manufacture_year: Number(manufactureYear),
-      meterKind,
-      meter_kind: meterKind,
       costCenter,
       cost_center: costCenter,
-      status: 'operational', // Padrão inicial
-      current_meter: 0 // Inicia zerado
+      meterKind,
+      meter_kind: meterKind,
+      currentMeter: Number(currentMeter),
+      current_meter: Number(currentMeter),
+      status: modalMode === 'create' ? 'operational' : undefined, // padrão ao criar
     };
 
+    if (isVehicle) {
+      payload.licensePlate = licensePlate;
+      payload.license_plate = licensePlate;
+      payload.chassisVin = chassisVin;
+      payload.chassis_vin = chassisVin;
+      payload.engineNumber = engineNumber;
+      payload.engine_number = engineNumber;
+      payload.fuelTankCapacityLiters = fuelTankCapacityLiters ? Number(fuelTankCapacityLiters) : undefined;
+      payload.fuel_tank_capacity_liters = fuelTankCapacityLiters ? Number(fuelTankCapacityLiters) : undefined;
+
+      payload.inatroInspectionExpiry = inatroInspectionExpiry || undefined;
+      payload.inatro_inspection_expiry = inatroInspectionExpiry || undefined;
+      payload.insuranceCompany = insuranceCompany || undefined;
+      payload.insurance_company = insuranceCompany || undefined;
+      payload.insurancePolicyNumber = insurancePolicyNumber || undefined;
+      payload.insurance_policy_number = insurancePolicyNumber || undefined;
+      payload.insuranceExpiry = insuranceExpiry || undefined;
+      payload.insurance_expiry = insuranceExpiry || undefined;
+    } else {
+      payload.plantSector = plantSector;
+      payload.plant_sector = plantSector;
+      payload.voltageSpecs = voltageSpecs;
+      payload.voltage_specs = voltageSpecs;
+      payload.powerKwKva = powerKwKva ? Number(powerKwKva) : undefined;
+      payload.power_kw_kva = powerKwKva ? Number(powerKwKva) : undefined;
+
+      payload.innoqCalibrationExpiry = innoqCalibrationExpiry || undefined;
+      payload.innoq_calibration_expiry = innoqCalibrationExpiry || undefined;
+      payload.pressureTestExpiry = pressureTestExpiry || undefined;
+      payload.pressure_test_expiry = pressureTestExpiry || undefined;
+      payload.localSupplierName = localSupplierName || undefined;
+      payload.local_supplier_name = localSupplierName || undefined;
+      payload.warrantyExpiry = warrantyExpiry || undefined;
+      payload.warranty_expiry = warrantyExpiry || undefined;
+    }
+
     try {
-      await api.post('/assets', payload);
-      
-      // Exibe mensagem de sucesso
-      setSuccessMessage(`Ativo "${codeTag} - ${name}" registado com sucesso!`);
-      
-      // Fecha o modal e limpa os campos
+      let assetId = '';
+      if (modalMode === 'create') {
+        // PASSO A: POST real
+        const res = await api.post('/assets', payload);
+        const createdAsset = res.data?.asset || res.data?.data || res.data;
+        assetId = createdAsset.id;
+
+        // PASSO B: Envio do ficheiro se selecionado
+        if (assetId && selectedFile) {
+          const formData = new FormData();
+          formData.append('file', selectedFile);
+          formData.append('documentType', 'tech_sheet');
+          formData.append('title', 'Ficha Técnica Inicial');
+
+          try {
+            // NUNCA defina o cabeçalho 'Content-Type' manualmente em chamadas multipart
+            await api.post(`/assets/${assetId}/documents`, formData);
+          } catch (docErr) {
+            console.error('Falha ao enviar documento inicial:', docErr);
+            alert('Ativo cadastrado com sucesso, mas o upload da ficha falhou. Você pode reenviar o documento na lista.');
+          }
+        }
+        setSuccessMessage('Ativo cadastrado com sucesso no CMMS!');
+      } else {
+        // EDIÇÃO: PUT real
+        await api.put(`/assets/${editingAssetId}`, payload);
+        setSuccessMessage('Dados do Ativo atualizados com sucesso!');
+      }
+
+      // PASSO C: Fechar modal e recarregar
       setIsModalOpen(false);
-      setCodeTag('');
-      setName('');
-      setCategory('vehicle_light');
-      setBrand('');
-      setModel('');
-      setManufactureYear(new Date().getFullYear());
-      setMeterKind('odometer_km');
-      setCostCenter('');
-
-      // Recarrega a lista automaticamente
+      resetWizardForm();
       await fetchAssets();
-
-      // Esconde o toast de sucesso após 4 segundos
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 4000);
+      setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
-      console.error('Erro ao registar ativo:', err);
-      alert(err.response?.data?.message || err.message || 'Erro ao guardar as informações do ativo.');
+      console.error('Erro ao salvar ativo:', err);
+      alert(err.response?.data?.message || err.message || 'Erro ao guardar dados do ativo.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Formatação amigável das categorias
+  const resetWizardForm = () => {
+    setCurrentStep(1);
+    setName('');
+    setCategory('vehicle_light');
+    setCodeTag('');
+    setCriticalityLevel('B');
+    setBrand('');
+    setModel('');
+    setManufactureYear(new Date().getFullYear());
+    setCostCenter('');
+    setLicensePlate('');
+    setChassisVin('');
+    setEngineNumber('');
+    setFuelTankCapacityLiters('');
+    setPlantSector('');
+    setVoltageSpecs('');
+    setPowerKwKva('');
+    setCurrentMeter(0);
+    setInatroInspectionExpiry('');
+    setInsuranceCompany('');
+    setInsurancePolicyNumber('');
+    setInsuranceExpiry('');
+    setInnoqCalibrationExpiry('');
+    setPressureTestExpiry('');
+    setLocalSupplierName('');
+    setWarrantyExpiry('');
+    setSelectedFile(null);
+    setEditingAssetId(null);
+  };
+
+  // preenche formulário para edição
+  const handleOpenEditModal = (asset: Asset) => {
+    resetWizardForm();
+    setModalOpenMode('edit');
+    setEditingAssetId(asset.id);
+
+    setCategory((asset.category as any) || 'vehicle_light');
+    setName(asset.name || '');
+    setCodeTag(asset.code_tag || asset.codeTag || '');
+    setCriticalityLevel((asset.criticality_level as any) || (asset.criticalityLevel as any) || 'B');
+    setBrand(asset.brand || '');
+    setModel(asset.model || '');
+    setManufactureYear(asset.manufacture_year || asset.manufactureYear || new Date().getFullYear());
+    setCostCenter(asset.cost_center || asset.costCenter || '');
+
+    // Etapa 2 e 3
+    setLicensePlate(asset.license_plate || asset.licensePlate || '');
+    setChassisVin(asset.chassis_vin || asset.chassisVin || '');
+    setEngineNumber(asset.engine_number || asset.engineNumber || '');
+    setFuelTankCapacityLiters(asset.fuel_tank_capacity_liters ?? asset.fuelTankCapacityLiters ?? '');
+    setPlantSector(asset.plant_sector || asset.plantSector || '');
+    setVoltageSpecs(asset.voltage_specs || asset.voltageSpecs || '');
+    setPowerKwKva(asset.power_kw_kva ?? asset.powerKwKva ?? '');
+    setCurrentMeter(asset.current_meter ?? asset.currentMeter ?? 0);
+
+    setInatroInspectionExpiry(asset.inatro_inspection_expiry || asset.inatroInspectionExpiry || '');
+    setInsuranceCompany(asset.insurance_company || asset.insuranceCompany || '');
+    setInsurancePolicyNumber(asset.insurance_policy_number || asset.insurancePolicyNumber || '');
+    setInsuranceExpiry(asset.insurance_expiry || asset.insuranceExpiry || '');
+
+    setInnoqCalibrationExpiry(asset.innoq_calibration_expiry || asset.innoqCalibrationExpiry || '');
+    setPressureTestExpiry(asset.pressure_test_expiry || asset.pressureTestExpiry || '');
+    setLocalSupplierName(asset.local_supplier_name || asset.localSupplierName || '');
+    setWarrantyExpiry(asset.warranty_expiry || asset.warrantyExpiry || '');
+
+    setIsModalOpen(true);
+  };
+
+  // ==========================================
+  // ADICIONAR DOCUMENTAÇÃO COMPLEMENTAR
+  // ==========================================
+  const handleAddAdditionalDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDocAsset || !newDocFile || !newDocTitle.trim()) {
+      alert('Preencha o título e selecione um documento.');
+      return;
+    }
+
+    setUploadingDoc(true);
+
+    const formData = new FormData();
+    formData.append('file', newDocFile);
+    formData.append('documentType', newDocType);
+    formData.append('title', newDocTitle);
+
+    try {
+      // NUNCA defina o cabeçalho 'Content-Type' manualmente
+      await api.post(`/assets/${selectedDocAsset.id}/documents`, formData);
+      setNewDocTitle('');
+      setNewDocFile(null);
+      // Recarrega lista
+      await loadDocuments(selectedDocAsset.id);
+    } catch (err: any) {
+      console.error('Erro ao fazer upload adicional:', err);
+      alert(err.response?.data?.message || err.message || 'Falha ao fazer upload do documento.');
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  // ==========================================
+  // SOFT-DELETE (ARQUIVAR ATIVO)
+  // ==========================================
+  const handleDeleteAsset = async () => {
+    if (!deletingAsset) return;
+    try {
+      await api.delete(`/assets/${deletingAsset.id}`);
+      setSuccessMessage(`Ativo "${deletingAsset.code_tag || deletingAsset.codeTag}" arquivado com sucesso.`);
+      setIsDeleteModalOpen(false);
+      setDeletingAsset(null);
+      await fetchAssets();
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      console.error('Erro ao arquivar ativo:', err);
+      alert(err.response?.data?.message || err.message || 'Falha ao arquivar ativo.');
+    }
+  };
+
+  // ==========================================
+  // AUXILIARES DE RENDERIZAÇÃO
+  // ==========================================
   const formatCategory = (cat: string) => {
     switch (cat) {
       case 'vehicle_light':
@@ -157,52 +580,48 @@ export const AssetsPage: React.FC = () => {
     }
   };
 
-  // Formatação amigável do status de manutenção
+  const formatDocType = (type: string) => {
+    switch (type) {
+      case 'tech_sheet': return 'Ficha Técnica';
+      case 'manual': return 'Manual de Operações';
+      case 'diagram': return 'Diagrama Elétrico/Mecânico';
+      case 'inspection_certificate': return 'Inspeção INATRO';
+      case 'insurance': return 'Apólice de Seguro';
+      case 'asset_photo': return 'Fotografia do Ativo';
+      default: return type;
+    }
+  };
+
   const renderStatusBadge = (status: string) => {
     switch (status) {
       case 'operational':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 shadow-sm">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-950/40 text-emerald-400 border border-emerald-500/20">
             Disponível
           </span>
         );
       case 'breakdown':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-red-950/40 text-red-400 border border-red-500/20 shadow-sm">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
-            Em Manutenção
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-red-950/40 text-red-400 border border-red-500/20 shadow-sm animate-pulse">
+            Avariado
           </span>
         );
       case 'maintenance':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-950/40 text-amber-400 border border-amber-500/20 shadow-sm">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
             Em Oficina
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
-            {status || 'Desconhecido'}
+            {status}
           </span>
         );
     }
   };
 
-  // Formatação do medidor (Odómetro / Horímetro)
-  const formatMeter = (value?: number, kind?: string) => {
-    const val = value ?? 0;
-    const formattedVal = new Intl.NumberFormat('pt-MZ').format(val);
-    if (kind === 'odometer_km') {
-      return `${formattedVal} km`;
-    } else if (kind === 'hourmeter_hours') {
-      return `${formattedVal} h`;
-    }
-    return `${formattedVal} unidades`;
-  };
-
-  // Filtragem dos ativos localmente para melhor responsividade
+  // Filtragem dos ativos localmente
   const filteredAssets = assets.filter((asset) => {
     const code = (asset.code_tag || asset.codeTag || '').toLowerCase();
     const assetName = (asset.name || '').toLowerCase();
@@ -215,27 +634,21 @@ export const AssetsPage: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
-  // Cálculo de estatísticas rápidas
-  const totalCount = assets.length;
-  const operationalCount = assets.filter(a => a.status === 'operational').length;
-  const breakdownCount = assets.filter(a => a.status === 'breakdown').length;
-  const workshopCount = assets.filter(a => a.status === 'maintenance').length;
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 print:hidden">
       
-      {/* Banner de Mensagem de Sucesso */}
+      {/* Toast de Sucesso */}
       {successMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl shadow-2xl max-w-md flex gap-3 items-start animate-bounce">
           <CheckCircle2 className="text-emerald-500 shrink-0 mt-0.5" size={18} />
           <div>
-            <span className="font-bold block text-sm text-white">Operação Concluída</span>
+            <span className="font-bold block text-sm text-white">Sucesso</span>
             <span className="text-xs text-slate-300">{successMessage}</span>
           </div>
         </div>
       )}
 
-      {/* Título e Botão de Ação */}
+      {/* Título */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
@@ -243,21 +656,24 @@ export const AssetsPage: React.FC = () => {
             {loading && <Loader2 size={18} className="animate-spin text-slate-500" />}
           </h1>
           <p className="text-slate-400 text-xs mt-1">
-            Registo em tempo real e monitorização de saúde de frotas industriais na base corporativa real.
+            Gestão completa, auditoria documental in-loco, conformidade regulamentar INATRO / INNOQ e etiquetagem QR Code.
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={fetchAssets}
             disabled={loading}
-            className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white rounded-lg transition-all cursor-pointer disabled:opacity-50"
-            title="Recarregar dados"
+            className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white rounded-lg transition-all cursor-pointer"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
           <button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold py-2.5 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-md"
+            onClick={() => {
+              resetWizardForm();
+              setModalOpenMode('create');
+              setIsModalOpen(true);
+            }}
+            className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold py-2.5 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Plus size={16} />
             <span>Cadastrar Ativo</span>
@@ -265,65 +681,27 @@ export const AssetsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Tratamento de Erros da API */}
+      {/* Tratamento de erro */}
       {error && (
         <div className="p-4 bg-red-950/30 border border-red-500/20 text-red-400 text-xs rounded-xl flex gap-3 items-start">
           <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
           <div className="flex-1">
-            <span className="font-bold block text-red-300 mb-0.5">Erro de Ligação</span>
+            <span className="font-bold block text-red-300 mb-0.5">Erro na API</span>
             <span className="leading-relaxed block text-slate-300">{error}</span>
           </div>
-          <button 
-            onClick={fetchAssets}
-            className="text-[11px] font-bold bg-red-900/30 hover:bg-red-900/50 px-2.5 py-1 rounded border border-red-800/40 transition-colors"
-          >
-            Tentar Novamente
-          </button>
         </div>
       )}
 
-      {/* Grid de Estatísticas em Tempo Real */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-slate-900 border border-slate-800/80 p-4 rounded-xl shadow-sm">
-          <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">Total Registado</span>
-          <span className="text-2xl font-bold text-white tracking-tight mt-1 block font-mono tabular-nums">
-            {loading ? '---' : totalCount}
-          </span>
-          <span className="text-[10px] text-slate-500 block mt-1">Ativos operacionais e parados</span>
-        </div>
-        <div className="bg-slate-900 border border-slate-800/80 p-4 rounded-xl shadow-sm">
-          <span className="text-[11px] text-emerald-500 font-bold uppercase tracking-wider block">Disponíveis</span>
-          <span className="text-2xl font-bold text-emerald-400 tracking-tight mt-1 block font-mono tabular-nums">
-            {loading ? '---' : operationalCount}
-          </span>
-          <span className="text-[10px] text-emerald-600 block mt-1">Prontos para operação fabril</span>
-        </div>
-        <div className="bg-slate-900 border border-slate-800/80 p-4 rounded-xl shadow-sm">
-          <span className="text-[11px] text-amber-500 font-bold uppercase tracking-wider block">Em Oficina</span>
-          <span className="text-2xl font-bold text-amber-400 tracking-tight mt-1 block font-mono tabular-nums">
-            {loading ? '---' : workshopCount}
-          </span>
-          <span className="text-[10px] text-amber-600 block mt-1">Manutenção agendada ou preventiva</span>
-        </div>
-        <div className="bg-slate-900 border border-slate-800/80 p-4 rounded-xl shadow-sm">
-          <span className="text-[11px] text-red-500 font-bold uppercase tracking-wider block">Em Manutenção</span>
-          <span className="text-2xl font-bold text-red-400 tracking-tight mt-1 block font-mono tabular-nums">
-            {loading ? '---' : breakdownCount}
-          </span>
-          <span className="text-[10px] text-red-600 block mt-1">Paragem corretiva por avaria</span>
-        </div>
-      </div>
-
-      {/* Caixa de Pesquisa e Filtros */}
+      {/* Caixa de Busca e Filtros */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3.5 top-3 text-slate-500" />
+          <Search size={14} className="absolute left-3.5 top-3.5 text-slate-500" />
           <input
             type="text"
-            placeholder="Filtrar por código, marca, modelo ou nome..."
+            placeholder="Pesquisar por tag, nome, matrícula ou modelo..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
+            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none"
           />
         </div>
         <div className="flex gap-2">
@@ -333,287 +711,921 @@ export const AssetsPage: React.FC = () => {
             className="bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none"
           >
             <option value="all">Todas as Categorias</option>
-            <option value="vehicle_light">Veículo Ligeiro</option>
+            <option value="vehicle_light">Veículos Ligeiros</option>
             <option value="vehicle_heavy">Frota Pesada</option>
-            <option value="generator">Gerador Industrial</option>
-            <option value="machinery">Maquinaria / Chão Fábrica</option>
+            <option value="generator">Geradores Industriais</option>
+            <option value="machinery">Maquinaria</option>
           </select>
         </div>
       </div>
 
-      {/* Conteúdo Principal: Tabela de Ativos */}
+      {/* Tabela de Ativos com Ações Completas */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
-        
         {loading ? (
-          /* SKELETON LOADING */
           <div className="p-8 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div className="h-4 bg-slate-800 rounded w-1/4 animate-pulse"></div>
-              <div className="h-4 bg-slate-800 rounded w-10 animate-pulse"></div>
-            </div>
-            {[1, 2, 3, 4].map((n) => (
+            <div className="h-4 bg-slate-800 rounded w-1/4 animate-pulse"></div>
+            {[1, 2, 3].map((n) => (
               <div key={n} className="flex gap-4 items-center py-2">
-                <div className="h-8 bg-slate-800 rounded w-16 animate-pulse"></div>
                 <div className="h-8 bg-slate-800 rounded flex-1 animate-pulse"></div>
-                <div className="h-8 bg-slate-800 rounded w-24 animate-pulse"></div>
-                <div className="h-8 bg-slate-800 rounded w-28 animate-pulse"></div>
               </div>
             ))}
           </div>
         ) : filteredAssets.length === 0 ? (
-          /* ESTADO VAZIO */
           <div className="text-center py-16 px-4">
-            <div className="w-12 h-12 bg-slate-800 text-slate-500 border border-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <SlidersHorizontal size={20} />
-            </div>
             <h3 className="text-sm font-semibold text-slate-200">Nenhum Ativo Encontrado</h3>
-            <p className="text-slate-500 text-xs mt-1 max-w-sm mx-auto leading-relaxed">
-              Não existem registros para os filtros selecionados ou ainda não há frotas cadastradas no backend.
-            </p>
-            {searchQuery || categoryFilter !== 'all' ? (
-              <button
-                onClick={() => { setSearchQuery(''); setCategoryFilter('all'); }}
-                className="text-emerald-500 hover:text-emerald-400 text-xs font-semibold mt-4 transition-colors underline decoration-dotted"
-              >
-                Limpar Filtros
-              </button>
-            ) : (
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/20 text-xs font-semibold py-2 px-4 rounded-lg mt-4 transition-all"
-              >
-                Cadastrar Primeiro Ativo
-              </button>
-            )}
+            <p className="text-slate-500 text-xs mt-1">Registe frotas para iniciar.</p>
           </div>
         ) : (
-          /* LISTAGEM POPULADA REAL */
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-400 text-xs uppercase tracking-wider bg-slate-950/40">
-                  <th className="py-3.5 px-4 font-semibold">Código / Matrícula</th>
+                <tr className="border-b border-slate-800 text-slate-400 text-xs uppercase bg-slate-950/40">
+                  <th className="py-3.5 px-4 font-semibold">Código / Tag</th>
                   <th className="py-3.5 px-4 font-semibold">Ativo / Equipamento</th>
                   <th className="py-3.5 px-4 font-semibold">Categoria</th>
                   <th className="py-3.5 px-4 font-semibold">Centro de Custo</th>
-                  <th className="py-3.5 px-4 font-semibold">Uso Acumulado</th>
-                  <th className="py-3.5 px-4 font-semibold">Estado</th>
+                  <th className="py-3.5 px-4 font-semibold text-center">Criticidade</th>
+                  <th className="py-3.5 px-4 font-semibold text-center">Estado</th>
+                  <th className="py-3.5 px-4 font-semibold text-center">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {filteredAssets.map((asset) => (
-                  <tr key={asset.id} className="hover:bg-slate-800/20 transition-colors duration-150">
-                    <td className="py-3.5 px-4 font-mono font-bold text-emerald-400 tracking-wide">
-                      {asset.code_tag || asset.codeTag}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex flex-col">
-                        <span className="text-white font-medium text-sm leading-5">{asset.name}</span>
-                        <span className="text-xs text-slate-400 leading-4 mt-0.5">
-                          {asset.brand ? `${asset.brand} ` : ''}{asset.model}
+                {filteredAssets.map((asset) => {
+                  const tag = asset.code_tag || asset.codeTag || 'AUTO-TAG';
+                  const level = asset.criticality_level || asset.criticalityLevel || 'B';
+                  return (
+                    <tr key={asset.id} className="hover:bg-slate-800/10 transition-colors">
+                      <td className="py-3.5 px-4 font-mono font-bold text-emerald-400">{tag}</td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex flex-col">
+                          <span className="text-white font-medium text-sm">{asset.name}</span>
+                          <span className="text-xs text-slate-400 mt-0.5">{asset.brand} {asset.model}</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-xs text-slate-300">
+                        {formatCategory(asset.category)}
+                      </td>
+                      <td className="py-3.5 px-4 text-xs text-slate-400">
+                        {asset.cost_center || asset.costCenter}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-bold ${
+                          level === 'A' 
+                            ? 'bg-red-950/40 text-red-400 border border-red-500/20' 
+                            : level === 'B' 
+                            ? 'bg-amber-950/40 text-amber-400 border border-amber-500/20' 
+                            : 'bg-blue-950/40 text-blue-400 border border-blue-500/20'
+                        }`}>
+                          Nível {level}
                         </span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-xs font-medium text-slate-300">
-                      {formatCategory(asset.category)}
-                    </td>
-                    <td className="py-3.5 px-4 text-xs font-medium text-slate-400">
-                      {asset.cost_center || asset.costCenter}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-xs text-slate-300 tabular-nums">
-                      {formatMeter(asset.current_meter, asset.meter_kind)}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      {renderStatusBadge(asset.status)}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        {renderStatusBadge(asset.status)}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {/* Gestão Documental */}
+                          <button
+                            onClick={() => {
+                              setSelectedDocAsset(asset);
+                              setIsDocModalOpen(true);
+                              loadDocuments(asset.id);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                            title="Documentos do Ativo"
+                          >
+                            <FileText size={15} />
+                          </button>
+                          
+                          {/* QR Code */}
+                          <button
+                            onClick={() => {
+                              setSelectedQrAsset(asset);
+                              setIsQrModalOpen(true);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                            title="Código QR / Etiqueta"
+                          >
+                            <QrCode size={15} />
+                          </button>
+
+                          {/* Editar */}
+                          <button
+                            onClick={() => handleOpenEditModal(asset)}
+                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                            title="Editar Ativo"
+                          >
+                            <Edit2 size={15} />
+                          </button>
+
+                          {/* Arquivar / Delete */}
+                          <button
+                            onClick={() => {
+                              setDeletingAsset(asset);
+                              setIsDeleteModalOpen(true);
+                            }}
+                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-slate-800 rounded-lg transition-all"
+                            title="Arquivar Ativo"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* MODAL DE CADASTRO DE ATIVO */}
+      {/* ==========================================
+          MODAL: ASSISTENTE DE CADASTRO (4 ETAPAS)
+          ========================================== */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col">
             
-            {/* Header do Modal */}
+            {/* Header */}
             <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
               <div className="flex items-center gap-2">
                 <Wrench className="text-emerald-500" size={18} />
-                <h2 className="text-base font-bold text-white">Registar Novo Ativo</h2>
+                <h2 className="text-base font-bold text-white">
+                  {modalMode === 'create' ? 'Cadastrar Novo Ativo' : 'Editar Ativo Corporativo'}
+                </h2>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
-                aria-label="Fechar"
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Formulário */}
-            <form onSubmit={handleCreateAsset} className="p-6 space-y-4">
+            {/* Indicador de Passos */}
+            <div className="bg-slate-950/30 px-6 py-4 border-b border-slate-850 flex items-center justify-between text-xs font-semibold">
+              <div className="flex items-center gap-2">
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center border font-mono ${
+                  currentStep >= 1 ? 'bg-emerald-600/10 border-emerald-500 text-emerald-400' : 'border-slate-700 text-slate-500'
+                }`}>1</span>
+                <span className={currentStep >= 1 ? 'text-slate-200' : 'text-slate-500'}>Identificação</span>
+              </div>
+              <ChevronRight size={14} className="text-slate-700" />
+              <div className="flex items-center gap-2">
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center border font-mono ${
+                  currentStep >= 2 ? 'bg-emerald-600/10 border-emerald-500 text-emerald-400' : 'border-slate-700 text-slate-500'
+                }`}>2</span>
+                <span className={currentStep >= 2 ? 'text-slate-200' : 'text-slate-500'}>Operação</span>
+              </div>
+              <ChevronRight size={14} className="text-slate-700" />
+              <div className="flex items-center gap-2">
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center border font-mono ${
+                  currentStep >= 3 ? 'bg-emerald-600/10 border-emerald-500 text-emerald-400' : 'border-slate-700 text-slate-500'
+                }`}>3</span>
+                <span className={currentStep >= 3 ? 'text-slate-200' : 'text-slate-500'}>Conformidade</span>
+              </div>
+              {modalMode === 'create' && (
+                <>
+                  <ChevronRight size={14} className="text-slate-700" />
+                  <div className="flex items-center gap-2">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center border font-mono ${
+                      currentStep >= 4 ? 'bg-emerald-600/10 border-emerald-500 text-emerald-400' : 'border-slate-700 text-slate-500'
+                    }`}>4</span>
+                    <span className={currentStep >= 4 ? 'text-slate-200' : 'text-slate-500'}>Anexos</span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Formulário Wizard */}
+            <form onSubmit={handleSubmitForm} className="p-6 space-y-4 flex-1 overflow-y-auto max-h-[60vh] scrollbar-thin">
               
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="codeTag" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                    Código / Matrícula *
-                  </label>
-                  <input
-                    id="codeTag"
-                    type="text"
-                    required
-                    value={codeTag}
-                    onChange={(e) => setCodeTag(e.target.value)}
-                    placeholder="ex: CFM-042, MAT-009"
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/20 font-mono"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="name" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                    Nome do Ativo *
-                  </label>
-                  <input
-                    id="name"
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="ex: Empilhadora Caterpillar"
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
-                  />
-                </div>
-              </div>
+              {/* ETAPA 1: IDENTIFICAÇÃO (Geral para todos os ativos) */}
+              {currentStep === 1 && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                        Categoria de Ativo *
+                      </label>
+                      <select
+                        value={category}
+                        disabled={modalMode === 'edit'} // Categoria fixa na edição
+                        onChange={(e) => setCategory(e.target.value as any)}
+                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                      >
+                        <option value="vehicle_light">Veículo Ligeiro (Frota)</option>
+                        <option value="vehicle_heavy">Veículo Pesado (Logística)</option>
+                        <option value="generator">Gerador Industrial</option>
+                        <option value="machinery">Maquinaria de Chão de Fábrica</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                        Tag / Código do Ativo
+                      </label>
+                      <input
+                        type="text"
+                        value={codeTag}
+                        onChange={(e) => setCodeTag(e.target.value)}
+                        placeholder="Deixe vazio para gerar automaticamente"
+                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="category" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                    Categoria *
-                  </label>
-                  <select
-                    id="category"
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
-                  >
-                    <option value="vehicle_light">Veículo Ligeiro</option>
-                    <option value="vehicle_heavy">Frota Pesada</option>
-                    <option value="generator">Gerador Industrial</option>
-                    <option value="machinery">Maquinaria / Chão Fábrica</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="costCenter" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                    Centro de Custo / Província *
-                  </label>
-                  <input
-                    id="costCenter"
-                    type="text"
-                    required
-                    value={costCenter}
-                    onChange={(e) => setCostCenter(e.target.value)}
-                    placeholder="ex: Maputo CFM, Beira Terminal"
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
-                  />
-                </div>
-              </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                      Nome / Designação do Ativo *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="ex: Camião Volvo FMX Basculante ou Gerador Cummins"
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                    />
+                  </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-1">
-                  <label htmlFor="brand" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                    Marca
-                  </label>
-                  <input
-                    id="brand"
-                    type="text"
-                    value={brand}
-                    onChange={(e) => setBrand(e.target.value)}
-                    placeholder="ex: Scania"
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
-                  />
-                </div>
-                <div className="col-span-1">
-                  <label htmlFor="model" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                    Modelo *
-                  </label>
-                  <input
-                    id="model"
-                    type="text"
-                    required
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    placeholder="ex: R450 6x4"
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
-                  />
-                </div>
-                <div className="col-span-1">
-                  <label htmlFor="manufactureYear" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                    Ano Fabrico
-                  </label>
-                  <input
-                    id="manufactureYear"
-                    type="number"
-                    value={manufactureYear}
-                    onChange={(e) => setManufactureYear(Number(e.target.value))}
-                    min={1950}
-                    max={new Date().getFullYear() + 1}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/20 font-mono"
-                  />
-                </div>
-              </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                        Marca
+                      </label>
+                      <input
+                        type="text"
+                        value={brand}
+                        onChange={(e) => setBrand(e.target.value)}
+                        placeholder="ex: Volvo, Cummins"
+                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                        Modelo *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={model}
+                        onChange={(e) => setModel(e.target.value)}
+                        placeholder="ex: FMX 460 ou C500"
+                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                        Ano de Fabrico
+                      </label>
+                      <input
+                        type="number"
+                        value={manufactureYear}
+                        onChange={(e) => setManufactureYear(Number(e.target.value))}
+                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
 
-              <div>
-                <label htmlFor="meterKind" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                  Tipo de Medidor de Uso
-                </label>
-                <select
-                  id="meterKind"
-                  value={meterKind}
-                  onChange={(e) => setMeterKind(e.target.value as any)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
-                >
-                  <option value="odometer_km">Odómetro (Quilómetros - km)</option>
-                  <option value="hourmeter_hours">Horímetro (Horas - h)</option>
-                </select>
-              </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                        Centro de Custo / Província *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={costCenter}
+                        onChange={(e) => setCostCenter(e.target.value)}
+                        placeholder="ex: CFM Maputo, Nampula Logística"
+                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                        Nível de Criticidade
+                      </label>
+                      <select
+                        value={criticalityLevel}
+                        onChange={(e) => setCriticalityLevel(e.target.value as any)}
+                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                      >
+                        <option value="A">Nível A (Alta Paragem Crítica)</option>
+                        <option value="B">Nível B (Média Criticidade)</option>
+                        <option value="C">Nível C (Baixa Criticidade)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              {/* Info de rodapé de cadastro */}
-              <div className="text-[10px] text-slate-500 flex gap-1.5 items-start py-2 leading-relaxed bg-slate-950/20 rounded-lg p-3 border border-slate-800/40">
-                <Info size={14} className="text-slate-400 shrink-0 mt-0.5" />
-                <span>
-                  O medidor de uso acumulado inicial será configurado como 0. Novas ordens de serviço e abastecimentos poderão incrementar este indicador.
-                </span>
-              </div>
-
-              {/* Botões do Modal */}
-              <div className="flex justify-end gap-3 border-t border-slate-800 pt-5 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  disabled={submitting}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 text-slate-300 hover:text-white rounded-lg text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {submitting ? (
+              {/* ETAPA 2: OPERAÇÃO (Condicional) */}
+              {currentStep === 2 && (
+                <div className="space-y-4">
+                  {(category === 'vehicle_light' || category === 'vehicle_heavy') ? (
+                    /* CAMPOS PARA VEÍCULOS */
                     <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>A guardar...</span>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Matrícula / Registro *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={licensePlate}
+                            onChange={(e) => setLicensePlate(e.target.value)}
+                            placeholder="ex: MM-10-24"
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Número de Chassis (VIN)
+                          </label>
+                          <input
+                            type="text"
+                            value={chassisVin}
+                            onChange={(e) => setChassisVin(e.target.value)}
+                            placeholder="ex: 938Y498HF8..."
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Número do Motor
+                          </label>
+                          <input
+                            type="text"
+                            value={engineNumber}
+                            onChange={(e) => setEngineNumber(e.target.value)}
+                            placeholder="ex: D13K460"
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Capacidade do Depósito (Litros)
+                          </label>
+                          <input
+                            type="number"
+                            value={fuelTankCapacityLiters}
+                            onChange={(e) => setFuelTankCapacityLiters(e.target.value !== '' ? Number(e.target.value) : '')}
+                            placeholder="ex: 300"
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          Leitura Atual do Odómetro (km) *
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          value={currentMeter}
+                          onChange={(e) => setCurrentMeter(Number(e.target.value))}
+                          className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                        />
+                      </div>
                     </>
                   ) : (
-                    <span>Guardar Ativo</span>
+                    /* CAMPOS PARA GERADORES E MAQUINARIA */
+                    <>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Setor Fabril / Área
+                          </label>
+                          <input
+                            type="text"
+                            value={plantSector}
+                            onChange={(e) => setPlantSector(e.target.value)}
+                            placeholder="ex: Moagem, Embalamento"
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Especificações Elétricas (Voltagem)
+                          </label>
+                          <input
+                            type="text"
+                            value={voltageSpecs}
+                            onChange={(e) => setVoltageSpecs(e.target.value)}
+                            placeholder="ex: 380V / 3 Fases"
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          Potência Estimada (kW / kVA)
+                        </label>
+                        <input
+                          type="number"
+                          value={powerKwKva}
+                          onChange={(e) => setPowerKwKva(e.target.value !== '' ? Number(e.target.value) : '')}
+                          placeholder="ex: 150"
+                          className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          Leitura Inicial do Horímetro (Horas de Uso) *
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          value={currentMeter}
+                          onChange={(e) => setCurrentMeter(Number(e.target.value))}
+                          className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                        />
+                      </div>
+                    </>
                   )}
-                </button>
+                </div>
+              )}
+
+              {/* ETAPA 3: CONFORMIDADE MOÇAMBIQUE */}
+              {currentStep === 3 && (
+                <div className="space-y-4">
+                  {(category === 'vehicle_light' || category === 'vehicle_heavy') ? (
+                    /* CONFORMIDADE DE TRÂNSITO INATRO */
+                    <>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Validade Inspeção INATRO
+                          </label>
+                          <input
+                            type="date"
+                            value={inatroInspectionExpiry}
+                            onChange={(e) => setInatroInspectionExpiry(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Companhia de Seguros
+                          </label>
+                          <input
+                            type="text"
+                            value={insuranceCompany}
+                            onChange={(e) => setInsuranceCompany(e.target.value)}
+                            placeholder="ex: EMOSE, Fidelidade"
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Número de Apólice do Seguro
+                          </label>
+                          <input
+                            type="text"
+                            value={insurancePolicyNumber}
+                            onChange={(e) => setInsurancePolicyNumber(e.target.value)}
+                            placeholder="ex: POL-8429-01"
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Validade do Seguro
+                          </label>
+                          <input
+                            type="date"
+                            value={insuranceExpiry}
+                            onChange={(e) => setInsuranceExpiry(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    /* CONFORMIDADE INDUSTRIAL INNOQ / TESTES PRESSÃO */
+                    <>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Validade Calibração INNOQ
+                          </label>
+                          <input
+                            type="date"
+                            value={innoqCalibrationExpiry}
+                            onChange={(e) => setInnoqCalibrationExpiry(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Validade Teste Pressão/Caldeira
+                          </label>
+                          <input
+                            type="date"
+                            value={pressureTestExpiry}
+                            onChange={(e) => setPressureTestExpiry(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Fornecedor Local Moçambicano
+                          </label>
+                          <input
+                            type="text"
+                            value={localSupplierName}
+                            onChange={(e) => setLocalSupplierName(e.target.value)}
+                            placeholder="ex: Barloworld Moçambique"
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Fim da Garantia
+                          </label>
+                          <input
+                            type="date"
+                            value={warrantyExpiry}
+                            onChange={(e) => setWarrantyExpiry(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* ETAPA 4: ANEXOS DOCUMENTAIS (Apenas na criação) */}
+              {currentStep === 4 && modalMode === 'create' && (
+                <div className="space-y-4">
+                  <span className="text-xs font-semibold text-slate-400 block mb-2 uppercase tracking-wide">
+                    Carregar Ficha Técnica Inicial (PDF, PNG ou JPEG até 20MB)
+                  </span>
+
+                  <div
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    className={`border-2 border-dashed rounded-xl p-8 text-center transition-all flex flex-col items-center justify-center gap-3 cursor-pointer ${
+                      isDragActive 
+                        ? 'border-emerald-500 bg-emerald-950/10' 
+                        : selectedFile 
+                        ? 'border-emerald-500/50 bg-slate-950/40' 
+                        : 'border-slate-800 bg-slate-950/10 hover:border-slate-700'
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      id="wizard-file"
+                      onChange={handleFileChange}
+                      accept=".pdf,.png,.jpeg,.jpg,.webp"
+                      className="hidden"
+                    />
+                    <label htmlFor="wizard-file" className="cursor-pointer flex flex-col items-center gap-2">
+                      <UploadCloud size={36} className="text-slate-500 group-hover:text-slate-300" />
+                      {selectedFile ? (
+                        <div className="text-xs font-medium text-emerald-400">
+                          Ficheiro selecionado: <span className="font-mono underline">{selectedFile.name}</span>
+                          <p className="text-[10px] text-slate-500 mt-1">({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)</p>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-400">
+                          Arrastar e largar ficheiro aqui ou <span className="text-emerald-500 font-semibold underline">procurar</span>
+                          <p className="text-[10px] text-slate-500 mt-1">PDF, JPEG, PNG ou WebP de até 20MB</p>
+                        </div>
+                      )}
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Botões do Assistente */}
+              <div className="flex justify-between items-center border-t border-slate-800 pt-5 mt-2">
+                <div>
+                  {currentStep > 1 && (
+                    <button
+                      type="button"
+                      onClick={handlePrevStep}
+                      disabled={submitting}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700/50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <ChevronLeft size={14} />
+                      <span>Anterior</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    disabled={submitting}
+                    className="px-4 py-2 bg-slate-850 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-xs font-semibold transition-all"
+                  >
+                    Cancelar
+                  </button>
+
+                  {/* Verifica se deve mostrar botão "Avançar" ou "Submeter" */}
+                  {((modalMode === 'create' && currentStep < 4) || (modalMode === 'edit' && currentStep < 3)) ? (
+                    <button
+                      type="button"
+                      onClick={handleNextStep}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <span>Seguinte</span>
+                      <ChevronRight size={14} />
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {submitting ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          <span>A processar...</span>
+                        </>
+                      ) : (
+                        <span>{modalMode === 'create' ? 'Finalizar Registo' : 'Atualizar Ativo'}</span>
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL: GESTÃO DOCUMENTAL DO ATIVO
+          ========================================== */}
+      {isDocModalOpen && selectedDocAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            
+            {/* Header */}
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
+              <div className="flex items-center gap-2">
+                <FileText className="text-emerald-500" size={18} />
+                <h2 className="text-base font-bold text-white">
+                  Documentos: {selectedDocAsset.code_tag || selectedDocAsset.codeTag}
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setIsDocModalOpen(false);
+                  setSelectedDocAsset(null);
+                  setNewDocFile(null);
+                  setNewDocTitle('');
+                }}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh] scrollbar-thin">
+              
+              {/* Formulário para Envio de Novo Documento */}
+              <form onSubmit={handleAddAdditionalDocument} className="bg-slate-950/40 p-4 border border-slate-850 rounded-xl space-y-3">
+                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block mb-1">
+                  Adicionar Anexo de Manutenção / Conformidade
+                </span>
+                
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Título *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newDocTitle}
+                    onChange={(e) => setNewDocTitle(e.target.value)}
+                    placeholder="ex: Manual do Operador, Apólice de Seguro 2026"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Tipo *</label>
+                    <select
+                      value={newDocType}
+                      onChange={(e) => setNewDocType(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                    >
+                      <option value="tech_sheet">Ficha Técnica</option>
+                      <option value="manual">Manual Técnico</option>
+                      <option value="diagram">Diagrama</option>
+                      <option value="inspection_certificate">Certificado INATRO</option>
+                      <option value="insurance">Seguro Corporativo</option>
+                      <option value="asset_photo">Foto do Equipamento</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Ficheiro (20MB max) *</label>
+                    <input
+                      type="file"
+                      required
+                      accept=".pdf,.png,.jpeg,.jpg,.webp"
+                      onChange={(e) => setNewDocFile(e.target.files?.[0] || null)}
+                      className="w-full text-xs text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-slate-800 file:text-slate-200 file:cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={uploadingDoc}
+                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {uploadingDoc ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" />
+                      <span>A carregar ficheiro...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UploadCloud size={13} />
+                      <span>Anexar Documento</span>
+                    </>
+                  )}
+                </button>
+              </form>
+
+              {/* Lista de Documentos Atuais */}
+              <div className="space-y-3">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                  Documentação Arquivada ({documents.length})
+                </span>
+
+                {docLoading ? (
+                  <div className="text-center py-6">
+                    <Loader2 size={24} className="animate-spin text-slate-500 mx-auto" />
+                  </div>
+                ) : documents.length === 0 ? (
+                  <div className="text-center py-6 border border-slate-800 border-dashed rounded-xl">
+                    <p className="text-xs text-slate-500">Nenhum documento anexado a este ativo.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {documents.map((doc) => {
+                      const url = doc.signed_url || doc.signedUrl || '#';
+                      return (
+                        <div key={doc.id} className="p-3 bg-slate-950/30 border border-slate-850 rounded-lg flex items-center justify-between text-xs hover:border-slate-700 transition-colors">
+                          <div className="flex items-center gap-2 flex-1 truncate mr-4">
+                            <File size={16} className="text-emerald-500 shrink-0" />
+                            <div className="truncate">
+                              <span className="font-semibold text-slate-200 block truncate" title={doc.title}>
+                                {doc.title}
+                              </span>
+                              <span className="text-[10px] text-slate-500 block mt-0.5">
+                                {formatDocType(doc.document_type || doc.documentType || '')} · {doc.created_at ? new Date(doc.created_at).toLocaleDateString('pt-MZ') : '---'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Abrir URL assinada */}
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-750 text-slate-300 hover:text-white rounded-md text-[10px] font-semibold flex items-center gap-1 shrink-0"
+                          >
+                            <Eye size={12} />
+                            <span>Abrir</span>
+                          </a>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL: VISUALIZAÇÃO E IMPRESSÃO DE QR CODE
+          ========================================== */}
+      {isQrModalOpen && selectedQrAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in print:bg-white print:text-black">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col print:border-none print:shadow-none print:bg-white">
+            
+            {/* Header (Escondido na impressão) */}
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/20 print:hidden">
+              <div className="flex items-center gap-2">
+                <QrCode className="text-emerald-500" size={18} />
+                <h2 className="text-base font-bold text-white">Etiqueta QR Code</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setIsQrModalOpen(false);
+                  setSelectedQrAsset(null);
+                }}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Corpo / Etiqueta Imprimível */}
+            <div className="p-6 flex flex-col items-center justify-center text-center space-y-4 print:p-0 print:text-black">
+              
+              {/* Cartão de Etiqueta com Borda Refinada */}
+              <div className="bg-white p-5 rounded-xl border border-slate-100 flex flex-col items-center shadow-lg w-full max-w-[260px] print:shadow-none print:border-2 print:border-black">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 print:text-black">AVEXAS CMMS</span>
+                
+                {/* Canvas do QR Code */}
+                <canvas ref={qrCanvasRef} className="mx-auto" />
+                
+                <div className="mt-3 text-slate-900 print:text-black">
+                  <span className="font-mono font-bold text-sm tracking-wide block uppercase">
+                    {selectedQrAsset.code_tag || selectedQrAsset.codeTag}
+                  </span>
+                  <span className="text-xs font-semibold block text-slate-700 truncate max-w-[200px] mt-0.5">
+                    {selectedQrAsset.name}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block font-medium mt-0.5">
+                    {formatCategory(selectedQrAsset.category)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Botões de Ação (Escondidos na impressão) */}
+              <div className="flex gap-2 w-full pt-4 border-t border-slate-800 print:hidden">
+                <button
+                  onClick={handleDownloadQrCode}
+                  className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Download size={14} />
+                  <span>PNG</span>
+                </button>
+                <button
+                  onClick={handlePrintLabel}
+                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Printer size={14} />
+                  <span>Imprimir</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL: CONFIRMAÇÃO DE ARQUIVAMENTO (DELETE)
+          ========================================== */}
+      {isDeleteModalOpen && deletingAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl shadow-2xl p-6 space-y-4">
+            <div className="w-12 h-12 bg-red-950/40 text-red-500 border border-red-800/30 rounded-xl flex items-center justify-center">
+              <AlertTriangle size={24} />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Arquivar Ativo de Manutenção</h3>
+              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                Tem a certeza que deseja arquivar o ativo <span className="font-bold text-white font-mono">{deletingAsset.code_tag || deletingAsset.codeTag}</span>? 
+                Esta ação moverá o equipamento para o histórico e o impedirá de abrir novas ordens de serviço.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setDeletingAsset(null);
+                }}
+                className="px-4 py-2 bg-slate-850 hover:bg-slate-800 text-slate-400 text-xs font-semibold rounded-lg transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteAsset}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white text-xs font-semibold rounded-lg transition-all"
+              >
+                Confirmar Arquivamento
+              </button>
+            </div>
           </div>
         </div>
       )}
