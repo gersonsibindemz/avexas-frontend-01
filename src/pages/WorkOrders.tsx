@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Plus,
   Wrench,
@@ -27,7 +28,8 @@ import {
   TrendingUp,
   GitCommit,
   Phone,
-  UserCheck
+  UserCheck,
+  Bell
 } from 'lucide-react';
 
 interface Asset {
@@ -100,6 +102,7 @@ interface WorkOrder {
 }
 
 export const WorkOrdersPage: React.FC = () => {
+  const { user } = useAuth();
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
@@ -112,6 +115,12 @@ export const WorkOrdersPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [quickTab, setQuickTab] = useState<'all' | 'my_tasks' | 'pending' | 'in_progress' | 'completed'>('all');
+
+  // Estados de Notificações
+  const [isBellOpen, setIsBellOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   // Toasts / Feedback
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -230,6 +239,68 @@ export const WorkOrdersPage: React.FC = () => {
       setLoadingTimeline(false);
     }
   };
+
+  // Helper para identificar se a OS é atribuída ao utilizador logado (Mecânico/Técnico)
+  const isAssignedToMe = (order: WorkOrder) => {
+    if (!user) return false;
+    
+    // 1. Cruzamento direto por ID de técnico se bater com o ID do utilizador
+    if (order.technician_id === user.id || order.technicianId === user.id) {
+      return true;
+    }
+    
+    // 2. Cruzamento por nome do técnico
+    const tech = technicians.find(t => t.id === order.technician_id || t.id === order.technicianId);
+    if (tech && tech.name.toLowerCase().trim() === user.fullName.toLowerCase().trim()) {
+      return true;
+    }
+    
+    // 3. Cruzamento direto pelo campo text 'assigned_to'
+    const assignedName = order.assigned_to || order.assignedTo || '';
+    if (assignedName.toLowerCase().trim() === user.fullName.toLowerCase().trim()) {
+      return true;
+    }
+    
+    return false;
+  };
+
+  const fetchNotifications = async () => {
+    setLoadingNotifications(true);
+    try {
+      const response = await api.get('/notifications');
+      const data = Array.isArray(response.data) ? response.data : response.data?.notifications || response.data?.data || [];
+      setNotifications(data);
+    } catch (err) {
+      console.warn('Endpoint /notifications não encontrado, gerando pendentes locais:', err);
+      // Fallback: Gerar notificações virtuais a partir de ordens abertas atribuídas ao técnico atual
+      const pendingOS = orders.filter(o => o.status === 'open' && isAssignedToMe(o));
+      const fallbackNotes = pendingOS.map(os => ({
+        id: `virtual-${os.id}`,
+        title: `Nova OS Atribuída: ${os.wo_number || os.woNumber || `OS-${os.id.substring(0, 4)}`}`,
+        message: os.title,
+        order: os,
+        createdAt: os.opened_at || os.openedAt || new Date().toISOString()
+      }));
+      setNotifications(fallbackNotes);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  // Atualiza as notificações assim que orders ou technicians forem carregados
+  useEffect(() => {
+    if (orders.length > 0) {
+      const pendingOS = orders.filter(o => o.status === 'open' && isAssignedToMe(o));
+      const fallbackNotes = pendingOS.map(os => ({
+        id: `virtual-${os.id}`,
+        title: `Nova OS Atribuída: ${os.wo_number || os.woNumber || `OS-${os.id.substring(0, 4)}`}`,
+        message: os.title,
+        order: os,
+        createdAt: os.opened_at || os.openedAt || new Date().toISOString()
+      }));
+      setNotifications(fallbackNotes);
+    }
+  }, [orders, technicians]);
 
   useEffect(() => {
     fetchWorkOrders();
@@ -660,9 +731,25 @@ export const WorkOrdersPage: React.FC = () => {
       assigned.includes(query);
 
     const matchesPriority = priorityFilter === 'all' || order.priority === priorityFilter;
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    
+    // Quick Tab filter (Requisito 3)
+    let matchesQuickTab = true;
+    if (quickTab === 'my_tasks') {
+      matchesQuickTab = isAssignedToMe(order) && order.status !== 'completed';
+    } else if (quickTab === 'pending') {
+      matchesQuickTab = order.status === 'open';
+    } else if (quickTab === 'in_progress') {
+      matchesQuickTab = order.status === 'in_progress';
+    } else if (quickTab === 'completed') {
+      matchesQuickTab = order.status === 'completed';
+    }
 
-    return matchesSearch && matchesPriority && matchesStatus;
+    // Se a tab estiver em 'all', respeitamos o select de status filter
+    const matchesStatus = quickTab !== 'all' 
+      ? true 
+      : (statusFilter === 'all' || order.status === statusFilter);
+
+    return matchesSearch && matchesPriority && matchesQuickTab && matchesStatus;
   });
 
   return (
@@ -690,7 +777,82 @@ export const WorkOrdersPage: React.FC = () => {
             Cockpit móvel para acompanhamento de tarefas, transição de estados e linha do tempo de auditoria.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 relative">
+          
+          {/* Sino de Notificações para Técnicos (Requisito 2) */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setIsBellOpen(!isBellOpen);
+                fetchNotifications();
+              }}
+              className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white rounded-lg transition-all cursor-pointer relative"
+              title="Notificações de Tarefas Pendentes"
+            >
+              <Bell size={16} />
+              {notifications.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center animate-pulse">
+                  {notifications.length}
+                </span>
+              )}
+            </button>
+
+            {/* Dropdown Flutuante de Notificações */}
+            {isBellOpen && (
+              <div className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 overflow-hidden animate-fade-in text-left">
+                <div className="p-3.5 border-b border-slate-850 bg-slate-950/40 flex items-center justify-between">
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <Bell size={13} className="text-emerald-400" />
+                    <span>Tarefas Atribuídas ({notifications.length})</span>
+                  </span>
+                  <button 
+                    onClick={() => setIsBellOpen(false)}
+                    className="text-[10px] text-slate-500 hover:text-white"
+                  >
+                    Fechar
+                  </button>
+                </div>
+
+                <div className="max-h-[280px] overflow-y-auto divide-y divide-slate-850/60 scrollbar-thin">
+                  {loadingNotifications ? (
+                    <div className="p-4 text-center">
+                      <Loader2 size={16} className="animate-spin text-slate-500 mx-auto" />
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <div className="p-6 text-center text-slate-500 text-xs italic">
+                      Nenhuma tarefa pendente atribuída.
+                    </div>
+                  ) : (
+                    notifications.map((note) => (
+                      <div
+                        key={note.id}
+                        onClick={() => {
+                          const targetOrder = note.order || orders.find(o => o.id === note.orderId || o.id === note.order_id);
+                          if (targetOrder) {
+                            handleOpenDrawer(targetOrder);
+                          }
+                          setIsBellOpen(false);
+                        }}
+                        className="p-3 hover:bg-slate-850/60 cursor-pointer transition-colors space-y-1"
+                      >
+                        <div className="text-[11px] font-bold text-white leading-tight flex items-center justify-between">
+                          <span>{note.title}</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">
+                          {note.message}
+                        </p>
+                        <span className="text-[9px] text-slate-500 block font-mono">
+                          {new Date(note.createdAt).toLocaleString('pt-MZ')}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             onClick={fetchWorkOrders}
             disabled={loading}
@@ -759,6 +921,60 @@ export const WorkOrdersPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Abas/Filtros Rápidos no Topo (Requisito 3) */}
+      <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-none shrink-0 -mx-4 px-4 md:mx-0 md:px-0">
+        <button
+          onClick={() => setQuickTab('all')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer border ${
+            quickTab === 'all'
+              ? 'bg-emerald-600 text-white border-emerald-500'
+              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+          }`}
+        >
+          Todas ({orders.length})
+        </button>
+        <button
+          onClick={() => setQuickTab('my_tasks')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer border ${
+            quickTab === 'my_tasks'
+              ? 'bg-emerald-600 text-white border-emerald-500'
+              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+          }`}
+        >
+          Minhas Tarefas ({orders.filter(isAssignedToMe).filter(o => o.status !== 'completed').length})
+        </button>
+        <button
+          onClick={() => setQuickTab('pending')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer border ${
+            quickTab === 'pending'
+              ? 'bg-sky-650 text-white border-sky-500'
+              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+          }`}
+        >
+          Pendentes de Início ({orders.filter(o => o.status === 'open').length})
+        </button>
+        <button
+          onClick={() => setQuickTab('in_progress')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer border ${
+            quickTab === 'in_progress'
+              ? 'bg-amber-600 text-white border-amber-500'
+              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+          }`}
+        >
+          Em Andamento ({orders.filter(o => o.status === 'in_progress').length})
+        </button>
+        <button
+          onClick={() => setQuickTab('completed')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer border ${
+            quickTab === 'completed'
+              ? 'bg-emerald-600 text-white border-emerald-500'
+              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+          }`}
+        >
+          Concluídas ({orders.filter(o => o.status === 'completed').length})
+        </button>
+      </div>
+
       {/* Grid de Ordens de Serviço (Tabelas/Cartões Reais) */}
       {loading ? (
         <div className="p-12 text-center bg-slate-900 border border-slate-800 rounded-xl">
@@ -791,24 +1007,32 @@ export const WorkOrdersPage: React.FC = () => {
               const matchingTech = technicians.find(t => t.id === order.technician_id || t.id === order.technicianId);
               const techDisplay = matchingTech ? matchingTech.name : (order.assigned_to || order.assignedTo || 'Pendente de Atribuição');
 
+              const meterVal = order.meter_at_service ?? order.meterAtService;
+              const meterUnit = matchingAsset?.meter_kind === 'odometer_km' || matchingAsset?.meterKind === 'odometer_km' ? 'km' : 'horas';
+
               return (
                 <div
                   key={order.id}
                   onClick={() => handleOpenDrawer(order)}
-                  className={`bg-slate-900 border rounded-2xl p-4 space-y-3 cursor-pointer hover:bg-slate-850 transition-all shadow-sm flex flex-col justify-between ${
+                  className={`bg-slate-900 border rounded-2xl p-4 space-y-3.5 cursor-pointer hover:bg-slate-850 transition-all shadow-sm flex flex-col justify-between ${
                     isUrgent 
-                      ? 'border-red-500/40 hover:border-red-500/70 shadow-md shadow-red-950/10' 
+                      ? 'border-red-500/40 hover:border-red-500/70 shadow-md shadow-red-950/10 animate-pulse' 
                       : delayed 
                       ? 'border-amber-500/30 hover:border-amber-500/60' 
                       : 'border-slate-800 hover:border-slate-700'
                   }`}
                 >
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="font-mono font-bold text-[11px] text-emerald-400 bg-slate-950/50 px-2 py-0.5 rounded border border-slate-800">
-                        {order.wo_number || order.woNumber || `OS-${order.id.substring(0, 4)}`}
-                      </span>
-                      <div className="flex gap-1.5 items-center">
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-850/60">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="font-mono font-extrabold text-[10px] text-white bg-slate-950 px-2 py-0.5 rounded border border-slate-800/80">
+                          {matchingAsset ? matchingAsset.code_tag || matchingAsset.codeTag : 'EQ-GERAL'}
+                        </span>
+                        <span className="font-mono font-bold text-[10px] text-emerald-400 bg-slate-950/50 px-1.5 py-0.5 rounded shrink-0">
+                          {order.wo_number || order.woNumber || `OS-${order.id.substring(0, 4)}`}
+                        </span>
+                      </div>
+                      <div className="flex gap-1.5 items-center shrink-0">
                         {delayed && (
                           <span className="bg-amber-950/40 text-amber-500 text-[9px] font-extrabold px-1.5 py-0.5 border border-amber-800/30 rounded animate-pulse">
                             Atraso
@@ -822,20 +1046,20 @@ export const WorkOrdersPage: React.FC = () => {
                       <h3 className="text-white font-bold text-sm leading-snug truncate" title={order.title}>
                         {order.title}
                       </h3>
+                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
+                        <Activity size={10} className="text-slate-500 shrink-0" />
+                        <span>Contador de Entrada:</span>
+                        <span className="text-slate-200 font-bold">
+                          {meterVal !== undefined ? `${meterVal.toLocaleString('pt-MZ')} ${meterUnit}` : 'Sem registo'}
+                        </span>
+                      </div>
                       <p className="text-slate-400 text-xs line-clamp-2 leading-relaxed">
                         {order.description || 'Sem descrição detalhada.'}
                       </p>
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-850/80 space-y-2.5 mt-2">
-                    <div className="flex flex-col">
-                      <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wide">Equipamento Beneficiário</span>
-                      <span className="font-mono text-slate-200 font-bold text-xs truncate mt-0.5" title={assetDisplay}>
-                        {assetDisplay}
-                      </span>
-                    </div>
-
+                  <div className="pt-3 border-t border-slate-850/80 space-y-3 mt-2">
                     <div className="flex justify-between items-end">
                       <div>
                         <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wide">Técnico Encarregue</span>
@@ -853,6 +1077,61 @@ export const WorkOrdersPage: React.FC = () => {
                           <Edit2 size={13} />
                         </button>
                       </div>
+                    </div>
+
+                    {/* Botões de Ação Direta no próprio cartão (Requisito 1) */}
+                    <div className="pt-1.5 border-t border-slate-850/30" onClick={(e) => e.stopPropagation()}>
+                      {order.status === 'open' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStartService(order);
+                          }}
+                          className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
+                        >
+                          <Play size={12} className="fill-current shrink-0" />
+                          <span>▶ Iniciar Serviço</span>
+                        </button>
+                      )}
+
+                      {order.status === 'in_progress' && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenPauseModal(order);
+                            }}
+                            className="py-2 bg-amber-650 hover:bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                          >
+                            <Pause size={12} className="shrink-0" />
+                            <span>⏸ Pausar</span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedOrder(order);
+                              setIsCloseModalOpen(true);
+                            }}
+                            className="py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                          >
+                            <CheckCircle2 size={12} className="shrink-0" />
+                            <span>✔ Concluir</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {(order.status === 'waiting_parts' || order.status === 'paused' || order.status === 'blocked') && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleResumeService(order);
+                          }}
+                          className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
+                        >
+                          <Play size={12} className="fill-current shrink-0" />
+                          <span>▶ Retomar</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
