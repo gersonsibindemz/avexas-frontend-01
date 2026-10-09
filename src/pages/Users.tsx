@@ -216,15 +216,15 @@ export const UsersPage: React.FC = () => {
   const getRoleBadgeColor = (userRole: string) => {
     switch (userRole) {
       case 'tenant_admin':
-        return 'bg-blue-950/50 text-blue-400 border border-blue-500/20';
+        return 'bg-blue-50 text-blue-700 border border-blue-200';
       case 'supervisor':
-        return 'bg-emerald-950/50 text-emerald-400 border border-emerald-500/20';
+        return 'bg-purple-50 text-purple-700 border border-purple-200';
       case 'technician':
-        return 'bg-cyan-950/50 text-cyan-400 border border-cyan-500/20';
+        return 'bg-cyan-50 text-cyan-700 border border-cyan-200';
       case 'driver_operator':
-        return 'bg-amber-950/50 text-amber-400 border border-amber-500/20';
+        return 'bg-amber-50 text-amber-700 border border-amber-200';
       default:
-        return 'bg-slate-950/50 text-slate-400 border border-slate-800';
+        return 'bg-slate-50 text-slate-700 border border-slate-200';
     }
   };
 
@@ -261,22 +261,22 @@ export const UsersPage: React.FC = () => {
       {/* CABEÇALHO */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <UsersIcon className="text-emerald-500" size={24} />
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
+            <UsersIcon className="text-blue-700" size={24} />
             Gestão de Utilizadores
           </h1>
-          <p className="text-slate-400 text-xs mt-1 leading-relaxed">
+          <p className="text-slate-500 text-xs mt-1 leading-relaxed">
             Adicione e controle permissões de supervisores, técnicos e operadores do CMMS.
           </p>
         </div>
 
         {/* INDICADOR DE UTILIZADORES USADOS */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 flex items-center justify-between gap-4 self-start md:self-auto shadow-md">
+        <div className="bg-white border border-slate-200 rounded-md px-4 py-2.5 flex items-center justify-between gap-4 self-start md:self-auto shadow-none">
           <div className="flex items-center gap-2">
-            <Layers className="text-emerald-500 shrink-0" size={16} />
-            <span className="text-xs font-semibold text-slate-300">Utilizadores do Contrato:</span>
+            <Layers className="text-blue-700 shrink-0" size={16} />
+            <span className="text-xs font-semibold text-slate-700">Utilizadores do Contrato:</span>
           </div>
-          <span className="text-sm font-bold text-white bg-slate-950 px-2.5 py-0.5 rounded-md border border-slate-800">
+          <span className="text-xs font-bold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
             {users.length} / {maxUsersLimit} Utilizadores Utilizados
           </span>
         </div>
@@ -284,16 +284,16 @@ export const UsersPage: React.FC = () => {
 
       {/* FEEDBACK DE SUCESSO */}
       {successMessage && (
-        <div className="p-4 bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs rounded-xl flex gap-3 items-center animate-fade-in shadow-lg">
-          <CheckCircle2 size={18} className="text-emerald-500 shrink-0" />
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-md flex gap-3 items-center animate-fade-in shadow-none">
+          <CheckCircle2 size={18} className="text-emerald-700 shrink-0" />
           <span className="font-semibold">{successMessage}</span>
         </div>
       )}
 
       {/* FILTROS E BUSCA */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-md p-4 flex flex-col md:flex-row gap-4 items-center justify-between shadow-none">
         <div className="relative w-full md:max-w-md">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-500">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
             <Search size={16} />
           </span>
           <input
@@ -301,14 +301,14 @@ export const UsersPage: React.FC = () => {
             placeholder="Pesquisar por nome, email ou nível..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg pl-10 pr-4 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all font-mono"
+            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-10 pr-4 py-2 text-xs text-slate-900 focus:outline-none transition-colors font-mono"
           />
         </div>
 
         <div className="flex items-center gap-2.5 w-full md:w-auto">
           <button
             onClick={fetchUsers}
-            className="p-2 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg border border-slate-800 transition-colors"
+            className="p-2 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 rounded-md border border-slate-300 transition-colors"
             title="Recarregar Lista"
           >
             <RefreshCw size={14} />
@@ -316,7 +316,7 @@ export const UsersPage: React.FC = () => {
           
           <button
             onClick={handleOpenCreateModal}
-            className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-150 text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer"
+            className="flex-1 md:flex-none bg-blue-700 hover:bg-blue-800 text-white font-medium py-2 px-4 rounded-md transition-colors text-xs flex items-center justify-center gap-2 shadow-none cursor-pointer"
           >
             <Plus size={15} />
             <span>Novo Utilizador</span>
@@ -326,32 +326,32 @@ export const UsersPage: React.FC = () => {
 
       {/* LISTA DE UTILIZADORES */}
       {loading ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-md p-12 text-center shadow-none">
           <div className="flex flex-col items-center justify-center gap-3">
-            <RefreshCw className="text-emerald-500 animate-spin" size={28} />
-            <p className="text-xs text-slate-400 font-medium">A carregar utilizadores do tenant...</p>
+            <RefreshCw className="text-blue-700 animate-spin" size={28} />
+            <p className="text-xs text-slate-500 font-medium">A carregar utilizadores do tenant...</p>
           </div>
         </div>
       ) : error ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center text-red-400 flex flex-col items-center gap-4">
+        <div className="bg-white border border-slate-200 rounded-md p-8 text-center text-red-700 flex flex-col items-center gap-4">
           <AlertTriangle size={32} />
           <p className="text-xs">{error}</p>
-          <button onClick={fetchUsers} className="bg-slate-800 hover:bg-slate-700 text-white text-xs px-4 py-2 rounded-lg border border-slate-700">
+          <button onClick={fetchUsers} className="bg-white hover:bg-slate-50 text-slate-700 text-xs px-4 py-2 rounded-md border border-slate-300">
             Tentar Novamente
           </button>
         </div>
       ) : filteredUsers.length === 0 ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center text-slate-500">
-          <UsersIcon className="mx-auto text-slate-700 mb-3" size={36} />
-          <p className="text-xs font-semibold">Nenhum utilizador encontrado.</p>
-          <p className="text-[11px] text-slate-600 mt-1">Tente ajustar os seus termos de pesquisa ou adicione um novo utilizador.</p>
+        <div className="bg-white border border-slate-200 rounded-md p-12 text-center text-slate-500">
+          <UsersIcon className="mx-auto text-slate-400 mb-3" size={36} />
+          <p className="text-xs font-semibold text-slate-900">Nenhum utilizador encontrado.</p>
+          <p className="text-xs text-slate-500 mt-1">Tente ajustar os seus termos de pesquisa ou adicione um novo utilizador.</p>
         </div>
       ) : (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-950 border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
                   <th className="py-3 px-4">Nome Completo</th>
                   <th className="py-3 px-4">E-mail</th>
                   <th className="py-3 px-4">Nível de Acesso (Cargo)</th>
@@ -359,33 +359,33 @@ export const UsersPage: React.FC = () => {
                   <th className="py-3 px-4 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 text-xs">
+              <tbody className="divide-y divide-slate-100 text-xs">
                 {filteredUsers.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3.5 px-4 font-semibold text-slate-100 flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-bold flex items-center justify-center text-xs border border-slate-700">
+                  <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3.5 px-4 font-semibold text-slate-900 flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-md bg-blue-50 text-blue-700 font-bold flex items-center justify-center text-xs border border-blue-200">
                         {u.fullName.substring(0, 2).toUpperCase()}
                       </div>
                       {u.fullName}
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-300">{u.email}</td>
+                    <td className="py-3.5 px-4 font-mono text-slate-600">{u.email}</td>
                     <td className="py-3.5 px-4">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${getRoleBadgeColor(u.role)}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium ${getRoleBadgeColor(u.role)}`}>
                         {formatRoleName(u.role)}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-slate-400">{formatScopeName(u.operational_scope)}</td>
+                    <td className="py-3.5 px-4 text-slate-600">{formatScopeName(u.operational_scope)}</td>
                     <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
                       <button
                         onClick={() => handleOpenEditModal(u)}
-                        className="p-1.5 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-emerald-400 rounded-lg border border-slate-800 transition-colors cursor-pointer"
+                        className="p-1.5 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 rounded-md border border-slate-300 transition-colors cursor-pointer"
                         title="Editar Utilizador"
                       >
                         <Edit2 size={13} />
                       </button>
                       <button
                         onClick={() => handleConfirmDelete(u)}
-                        className="p-1.5 bg-slate-950 hover:bg-red-950/30 text-slate-400 hover:text-red-400 rounded-lg border border-slate-800 hover:border-red-900/30 transition-colors cursor-pointer"
+                        className="p-1.5 bg-white hover:bg-red-50 text-red-600 hover:text-red-700 rounded-md border border-slate-300 hover:border-red-200 transition-colors cursor-pointer"
                         title="Eliminar Utilizador"
                       >
                         <Trash2 size={13} />
@@ -401,27 +401,26 @@ export const UsersPage: React.FC = () => {
 
       {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl relative overflow-hidden animate-scale-up">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-3xl pointer-events-none"></div>
-
-            <div className="flex items-center justify-between p-5 border-b border-slate-800">
-              <h2 className="text-md font-bold text-white flex items-center gap-2">
-                <UsersIcon className="text-emerald-500" size={18} />
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white border border-slate-200 rounded-md w-full max-w-lg shadow-xl relative overflow-hidden animate-slide-up">
+            
+            <div className="flex items-center justify-between p-5 border-b border-slate-200 bg-white">
+              <h2 className="text-md font-bold text-slate-900 flex items-center gap-2">
+                <UsersIcon className="text-blue-700" size={18} />
                 {modalMode === 'create' ? 'Novo Utilizador do Contrato' : 'Editar Informações do Utilizador'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer">
                 <X size={18} />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">
                   Nome Completo *
                 </label>
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
                     <UserIcon size={14} />
                   </span>
                   <input
@@ -430,17 +429,17 @@ export const UsersPage: React.FC = () => {
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="ex: João Macamo"
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all font-mono"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-9 pr-3 py-2 text-xs text-slate-900 focus:outline-none transition-colors"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">
                   E-mail Corporativo *
                 </label>
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
                     <Mail size={14} />
                   </span>
                   <input
@@ -449,17 +448,17 @@ export const UsersPage: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="ex: joao.macamo@empresa.co.mz"
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all font-mono"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-9 pr-3 py-2 text-xs text-slate-900 focus:outline-none transition-colors font-mono"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">
                   Palavra-passe {modalMode === 'edit' && '(deixe em branco para manter)'}
                 </label>
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
                     <Lock size={14} />
                   </span>
                   <input
@@ -468,20 +467,20 @@ export const UsersPage: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={modalMode === 'create' ? 'Mínimo 6 caracteres' : '••••••••'}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all font-mono"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-9 pr-3 py-2 text-xs text-slate-900 focus:outline-none transition-colors font-mono"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
                     Nível de Acesso (Cargo)
                   </label>
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
                   >
                     <option value="tenant_admin">Gestor de Contrato (Admin)</option>
                     <option value="supervisor">Supervisor Operacional</option>
@@ -491,13 +490,13 @@ export const UsersPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
                     Escopo Operacional
                   </label>
                   <select
                     value={operationalScope}
                     onChange={(e) => setOperationalScope(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
                   >
                     <option value="fleet">Gestão de Frotas (Frota)</option>
                     <option value="plant">Chão de Fábrica (Fábrica)</option>
@@ -506,18 +505,18 @@ export const UsersPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-semibold transition-colors border border-slate-800 cursor-pointer"
+                  className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-md text-xs font-medium transition-colors border border-slate-300 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium transition-colors shadow-none flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {submitting ? (
                     <>
@@ -536,26 +535,26 @@ export const UsersPage: React.FC = () => {
 
       {/* CONFIRMAÇÃO DE ELIMINAÇÃO */}
       {isDeleteModalOpen && deletingUser && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-sm shadow-2xl p-6 text-center animate-scale-up">
-            <div className="w-12 h-12 bg-red-950/40 border border-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white border border-slate-200 rounded-md w-full max-w-sm shadow-xl p-6 text-center animate-slide-up">
+            <div className="w-12 h-12 bg-red-50 border border-red-200 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertTriangle size={24} />
             </div>
-            <h3 className="text-sm font-bold text-white mb-2">Eliminar Utilizador?</h3>
-            <p className="text-xs text-slate-400 leading-relaxed mb-6">
-              Tem a certeza de que deseja eliminar o utilizador <strong className="text-slate-200">{deletingUser.fullName}</strong>? 
+            <h3 className="text-sm font-bold text-slate-900 mb-2">Eliminar Utilizador?</h3>
+            <p className="text-xs text-slate-600 leading-relaxed mb-6">
+              Tem a certeza de que deseja eliminar o utilizador <strong className="text-slate-900">{deletingUser.fullName}</strong>? 
               Esta ação removerá completamente o seu acesso e não pode ser desfeita.
             </p>
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => setIsDeleteModalOpen(false)}
-                className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-semibold border border-slate-800 transition-colors cursor-pointer"
+                className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-md text-xs font-medium border border-slate-300 transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleDeleteUser}
-                className="px-4 py-2 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-md text-xs font-medium transition-colors cursor-pointer"
               >
                 Sim, Eliminar
               </button>

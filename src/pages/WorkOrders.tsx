@@ -972,32 +972,32 @@ export const WorkOrdersPage: React.FC = () => {
     switch (prio) {
       case 'low':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-950/40 text-blue-400 border border-blue-500/20">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
             Baixa
           </span>
         );
       case 'medium':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950/40 text-amber-400 border border-amber-500/20">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
             Média
           </span>
         );
       case 'high':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-red-950/40 text-red-400 border border-red-500/20">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
             Alta
           </span>
         );
       case 'urgent':
       case 'critical':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-red-950/70 text-red-350 border border-red-500/40 animate-pulse">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200 animate-pulse">
             ⚠️ Urgente
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-450 border border-slate-700">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
             {prio}
           </span>
         );
@@ -1009,43 +1009,43 @@ export const WorkOrdersPage: React.FC = () => {
     switch (status) {
       case 'open':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-sky-950/40 text-sky-400 border border-sky-500/20">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
             Aberta
           </span>
         );
       case 'in_progress':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-amber-950/40 text-amber-400 border border-amber-500/20">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
             Em Curso
           </span>
         );
       case 'waiting_parts':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-purple-950/40 text-purple-400 border border-purple-500/20">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
             Aguardar Peças
           </span>
         );
       case 'paused':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-yellow-950/40 text-yellow-450 border border-yellow-500/20">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
             Pausada
           </span>
         );
       case 'blocked':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-red-950/40 text-red-400 border border-red-500/20">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-red-50 text-red-700 border border-red-200">
             Bloqueada
           </span>
         );
       case 'completed':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-950/40 text-emerald-400 border border-emerald-500/20">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
             Concluída
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
             {status}
           </span>
         );
@@ -1100,11 +1100,11 @@ export const WorkOrdersPage: React.FC = () => {
       
       {/* Toast de Sucesso */}
       {successMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl shadow-2xl max-w-md flex gap-3 items-start animate-bounce">
-          <CheckCircle2 className="text-emerald-500 shrink-0 mt-0.5" size={18} />
+        <div className="fixed bottom-6 right-6 z-50 bg-white border border-slate-200 text-slate-900 p-4 rounded-md shadow-lg max-w-md flex gap-3 items-start animate-bounce">
+          <CheckCircle2 className="text-blue-700 shrink-0 mt-0.5" size={18} />
           <div>
-            <span className="font-bold block text-sm text-white">Cockpit de Manutenção</span>
-            <span className="text-xs text-slate-300">{successMessage}</span>
+            <span className="font-bold block text-sm text-slate-900">Cockpit de Manutenção</span>
+            <span className="text-xs text-slate-600">{successMessage}</span>
           </div>
         </div>
       )}
@@ -1112,11 +1112,11 @@ export const WorkOrdersPage: React.FC = () => {
       {/* Cabeçalho */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-in">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <span>Ordens de Serviço</span>
-            {loading && <Loader2 size={18} className="animate-spin text-slate-500" />}
+            {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
-          <p className="text-slate-400 text-xs mt-1">
+          <p className="text-slate-500 text-xs mt-1">
             Cockpit móvel para acompanhamento de tarefas, transição de estados e linha do tempo de auditoria.
           </p>
         </div>
@@ -1129,7 +1129,7 @@ export const WorkOrdersPage: React.FC = () => {
                 setIsBellOpen(!isBellOpen);
                 fetchNotifications();
               }}
-              className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white rounded-lg transition-all cursor-pointer relative"
+              className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer relative"
               title="Notificações de Tarefas Pendentes"
             >
               <Bell size={16} />
@@ -1142,24 +1142,24 @@ export const WorkOrdersPage: React.FC = () => {
 
             {/* Dropdown Flutuante de Notificações */}
             {isBellOpen && (
-              <div className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 overflow-hidden animate-fade-in text-left">
-                <div className="p-3.5 border-b border-slate-850 bg-slate-950/40 flex items-center justify-between">
-                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <Bell size={13} className="text-emerald-400" />
+              <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-md shadow-xl z-50 overflow-hidden animate-fade-in text-left">
+                <div className="p-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Bell size={13} className="text-blue-700" />
                     <span>Tarefas Atribuídas ({notifications.length})</span>
                   </span>
                   <button 
                     onClick={() => setIsBellOpen(false)}
-                    className="text-[10px] text-slate-500 hover:text-white"
+                    className="text-[10px] text-slate-500 hover:text-slate-800"
                   >
                     Fechar
                   </button>
                 </div>
 
-                <div className="max-h-[280px] overflow-y-auto divide-y divide-slate-850/60 scrollbar-thin">
+                <div className="max-h-[280px] overflow-y-auto divide-y divide-slate-100">
                   {loadingNotifications ? (
                     <div className="p-4 text-center">
-                      <Loader2 size={16} className="animate-spin text-slate-500 mx-auto" />
+                      <Loader2 size={16} className="animate-spin text-slate-400 mx-auto" />
                     </div>
                   ) : notifications.length === 0 ? (
                     <div className="p-6 text-center text-slate-500 text-xs italic">
@@ -1176,16 +1176,16 @@ export const WorkOrdersPage: React.FC = () => {
                           }
                           setIsBellOpen(false);
                         }}
-                        className="p-3 hover:bg-slate-850/60 cursor-pointer transition-colors space-y-1"
+                        className="p-3 hover:bg-slate-50 cursor-pointer transition-colors space-y-1"
                       >
-                        <div className="text-[11px] font-bold text-white leading-tight flex items-center justify-between">
+                        <div className="text-[11px] font-bold text-slate-900 leading-tight flex items-center justify-between">
                           <span>{note.title}</span>
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
                         </div>
-                        <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">
+                        <p className="text-[10px] text-slate-600 line-clamp-2 leading-relaxed">
                           {note.message}
                         </p>
-                        <span className="text-[9px] text-slate-500 block font-mono">
+                        <span className="text-[9px] text-slate-400 block font-mono">
                           {new Date(note.createdAt).toLocaleString('pt-MZ')}
                         </span>
                       </div>
@@ -1199,14 +1199,14 @@ export const WorkOrdersPage: React.FC = () => {
           <button
             onClick={fetchWorkOrders}
             disabled={loading}
-            className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white rounded-lg transition-all cursor-pointer disabled:opacity-50"
+            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer disabled:opacity-50"
             title="Recarregar ordens"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
           <button
             onClick={handleOpenCreateModal}
-            className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold py-2.5 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-md"
+            className="bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
           >
             <Plus size={16} />
             <span>Nova Ordem de Serviço</span>
@@ -1216,32 +1216,32 @@ export const WorkOrdersPage: React.FC = () => {
 
       {/* Erros da API */}
       {error && (
-        <div className="p-4 bg-red-950/30 border border-red-500/20 text-red-400 text-xs rounded-xl flex gap-3 items-start animate-fade-in">
-          <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md flex gap-3 items-start animate-fade-in">
+          <AlertTriangle size={18} className="text-red-600 shrink-0 mt-0.5" />
           <div className="flex-1">
-            <span className="font-bold block text-red-300 mb-0.5">Erro de Ligação</span>
-            <span className="leading-relaxed block text-slate-300">{error}</span>
+            <span className="font-bold block text-red-800 mb-0.5">Erro de Ligação</span>
+            <span className="leading-relaxed block text-red-700">{error}</span>
           </div>
         </div>
       )}
 
       {/* Filtros e Caixa de Busca */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row gap-3">
+      <div className="bg-white border border-slate-200 rounded-md p-4 flex flex-col md:flex-row gap-3 shadow-none">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3.5 top-3.5 text-slate-500" />
+          <Search size={14} className="absolute left-3.5 top-3.5 text-slate-400" />
           <input
             type="text"
             placeholder="Pesquisar por número, atividade, técnico, matrícula ou tag do ativo..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none"
+            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-9 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none"
           />
         </div>
         <div className="flex gap-2">
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
-            className="bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none"
+            className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-700 focus:outline-none"
           >
             <option value="all">Todas as Prioridades</option>
             <option value="low">Baixa</option>
@@ -1252,7 +1252,7 @@ export const WorkOrdersPage: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none"
+            className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-700 focus:outline-none"
           >
             <option value="all">Todos os Estados</option>
             <option value="open">Abertas</option>
@@ -1268,50 +1268,50 @@ export const WorkOrdersPage: React.FC = () => {
       <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-none shrink-0 -mx-4 px-4 md:mx-0 md:px-0">
         <button
           onClick={() => setQuickTab('all')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer border ${
+          className={`px-4 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap cursor-pointer border ${
             quickTab === 'all'
-              ? 'bg-emerald-600 text-white border-emerald-500'
-              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+              ? 'bg-blue-700 text-white border-blue-700 shadow-none font-semibold'
+              : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
           }`}
         >
           Todas ({orders.length})
         </button>
         <button
           onClick={() => setQuickTab('my_tasks')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer border ${
+          className={`px-4 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap cursor-pointer border ${
             quickTab === 'my_tasks'
-              ? 'bg-emerald-600 text-white border-emerald-500'
-              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+              ? 'bg-blue-700 text-white border-blue-700 shadow-none font-semibold'
+              : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
           }`}
         >
           Minhas Tarefas ({orders.filter(isAssignedToMe).filter(o => o.status !== 'completed').length})
         </button>
         <button
           onClick={() => setQuickTab('pending')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer border ${
+          className={`px-4 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap cursor-pointer border ${
             quickTab === 'pending'
-              ? 'bg-sky-650 text-white border-sky-500'
-              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+              ? 'bg-blue-700 text-white border-blue-700 shadow-none font-semibold'
+              : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
           }`}
         >
           Pendentes de Início ({orders.filter(o => o.status === 'open').length})
         </button>
         <button
           onClick={() => setQuickTab('in_progress')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer border ${
+          className={`px-4 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap cursor-pointer border ${
             quickTab === 'in_progress'
-              ? 'bg-amber-600 text-white border-amber-500'
-              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+              ? 'bg-blue-700 text-white border-blue-700 shadow-none font-semibold'
+              : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
           }`}
         >
           Em Andamento ({orders.filter(o => o.status === 'in_progress').length})
         </button>
         <button
           onClick={() => setQuickTab('completed')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer border ${
+          className={`px-4 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap cursor-pointer border ${
             quickTab === 'completed'
-              ? 'bg-emerald-600 text-white border-emerald-500'
-              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+              ? 'bg-blue-700 text-white border-blue-700 shadow-none font-semibold'
+              : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
           }`}
         >
           Concluídas ({orders.filter(o => o.status === 'completed').length})
@@ -1320,19 +1320,19 @@ export const WorkOrdersPage: React.FC = () => {
 
       {/* Grid de Ordens de Serviço (Tabelas/Cartões Reais) */}
       {loading ? (
-        <div className="p-12 text-center bg-slate-900 border border-slate-800 rounded-xl">
-          <Loader2 className="animate-spin text-emerald-500 mx-auto" size={32} />
-          <p className="text-xs text-slate-400 mt-3 font-semibold">A carregar registos de ordens de serviço do CMMS...</p>
+        <div className="p-12 text-center bg-white border border-slate-200 rounded-md">
+          <Loader2 className="animate-spin text-blue-700 mx-auto" size={32} />
+          <p className="text-xs text-slate-500 mt-3 font-medium">A carregar registos de ordens de serviço do CMMS...</p>
         </div>
       ) : filteredOrders.length === 0 ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl text-center py-20 px-4">
-          <Briefcase size={36} className="text-slate-600 mx-auto mb-4" />
-          <h3 className="text-slate-250 font-bold text-sm">Nenhuma Ordem de Serviço Ativa</h3>
+        <div className="bg-white border border-slate-200 rounded-md text-center py-20 px-4">
+          <Briefcase size={36} className="text-slate-300 mx-auto mb-4" />
+          <h3 className="text-slate-700 font-bold text-sm">Nenhuma Ordem de Serviço Ativa</h3>
           <p className="text-slate-500 text-xs mt-1">Crie uma nova OS ou redefina os filtros aplicados.</p>
         </div>
       ) : (
         <div className="space-y-4">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest block">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
             Ordens Filtradas ({filteredOrders.length}) · Clique para abrir o cockpit de campo
           </span>
           
@@ -1357,27 +1357,27 @@ export const WorkOrdersPage: React.FC = () => {
                 <div
                   key={order.id}
                   onClick={() => handleOpenDrawer(order)}
-                  className={`bg-slate-900 border rounded-2xl p-4 space-y-3.5 cursor-pointer hover:bg-slate-850 transition-all shadow-sm flex flex-col justify-between ${
+                  className={`bg-white border rounded-md p-4 space-y-3.5 cursor-pointer hover:border-slate-300 transition-all shadow-none flex flex-col justify-between ${
                     isUrgent 
-                      ? 'border-red-500/40 hover:border-red-500/70 shadow-md shadow-red-950/10 animate-pulse' 
+                      ? 'border-red-300 hover:border-red-400 bg-red-50/20' 
                       : delayed 
-                      ? 'border-amber-500/30 hover:border-amber-500/60' 
-                      : 'border-slate-800 hover:border-slate-700'
+                      ? 'border-amber-300 hover:border-amber-400' 
+                      : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
                   <div className="space-y-2.5">
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-850/60">
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-100">
                       <div className="flex items-center gap-1.5 truncate">
-                        <span className="font-mono font-extrabold text-[10px] text-white bg-slate-950 px-2 py-0.5 rounded border border-slate-800/80">
+                        <span className="font-mono font-bold text-[10px] text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                           {matchingAsset ? matchingAsset.code_tag || matchingAsset.codeTag : 'EQ-GERAL'}
                         </span>
-                        <span className="font-mono font-bold text-[10px] text-emerald-400 bg-slate-950/50 px-1.5 py-0.5 rounded shrink-0">
+                        <span className="font-mono font-semibold text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded shrink-0 border border-blue-100">
                           {order.wo_number || order.woNumber || `OS-${order.id.substring(0, 4)}`}
                         </span>
                       </div>
                       <div className="flex gap-1.5 items-center shrink-0">
                         {delayed && (
-                          <span className="bg-amber-950/40 text-amber-500 text-[9px] font-extrabold px-1.5 py-0.5 border border-amber-800/30 rounded animate-pulse">
+                          <span className="bg-amber-50 text-amber-700 text-[9px] font-bold px-1.5 py-0.5 border border-amber-200 rounded">
                             Atraso
                           </span>
                         )}
@@ -1386,27 +1386,27 @@ export const WorkOrdersPage: React.FC = () => {
                     </div>
 
                     <div className="space-y-1">
-                      <h3 className="text-white font-bold text-sm leading-snug truncate" title={order.title}>
+                      <h3 className="text-slate-900 font-bold text-sm leading-snug truncate" title={order.title}>
                         {order.title}
                       </h3>
-                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
-                        <Activity size={10} className="text-slate-500 shrink-0" />
+                      <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
+                        <Activity size={11} className="text-slate-400 shrink-0" />
                         <span>Contador de Entrada:</span>
-                        <span className="text-slate-200 font-bold">
+                        <span className="text-slate-800 font-semibold">
                           {meterVal !== undefined ? `${meterVal.toLocaleString('pt-MZ')} ${meterUnit}` : 'Sem registo'}
                         </span>
                       </div>
-                      <p className="text-slate-400 text-xs line-clamp-2 leading-relaxed">
+                      <p className="text-slate-600 text-xs line-clamp-2 leading-relaxed">
                         {order.description || 'Sem descrição detalhada.'}
                       </p>
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-850/80 space-y-3 mt-2">
+                  <div className="pt-3 border-t border-slate-100 space-y-3 mt-2">
                     <div className="flex justify-between items-end">
                       <div>
                         <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wide">Técnico Encarregue</span>
-                        <span className="text-slate-300 text-xs font-semibold block truncate max-w-[150px]">
+                        <span className="text-slate-800 text-xs font-semibold block truncate max-w-[150px]">
                           {techDisplay}
                         </span>
                       </div>
@@ -1414,7 +1414,7 @@ export const WorkOrdersPage: React.FC = () => {
                         {renderPriorityBadge(priority)}
                         <button
                           onClick={(e) => handleOpenEditModal(order, e)}
-                          className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-all cursor-pointer"
+                          className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-all cursor-pointer"
                           title="Editar Ficha"
                         >
                           <Edit2 size={13} />
@@ -1423,14 +1423,14 @@ export const WorkOrdersPage: React.FC = () => {
                     </div>
 
                     {/* Botões de Ação Direta no próprio cartão (Requisito 1) */}
-                    <div className="pt-1.5 border-t border-slate-850/30" onClick={(e) => e.stopPropagation()}>
+                    <div className="pt-1.5 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
                       {order.status === 'open' && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleStartService(order);
                           }}
-                          className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
+                          className="w-full py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all shadow-none cursor-pointer"
                         >
                           <Play size={12} className="fill-current shrink-0" />
                           <span>▶ Iniciar Serviço</span>
@@ -1444,7 +1444,7 @@ export const WorkOrdersPage: React.FC = () => {
                               e.stopPropagation();
                               handleOpenPauseModal(order);
                             }}
-                            className="py-2 bg-amber-650 hover:bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                            className="py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                           >
                             <Pause size={12} className="shrink-0" />
                             <span>⏸ Pausar</span>
@@ -1455,7 +1455,7 @@ export const WorkOrdersPage: React.FC = () => {
                               setSelectedOrder(order);
                               setIsCloseModalOpen(true);
                             }}
-                            className="py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                            className="py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-none"
                           >
                             <CheckCircle2 size={12} className="shrink-0" />
                             <span>✔ Concluir</span>
@@ -1469,7 +1469,7 @@ export const WorkOrdersPage: React.FC = () => {
                             e.stopPropagation();
                             handleResumeService(order);
                           }}
-                          className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
+                          className="w-full py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all shadow-none cursor-pointer"
                         >
                           <Play size={12} className="fill-current shrink-0" />
                           <span>▶ Retomar</span>
@@ -1489,28 +1489,28 @@ export const WorkOrdersPage: React.FC = () => {
           MODAL: CRIAR OU EDITAR OS (COM TÉCNICOS INTEGRADOS)
           ========================================== */}
       {isFormModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-lg rounded-md shadow-xl overflow-hidden animate-slide-up">
             
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
+            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white">
               <div className="flex items-center gap-2">
-                <Wrench className="text-emerald-500" size={18} />
-                <h2 className="text-base font-bold text-white">
+                <Wrench className="text-blue-700" size={18} />
+                <h2 className="text-base font-bold text-slate-900">
                   {formMode === 'create' ? 'Abrir Ordem de Serviço' : 'Editar Ficha da OS'}
                 </h2>
               </div>
               <button
                 onClick={() => setIsFormModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveOrder} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto scrollbar-thin">
+            <form onSubmit={handleSaveOrder} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
               
               <div>
-                <label htmlFor="formAsset" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                <label htmlFor="formAsset" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                   Ativo / Equipamento Beneficiário *
                 </label>
                 <select
@@ -1519,7 +1519,7 @@ export const WorkOrdersPage: React.FC = () => {
                   disabled={formMode === 'edit'}
                   value={formData.assetId || formData.asset_id || ''}
                   onChange={(e) => handleAssetChange(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:outline-none"
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
                 >
                   <option value="">Selecione o Ativo...</option>
                   {assets.map((asset) => (
@@ -1531,7 +1531,7 @@ export const WorkOrdersPage: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="formTitle" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                <label htmlFor="formTitle" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                   Título da Avaria / Intervenção *
                 </label>
                 <input
@@ -1541,12 +1541,12 @@ export const WorkOrdersPage: React.FC = () => {
                   value={formData.title || ''}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="ex: Fuga de óleo no pistão hidráulico ou ruído mecânico"
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none placeholder-slate-400"
                 />
               </div>
 
               <div>
-                <label htmlFor="formDesc" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                <label htmlFor="formDesc" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                   Descrição Técnica do Problema ou Intervenção *
                 </label>
                 <textarea
@@ -1556,34 +1556,34 @@ export const WorkOrdersPage: React.FC = () => {
                   value={formData.description || ''}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Descreva detalhadamente o serviço técnico ou anomalia operacional..."
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none placeholder-slate-400"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="formType" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                  <label htmlFor="formType" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                     Tipo de Manutenção
                   </label>
                   <select
                     id="formType"
                     value={formData.orderType || formData.order_type || 'corrective'}
                     onChange={(e) => setFormData({ ...formData, orderType: e.target.value as any, order_type: e.target.value as any })}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:outline-none"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer focus:outline-none"
                   >
                     <option value="corrective">Corretiva (Avaria/Paragem)</option>
                     <option value="preventive">Preventiva (Revisão/Plano)</option>
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="formPriority" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                  <label htmlFor="formPriority" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                     Nível de Urgência / Prioridade
                   </label>
                   <select
                     id="formPriority"
                     value={formData.priority || 'medium'}
                     onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:outline-none"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer focus:outline-none"
                   >
                     <option value="low">Baixa</option>
                     <option value="medium">Média</option>
@@ -1595,7 +1595,7 @@ export const WorkOrdersPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="formMeter" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                  <label htmlFor="formMeter" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                     Contador no Momento (km/h)
                   </label>
                   <input
@@ -1604,20 +1604,20 @@ export const WorkOrdersPage: React.FC = () => {
                     min={0}
                     value={formData.meterAtService ?? formData.meter_at_service ?? ''}
                     onChange={(e) => setFormData({ ...formData, meterAtService: e.target.value !== '' ? Number(e.target.value) : '', meter_at_service: e.target.value !== '' ? Number(e.target.value) : '' })}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none placeholder-slate-400"
                   />
                 </div>
                 
                 {/* Atribuição de Técnicos com Atalho */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label htmlFor="formTech" className="block text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                    <label htmlFor="formTech" className="block text-xs font-semibold text-slate-600 uppercase tracking-wide">
                       Técnico Atribuído
                     </label>
                     <button
                       type="button"
                       onClick={() => setIsTechModalOpen(true)}
-                      className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold hover:underline"
+                      className="text-[10px] text-blue-700 hover:text-blue-800 font-semibold"
                     >
                       + Novo Técnico
                     </button>
@@ -1627,7 +1627,7 @@ export const WorkOrdersPage: React.FC = () => {
                     id="formTech"
                     value={formData.assignedTo || ''}
                     onChange={(e) => setFormData({...formData, assignedTo: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:outline-none"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer focus:outline-none"
                   >
                     <option value="">Selecione o Técnico / Mecânico...</option>
                     {technicians.map((t) => (
@@ -1638,23 +1638,23 @@ export const WorkOrdersPage: React.FC = () => {
               </div>
 
               {/* Secção de Peças Requisitadas no Modal da OS (Requisito 5.2) */}
-              <div className="border-t border-slate-800/80 pt-4 space-y-3">
-                <div className="flex items-center gap-1.5 text-emerald-400">
+              <div className="border-t border-slate-200 pt-4 space-y-3">
+                <div className="flex items-center gap-1.5 text-blue-700">
                   <Package size={14} />
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-250">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
                     Peças & Consumíveis Requisitados (Armazém)
                   </span>
                 </div>
 
-                <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-850 space-y-3">
+                <div className="bg-slate-50 p-3.5 rounded-md border border-slate-200 space-y-3">
                   {/* Linha de Inserção Rápida */}
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
                     <div className="sm:col-span-7">
-                      <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Selecione a Peça</label>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-1 uppercase">Selecione a Peça</label>
                       <select
                         value={selectedPartId}
                         onChange={(e) => setSelectedPartId(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-2.5 py-2 text-xs text-white cursor-pointer focus:outline-none"
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-2.5 py-2 text-xs text-slate-900 cursor-pointer focus:outline-none"
                       >
                         <option value="">Selecione a Peça do Armazém...</option>
                         {availableParts.map((p) => (
@@ -1665,20 +1665,20 @@ export const WorkOrdersPage: React.FC = () => {
                       </select>
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Qtd</label>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-1 uppercase">Qtd</label>
                       <input
                         type="number"
                         min={1}
                         value={modalPartQty}
                         onChange={(e) => setModalPartQty(Number(e.target.value))}
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-2 py-2 text-xs text-white font-mono focus:outline-none"
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-2 py-2 text-xs text-slate-900 font-mono focus:outline-none"
                       />
                     </div>
                     <div className="sm:col-span-3">
                       <button
                         type="button"
                         onClick={handleAddPartToModalList}
-                        className="w-full py-2 bg-slate-850 hover:bg-slate-800 text-emerald-400 hover:text-emerald-300 rounded-lg text-xs font-bold transition-colors cursor-pointer border border-slate-800"
+                        className="w-full py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium transition-colors cursor-pointer shadow-none"
                       >
                         + Adicionar
                       </button>
@@ -1687,32 +1687,32 @@ export const WorkOrdersPage: React.FC = () => {
 
                   {/* Lista de Peças Adicionadas */}
                   {selectedPartsList.length === 0 ? (
-                    <p className="text-[11px] text-slate-500 italic text-center py-2 bg-slate-950/20 rounded">
+                    <p className="text-[11px] text-slate-500 italic text-center py-2 bg-white rounded border border-slate-200">
                       Nenhuma peça ou consumível requisitado para esta intervenção.
                     </p>
                   ) : (
                     <div className="space-y-2">
-                      <div className="max-h-[160px] overflow-y-auto space-y-1.5 scrollbar-thin">
+                      <div className="max-h-[160px] overflow-y-auto space-y-1.5">
                         {selectedPartsList.map((p) => {
                           const subtotal = p.quantity * p.unit_cost;
                           return (
-                            <div key={p.id} className="flex justify-between items-center text-[11px] bg-slate-950/60 p-2 rounded border border-slate-850/60">
+                            <div key={p.id} className="flex justify-between items-center text-[11px] bg-white p-2 rounded-md border border-slate-200">
                               <div className="truncate pr-2">
-                                <span className="font-mono text-slate-400 text-[10px] block">[{p.part_number}]</span>
-                                <span className="font-semibold text-slate-200 block truncate">{p.name}</span>
+                                <span className="font-mono text-slate-500 text-[10px] block">[{p.part_number}]</span>
+                                <span className="font-medium text-slate-900 block truncate">{p.name}</span>
                               </div>
                               <div className="flex items-center gap-3 shrink-0">
                                 <div className="text-right">
-                                  <span className="text-white font-bold block">Qtd: {p.quantity}</span>
-                                  <span className="text-emerald-400 text-[10px] font-bold block">{formatMZN(subtotal)}</span>
+                                  <span className="text-slate-700 font-semibold block">Qtd: {p.quantity}</span>
+                                  <span className="text-blue-700 text-[10px] font-bold block">{formatMZN(subtotal)}</span>
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => setSelectedPartsList(selectedPartsList.filter(item => item.id !== p.id))}
-                                  className="p-1 text-red-500 hover:text-red-400 hover:bg-red-950/30 rounded transition-colors"
+                                  className="p-1 text-slate-400 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
                                   title="Remover Peça"
                                 >
-                                  <X size={12} />
+                                  <X size={13} />
                                 </button>
                               </div>
                             </div>
@@ -1720,28 +1720,28 @@ export const WorkOrdersPage: React.FC = () => {
                         })}
                       </div>
 
-                      <div className="pt-2 border-t border-slate-850 flex justify-between items-center text-[11px] font-bold text-slate-200">
+                      <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-[11px] font-bold text-slate-800">
                         <span>Subtotal das Peças Requisitadas:</span>
-                        <span className="text-emerald-400 font-extrabold">{formatMZN(selectedPartsList.reduce((acc, p) => acc + (p.quantity * p.unit_cost), 0))}</span>
+                        <span className="text-blue-700 font-bold">{formatMZN(selectedPartsList.reduce((acc, p) => acc + (p.quantity * p.unit_cost), 0))}</span>
                       </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 border-t border-slate-800 pt-5 mt-2">
+              <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 mt-2">
                 <button
                   type="button"
                   onClick={() => setIsFormModalOpen(false)}
                   disabled={submittingForm}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/40 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                  className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium transition-all cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submittingForm}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white rounded-md text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-none"
                 >
                   {submittingForm ? (
                     <Loader2 size={14} className="animate-spin" />
@@ -1759,18 +1759,18 @@ export const WorkOrdersPage: React.FC = () => {
           MODAL DE CADASTRO RÁPIDO: NOVO TÉCNICO
           ========================================== */}
       {isTechModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
-          <div className="bg-slate-900 border border-slate-850 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-sm rounded-md shadow-xl overflow-hidden animate-slide-up">
             
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
               <div className="flex items-center gap-2">
-                <UserCheck className="text-emerald-500" size={18} />
-                <span className="font-bold text-sm text-white">Cadastrar Novo Técnico</span>
+                <UserCheck className="text-blue-700" size={18} />
+                <span className="font-bold text-sm text-slate-900">Cadastrar Novo Técnico</span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsTechModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-850 transition-colors"
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
               >
                 <X size={18} />
               </button>
@@ -1778,64 +1778,64 @@ export const WorkOrdersPage: React.FC = () => {
 
             <form onSubmit={handleCreateTechnicianSubmit} className="p-5 space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Nome Completo *</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Nome Completo *</label>
                 <input
                   type="text"
                   required
                   value={techName}
                   onChange={(e) => setTechName(e.target.value)}
                   placeholder="ex: Armando Sitoe"
-                  className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Especialidade / Ofício *</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Especialidade / Ofício *</label>
                 <input
                   type="text"
                   required
                   value={techSpecialty}
                   onChange={(e) => setTechSpecialty(e.target.value)}
                   placeholder="ex: Mecânico Diesel, Hidráulico, Eletricista"
-                  className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Telefone</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Telefone</label>
                   <input
                     type="text"
                     value={techPhone}
                     onChange={(e) => setTechPhone(e.target.value)}
                     placeholder="ex: +258 84 123 4567"
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Custo / Hora (MZN)</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Custo / Hora (MZN)</label>
                   <input
                     type="number"
                     value={techCostPerHour}
                     onChange={(e) => setTechCostPerHour(e.target.value !== '' ? Number(e.target.value) : '')}
                     placeholder="ex: 1500"
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setIsTechModalOpen(false)}
-                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-450 text-xs font-semibold rounded-lg"
+                  className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-md"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submittingTech}
-                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium rounded-md flex items-center gap-1 cursor-pointer disabled:opacity-50"
                 >
                   {submittingTech ? <Loader2 size={13} className="animate-spin" /> : <span>Guardar Técnico</span>}
                 </button>
@@ -1850,7 +1850,7 @@ export const WorkOrdersPage: React.FC = () => {
           DRAWER / BOTTOM SHEET: COCKPIT DE EXECUÇÃO DE CAMPO
           ========================================== */}
       {isDrawerOpen && selectedDrawerOrder && (
-        <div className="fixed inset-0 z-40 flex justify-end bg-black/70 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-40 flex justify-end bg-slate-900/40 backdrop-blur-xs animate-fade-in">
           <div 
             className="absolute inset-0" 
             onClick={() => {
@@ -1859,68 +1859,68 @@ export const WorkOrdersPage: React.FC = () => {
             }} 
           />
           
-          <div className="relative w-full max-w-lg bg-slate-900 border-l border-slate-800 h-full shadow-2xl flex flex-col z-10 animate-slide-up">
+          <div className="relative w-full max-w-lg bg-white border-l border-slate-200 h-full shadow-2xl flex flex-col z-10 animate-slide-up text-slate-900">
             
             {/* Header do Drawer */}
-            <div className="p-5 border-b border-slate-850 flex items-center justify-between bg-slate-950/20 shrink-0">
+            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
               <div className="space-y-1">
-                <span className="font-mono font-bold text-xs text-emerald-400 bg-slate-950/40 px-2 py-0.5 rounded border border-slate-800">
+                <span className="font-mono font-bold text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
                   {selectedDrawerOrder.wo_number || selectedDrawerOrder.woNumber || 'ORDEM'}
                 </span>
-                <h2 className="text-base font-bold text-white leading-tight mt-1">{selectedDrawerOrder.title}</h2>
+                <h2 className="text-base font-bold text-slate-900 leading-tight mt-1">{selectedDrawerOrder.title}</h2>
               </div>
               <button
                 onClick={() => {
                   setIsDrawerOpen(false);
                   setSelectedDrawerOrder(null);
                 }}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-850 transition-colors"
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
 
             {/* Corpo do Drawer (Rolagem) */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-5 scrollbar-thin">
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
               
               {/* Informações Básicas */}
-              <div className="p-4 bg-slate-950/40 border border-slate-850 rounded-xl space-y-3">
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-md space-y-3">
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
-                    <span className="text-slate-500 uppercase text-[9px] font-bold block">Ativo Vinculado</span>
-                    <span className="text-slate-200 font-mono font-bold block truncate">
+                    <span className="text-slate-500 uppercase text-[10px] font-semibold block">Ativo Vinculado</span>
+                    <span className="text-slate-900 font-mono font-bold block truncate">
                       {assets.find(a => a.id === selectedDrawerOrder.asset_id || a.id === selectedDrawerOrder.assetId)?.name || selectedDrawerOrder.asset_name || 'Equipamento Geral'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 uppercase text-[9px] font-bold block">Urgência da Manutenção</span>
+                    <span className="text-slate-500 uppercase text-[10px] font-semibold block">Urgência da Manutenção</span>
                     <div className="mt-0.5">{renderPriorityBadge(selectedDrawerOrder.priority)}</div>
                   </div>
                   <div>
-                    <span className="text-slate-500 uppercase text-[9px] font-bold block">Técnico Atribuído</span>
-                    <span className="text-slate-200 font-semibold">
+                    <span className="text-slate-500 uppercase text-[10px] font-semibold block">Técnico Atribuído</span>
+                    <span className="text-slate-900 font-semibold">
                       {technicians.find(t => t.id === selectedDrawerOrder.technician_id || t.id === selectedDrawerOrder.technicianId)?.name || selectedDrawerOrder.assigned_to || selectedDrawerOrder.assignedTo || 'Pendente'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 uppercase text-[9px] font-bold block">Estado Técnico Atual</span>
+                    <span className="text-slate-500 uppercase text-[10px] font-semibold block">Estado Técnico Atual</span>
                     <div className="mt-0.5">{renderStatusBadge(selectedDrawerOrder.status)}</div>
                   </div>
                 </div>
 
                 {selectedDrawerOrder.description && (
-                  <div className="pt-2.5 border-t border-slate-850">
-                    <span className="text-slate-500 uppercase text-[9px] font-bold block mb-1">Descrição Técnico-Operacional</span>
-                    <p className="text-slate-300 text-xs leading-relaxed whitespace-pre-line">{selectedDrawerOrder.description}</p>
+                  <div className="pt-2.5 border-t border-slate-200">
+                    <span className="text-slate-500 uppercase text-[10px] font-semibold block mb-1">Descrição Técnico-Operacional</span>
+                    <p className="text-slate-700 text-xs leading-relaxed whitespace-pre-line">{selectedDrawerOrder.description}</p>
                   </div>
                 )}
               </div>
 
               {/* COCKPIT DE EXECUÇÃO DE CAMPO EM TEMPO REAL */}
               {selectedDrawerOrder.status !== 'completed' && (
-                <div className="p-4 bg-slate-900 border border-slate-850 rounded-xl space-y-3">
-                  <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest block flex items-center gap-1.5">
-                    <Activity size={14} />
+                <div className="p-4 bg-white border border-slate-200 rounded-md space-y-3">
+                  <span className="text-xs font-bold text-slate-900 uppercase tracking-wide block flex items-center gap-1.5">
+                    <Activity size={14} className="text-blue-700" />
                     <span>Cockpit de Execução de Campo</span>
                   </span>
 
@@ -1929,9 +1929,9 @@ export const WorkOrdersPage: React.FC = () => {
                     {selectedDrawerOrder.status === 'open' && (
                       <button
                         onClick={() => handleStartService(selectedDrawerOrder)}
-                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shadow-emerald-950/20 cursor-pointer"
+                        className="w-full py-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-none"
                       >
-                        <Play size={16} />
+                        <Play size={15} />
                         <span>Iniciar Serviço</span>
                       </button>
                     )}
@@ -1942,7 +1942,7 @@ export const WorkOrdersPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleOpenPauseModal(selectedDrawerOrder)}
-                          className="py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                          className="py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                         >
                           <Pause size={15} />
                           <span>Pausar Trabalho</span>
@@ -1965,7 +1965,7 @@ export const WorkOrdersPage: React.FC = () => {
                             
                             setIsCloseModalOpen(true);
                           }}
-                          className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-inner cursor-pointer"
+                          className="py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                         >
                           <CheckCircle2 size={15} />
                           <span>Concluir Serviço</span>
@@ -1977,9 +1977,9 @@ export const WorkOrdersPage: React.FC = () => {
                     {(selectedDrawerOrder.status === 'waiting_parts' || selectedDrawerOrder.status === 'paused' || selectedDrawerOrder.status === 'blocked') && (
                       <button
                         onClick={() => handleResumeService(selectedDrawerOrder)}
-                        className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shadow-blue-950/20 cursor-pointer"
+                        className="w-full py-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
                       >
-                        <Play size={16} />
+                        <Play size={15} />
                         <span>Retomar Trabalho (Resume)</span>
                       </button>
                     )}
@@ -1988,9 +1988,9 @@ export const WorkOrdersPage: React.FC = () => {
               )}
 
               {/* PEÇAS E CONSUMÍVEIS UTILIZADOS (REQUISITO 10.2) */}
-              <div className="p-4 bg-slate-900 border border-slate-850 rounded-xl space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-850 pb-1.5">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block">
+              <div className="p-4 bg-white border border-slate-200 rounded-md space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wide block">
                     Peças & Consumíveis Utilizados ({usedParts.length})
                   </span>
                   
@@ -2003,9 +2003,9 @@ export const WorkOrdersPage: React.FC = () => {
                         setPartQtyToUse('');
                         setIsAddPartModalOpen(true);
                       }}
-                      className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-0.5 cursor-pointer"
+                      className="text-xs font-medium text-blue-700 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
                     >
-                      <Plus size={11} />
+                      <Plus size={13} />
                       <span>Adicionar Peça</span>
                     </button>
                   )}
@@ -2013,33 +2013,33 @@ export const WorkOrdersPage: React.FC = () => {
 
                 {loadingUsedParts ? (
                   <div className="text-center py-4">
-                    <Loader2 size={16} className="animate-spin text-slate-500 mx-auto" />
+                    <Loader2 size={16} className="animate-spin text-slate-400 mx-auto" />
                   </div>
                 ) : usedParts.length === 0 ? (
                   <div className="text-center py-3">
-                    <p className="text-[11px] text-slate-500 italic">Nenhum consumível apontado a esta intervenção ainda.</p>
+                    <p className="text-xs text-slate-500 italic">Nenhum consumível apontado a esta intervenção ainda.</p>
                   </div>
                 ) : (
                   <div className="space-y-2.5">
                     {usedParts.map((item) => (
-                      <div key={item.id} className="bg-slate-950/30 border border-slate-850 p-2.5 rounded-lg flex items-center justify-between text-xs hover:border-slate-800 transition-colors">
+                      <div key={item.id} className="bg-slate-50 border border-slate-200 p-2.5 rounded-md flex items-center justify-between text-xs hover:border-slate-300 transition-colors">
                         <div className="space-y-0.5 truncate mr-3">
-                          <span className="font-semibold text-slate-200 block truncate">{item.name}</span>
-                          <span className="text-[10px] text-slate-500 font-mono block">
-                            Ref: {item.oem_reference} · Quantidade: <span className="font-bold text-slate-350">{item.quantity} un</span>
+                          <span className="font-semibold text-slate-900 block truncate">{item.name}</span>
+                          <span className="text-[11px] text-slate-500 font-mono block">
+                            Ref: {item.oem_reference} · Quantidade: <span className="font-bold text-slate-700">{item.quantity} un</span>
                           </span>
                         </div>
                         <div className="text-right shrink-0">
                           <span className="text-[10px] text-slate-500 block">Subtotal:</span>
-                          <span className="font-mono text-emerald-400 font-bold block">{formatMZN(item.subtotal)}</span>
+                          <span className="font-mono text-blue-700 font-bold block">{formatMZN(item.subtotal)}</span>
                         </div>
                       </div>
                     ))}
                     
                     {/* Exibe totalizador de peças */}
-                    <div className="pt-2 border-t border-slate-850 flex justify-between items-center text-xs font-bold text-slate-350">
+                    <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-bold text-slate-700">
                       <span>Custo Acumulado de Peças:</span>
-                      <span className="font-mono text-white">
+                      <span className="font-mono text-slate-900 font-bold">
                         {formatMZN(usedParts.reduce((acc, p) => acc + (p.subtotal || 0), 0))}
                       </span>
                     </div>
@@ -2048,9 +2048,9 @@ export const WorkOrdersPage: React.FC = () => {
               </div>
 
               {/* TOTALIZADORES DE CUSTO DA INTERVENÇÃO (REQUISITO 10.3) */}
-              <div className="p-4 bg-slate-900 border border-slate-850 rounded-xl space-y-3">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block border-b border-slate-850 pb-1.5 flex items-center gap-1.5">
-                  <DollarSign size={14} className="text-emerald-500" />
+              <div className="p-4 bg-white border border-slate-200 rounded-md space-y-3">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide block border-b border-slate-200 pb-2 flex items-center gap-1.5">
+                  <DollarSign size={14} className="text-blue-700" />
                   <span>Totalizadores de Custo da Intervenção</span>
                 </span>
                 
@@ -2064,27 +2064,27 @@ export const WorkOrdersPage: React.FC = () => {
 
                   return (
                     <div className="space-y-2 text-xs">
-                      <div className="flex justify-between items-center text-slate-400">
+                      <div className="flex justify-between items-center text-slate-600">
                         <span>Custo de Materiais (Peças):</span>
-                        <span className="font-mono text-slate-200">{formatMZN(materialsCost)}</span>
+                        <span className="font-mono text-slate-900 font-semibold">{formatMZN(materialsCost)}</span>
                       </div>
-                      <div className="flex justify-between items-center text-slate-400">
+                      <div className="flex justify-between items-center text-slate-600">
                         <div className="space-y-0.5">
                           <span>Mão de Obra do Técnico:</span>
                           {tech && (
-                            <span className="text-[10px] text-slate-500 block">
+                            <span className="text-[11px] text-slate-500 block">
                               {tech.name} ({formatMZN(hourlyRate)}/h)
                             </span>
                           )}
                         </div>
                         <div className="text-right">
-                          <span className="font-mono text-slate-200">{formatMZN(laborCost)}</span>
+                          <span className="font-mono text-slate-900 font-semibold">{formatMZN(laborCost)}</span>
                           <span className="text-[10px] text-slate-500 block font-mono">({workedHours} horas)</span>
                         </div>
                       </div>
-                      <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-sm font-extrabold text-white">
-                        <span className="text-emerald-400">Custo Total da OS:</span>
-                        <span className="font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-900/30 px-2 py-0.5 rounded">
+                      <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-bold text-slate-900">
+                        <span className="text-slate-900">Custo Total da OS:</span>
+                        <span className="font-mono text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
                           {formatMZN(totalCostOfOS)}
                         </span>
                       </div>
@@ -2094,29 +2094,29 @@ export const WorkOrdersPage: React.FC = () => {
               </div>
 
               {/* LINHA DO TEMPO DE AUDITORIA */}
-              <div className="p-4 bg-slate-900 border border-slate-850 rounded-xl space-y-4">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block border-b border-slate-850 pb-1.5">
+              <div className="p-4 bg-white border border-slate-200 rounded-md space-y-4">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide block border-b border-slate-200 pb-2">
                   Linha do Tempo de Auditoria (Timeline)
                 </span>
 
                 {loadingTimeline ? (
                   <div className="text-center py-4">
-                    <Loader2 size={18} className="animate-spin text-slate-500 mx-auto" />
+                    <Loader2 size={18} className="animate-spin text-slate-400 mx-auto" />
                   </div>
                 ) : timeline.length === 0 ? (
                   <div className="text-center py-3">
-                    <p className="text-[11px] text-slate-500 italic">Nenhum evento registrado nesta OS ainda.</p>
+                    <p className="text-xs text-slate-500 italic">Nenhum evento registrado nesta OS ainda.</p>
                   </div>
                 ) : (
-                  <div className="relative pl-6 border-l-2 border-slate-800 space-y-4">
+                  <div className="relative pl-6 border-l-2 border-slate-200 space-y-4">
                     {timeline.map((event) => {
                       const date = event.created_at || event.createdAt;
                       const type = event.eventType || event.event_type;
                       
-                      let iconColor = 'bg-slate-800 text-slate-400';
-                      if (type === 'start' || type === 'resume') iconColor = 'bg-emerald-950 text-emerald-400 border border-emerald-800/40';
-                      if (type === 'pause') iconColor = 'bg-amber-950 text-amber-400 border border-amber-800/40';
-                      if (type === 'complete') iconColor = 'bg-blue-950 text-blue-400 border border-blue-800/40';
+                      let iconColor = 'bg-slate-100 text-slate-600 border border-slate-200';
+                      if (type === 'start' || type === 'resume') iconColor = 'bg-blue-50 text-blue-700 border border-blue-200';
+                      if (type === 'pause') iconColor = 'bg-amber-50 text-amber-700 border border-amber-200';
+                      if (type === 'complete') iconColor = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
 
                       return (
                         <div key={event.id} className="relative">
@@ -2127,24 +2127,24 @@ export const WorkOrdersPage: React.FC = () => {
 
                           <div className="space-y-0.5 text-xs">
                             <div className="flex justify-between items-center">
-                              <span className="font-bold text-white capitalize">
+                              <span className="font-bold text-slate-900 capitalize">
                                 {type === 'start' ? 'Serviço Iniciado' : type === 'pause' ? 'Serviço Pausado' : type === 'resume' ? 'Serviço Retomado' : 'Serviço Concluído'}
                               </span>
                               <span className="text-[10px] text-slate-500 font-mono">
                                 {date ? new Date(date).toLocaleString('pt-MZ') : '---'}
                               </span>
                             </div>
-                            <div className="text-[11px] text-slate-400">
+                            <div className="text-xs text-slate-600">
                               <span>Executado por: </span>
-                              <span className="font-semibold text-slate-300">{event.performed_by || event.performedBy || 'Técnico de Campo'}</span>
+                              <span className="font-semibold text-slate-900">{event.performed_by || event.performedBy || 'Técnico de Campo'}</span>
                             </div>
                             {event.reason && (
-                              <div className="text-[11px] font-bold text-amber-400/90 mt-0.5">
+                              <div className="text-xs font-medium text-amber-700 mt-0.5">
                                 Motivo: {event.reason}
                               </div>
                             )}
                             {event.justification && (
-                              <p className="text-[11px] text-slate-500 leading-relaxed italic bg-slate-950/20 p-1.5 rounded border border-slate-850/40 mt-1">
+                              <p className="text-xs text-slate-600 leading-relaxed italic bg-slate-50 p-2 rounded-md border border-slate-200 mt-1">
                                 "{event.justification}"
                               </p>
                             )}
@@ -2166,18 +2166,18 @@ export const WorkOrdersPage: React.FC = () => {
           MODAL OBRIGATÓRIO: PAUSA / INTERRUPÇÃO
           ========================================== */}
       {isPauseModalOpen && selectedDrawerOrder && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-sm rounded-md shadow-xl overflow-hidden animate-slide-up">
             
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
-              <div className="flex items-center gap-2 text-amber-500">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-2 text-amber-700">
                 <Pause size={18} />
-                <span className="font-bold text-sm text-white">Justificar Pausa de Serviço</span>
+                <span className="font-bold text-sm text-slate-900">Justificar Pausa de Serviço</span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsPauseModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
               >
                 <X size={18} />
               </button>
@@ -2185,12 +2185,12 @@ export const WorkOrdersPage: React.FC = () => {
 
             <form onSubmit={handlePauseServiceSubmit} className="p-5 space-y-4">
               <div>
-                <label htmlFor="pauseSelect" className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Motivo Padronizado *</label>
+                <label htmlFor="pauseSelect" className="block text-xs font-medium text-slate-700 mb-1">Motivo Padronizado *</label>
                 <select
                   id="pauseSelect"
                   value={pauseReason}
                   onChange={(e) => setPauseReason(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-850 rounded-lg px-2.5 py-1.5 text-xs text-white cursor-pointer focus:outline-none"
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 cursor-pointer focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 >
                   <option value="Aguardando Peças no Armazém">Aguardando Peças no Armazém</option>
                   <option value="Corte de Energia / Gerador">Corte de Energia / Gerador</option>
@@ -2202,7 +2202,7 @@ export const WorkOrdersPage: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="pauseJust" className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Justificação Técnica Detalhada *</label>
+                <label htmlFor="pauseJust" className="block text-xs font-medium text-slate-700 mb-1">Justificação Técnica Detalhada *</label>
                 <textarea
                   id="pauseJust"
                   required
@@ -2210,22 +2210,22 @@ export const WorkOrdersPage: React.FC = () => {
                   value={pauseJustification}
                   onChange={(e) => setPauseJustification(e.target.value)}
                   placeholder="Por favor, explique circunstancialmente o motivo da interrupção do trabalho..."
-                  className="w-full bg-slate-950 border border-slate-850 focus:border-red-500/50 rounded-lg p-2.5 text-xs text-white focus:outline-none"
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md p-2.5 text-xs text-slate-900 focus:outline-none"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setIsPauseModalOpen(false)}
-                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-450 text-xs font-semibold rounded-lg"
+                  className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-md"
                 >
                   Voltar
                 </button>
                 <button
                   type="submit"
                   disabled={submittingPause || !pauseJustification.trim()}
-                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-md flex items-center gap-1 cursor-pointer disabled:opacity-50"
                 >
                   {submittingPause ? <Loader2 size={13} className="animate-spin" /> : <span>Confirmar Pausa</span>}
                 </button>
@@ -2240,13 +2240,13 @@ export const WorkOrdersPage: React.FC = () => {
           MODAL: CONCLUIR / FECHAR ORDEM DE SERVIÇO
           ========================================== */}
       {isCloseModalOpen && selectedOrder && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-md rounded-md shadow-xl overflow-hidden animate-slide-up">
             
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
-              <div className="flex items-center gap-2 text-emerald-400">
+            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-2 text-emerald-700">
                 <CheckCircle2 size={18} />
-                <h2 className="text-base font-bold text-white">Concluir Ordem de Serviço</h2>
+                <h2 className="text-base font-bold text-slate-900">Concluir Ordem de Serviço</h2>
               </div>
               <button
                 type="button"
@@ -2254,21 +2254,21 @@ export const WorkOrdersPage: React.FC = () => {
                   setIsCloseModalOpen(false);
                   setSelectedOrder(null);
                 }}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-850 transition-colors"
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleCloseOrderSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto scrollbar-thin">
+            <form onSubmit={handleCloseOrderSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
               
-              <div className="bg-slate-950/40 border border-slate-850 p-3 rounded-lg text-xs space-y-1.5 text-slate-400">
-                <div><span className="font-semibold text-slate-350">Nº da OS:</span> <span className="font-mono text-white font-bold">{selectedOrder.wo_number || selectedOrder.woNumber}</span></div>
-                <div><span className="font-semibold text-slate-350">Atividade:</span> <span className="text-slate-200">{selectedOrder.title}</span></div>
+              <div className="bg-slate-50 border border-slate-200 p-3 rounded-md text-xs space-y-1.5 text-slate-600">
+                <div><span className="font-semibold text-slate-700">Nº da OS:</span> <span className="font-mono text-slate-900 font-bold">{selectedOrder.wo_number || selectedOrder.woNumber}</span></div>
+                <div><span className="font-semibold text-slate-700">Atividade:</span> <span className="text-slate-900">{selectedOrder.title}</span></div>
               </div>
 
               <div>
-                <label htmlFor="notes" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                <label htmlFor="notes" className="block text-xs font-medium text-slate-700 mb-1.5">
                   Notas de Resolução / Trabalho Executado *
                 </label>
                 <textarea
@@ -2278,12 +2278,12 @@ export const WorkOrdersPage: React.FC = () => {
                   value={resolutionNotes}
                   onChange={(e) => setResolutionNotes(e.target.value)}
                   placeholder="Descreva detalhadamente o trabalho executado e as peças substituídas..."
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white"
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label htmlFor="downtime" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                <label htmlFor="downtime" className="block text-xs font-medium text-slate-700 mb-1.5">
                   Downtime / Horas de Paragem do Ativo *
                 </label>
                 <div className="relative">
@@ -2296,7 +2296,7 @@ export const WorkOrdersPage: React.FC = () => {
                     value={downtimeHours}
                     onChange={(e) => setDowntimeHours(e.target.value !== '' ? Number(e.target.value) : '')}
                     placeholder="ex: 4.5"
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3.5 py-2 text-xs text-white font-mono"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3.5 py-2 text-xs text-slate-900 font-mono focus:outline-none"
                   />
                   <span className="absolute right-3.5 top-2.5 text-[10px] font-bold text-slate-500">HORAS</span>
                 </div>
@@ -2304,7 +2304,7 @@ export const WorkOrdersPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="partsCost" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                  <label htmlFor="partsCost" className="block text-xs font-medium text-slate-700 mb-1.5">
                     Custo de Peças (MZN)
                   </label>
                   <div className="relative">
@@ -2315,13 +2315,13 @@ export const WorkOrdersPage: React.FC = () => {
                       value={partsCostMzn}
                       onChange={(e) => setPartsCostMzn(e.target.value !== '' ? Number(e.target.value) : '')}
                       placeholder="ex: 15000"
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white font-mono"
+                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none"
                     />
                     <span className="absolute right-3.5 top-2.5 text-[10px] font-bold text-slate-500">MZN</span>
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="laborCost" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                  <label htmlFor="laborCost" className="block text-xs font-medium text-slate-700 mb-1.5">
                     Custo de Mão de Obra (MZN)
                   </label>
                   <div className="relative">
@@ -2332,14 +2332,14 @@ export const WorkOrdersPage: React.FC = () => {
                       value={laborCostMzn}
                       onChange={(e) => setLaborCostMzn(e.target.value !== '' ? Number(e.target.value) : '')}
                       placeholder="ex: 4500"
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white font-mono"
+                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none"
                     />
                     <span className="absolute right-3.5 top-2.5 text-[10px] font-bold text-slate-500">MZN</span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 border-t border-slate-800 pt-5 mt-2">
+              <div className="flex justify-end gap-3 border-t border-slate-200 pt-4 mt-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -2347,14 +2347,14 @@ export const WorkOrdersPage: React.FC = () => {
                     setSelectedOrder(null);
                   }}
                   disabled={submittingClose}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/40 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                  className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md text-xs font-medium transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submittingClose}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {submittingClose ? (
                     <Loader2 size={14} className="animate-spin" />
@@ -2372,18 +2372,18 @@ export const WorkOrdersPage: React.FC = () => {
           MODAL: APONTAR PEÇA UTILIZADA (REQUISITO 10.2)
           ========================================== */}
       {isAddPartModalOpen && selectedDrawerOrder && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-sm rounded-md shadow-xl overflow-hidden animate-slide-up">
             
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
               <div className="flex items-center gap-2">
-                <Package className="text-emerald-500" size={18} />
-                <span className="font-bold text-sm text-white">Apontar Peça Utilizada</span>
+                <Package className="text-blue-700" size={18} />
+                <span className="font-bold text-sm text-slate-900">Apontar Peça Utilizada</span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAddPartModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
               >
                 <X size={18} />
               </button>
@@ -2391,13 +2391,13 @@ export const WorkOrdersPage: React.FC = () => {
 
             <form onSubmit={handleAddPartSubmit} className="p-5 space-y-4">
               <div>
-                <label htmlFor="selectPart" className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Peça em Stock *</label>
+                <label htmlFor="selectPart" className="block text-xs font-medium text-slate-700 mb-1">Peça em Stock *</label>
                 <select
                   id="selectPart"
                   required
                   value={selectedPartId}
                   onChange={(e) => setSelectedPartId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-850 rounded-lg px-2.5 py-1.5 text-xs text-white cursor-pointer focus:outline-none"
+                  className="w-full bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-xs text-slate-900 cursor-pointer focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 >
                   <option value="">Selecione o Artigo...</option>
                   {inventoryParts.map((p) => {
@@ -2412,15 +2412,15 @@ export const WorkOrdersPage: React.FC = () => {
               </div>
 
               {selectedPartId && (
-                <div className="bg-slate-950/30 border border-slate-850 p-3 rounded-lg text-xs space-y-1 text-slate-450">
+                <div className="bg-slate-50 border border-slate-200 p-3 rounded-md text-xs space-y-1 text-slate-600">
                   {(() => {
                     const p = inventoryParts.find(item => item.id === selectedPartId);
                     if (!p) return null;
                     return (
                       <>
-                        <div><span className="font-semibold text-slate-350">OEM / Ref:</span> <span className="font-mono text-emerald-400">{p.oem_reference || p.oemReference}</span></div>
-                        <div><span className="font-semibold text-slate-350">Custo Unitário:</span> <span className="text-white font-bold">{formatMZN(p.unit_cost ?? p.unitCost)}</span></div>
-                        <div><span className="font-semibold text-slate-350">Localização:</span> <span className="text-slate-200">{p.warehouse_location || p.warehouseLocation || 'Geral'}</span></div>
+                        <div><span className="font-semibold text-slate-700">OEM / Ref:</span> <span className="font-mono text-blue-700">{p.oem_reference || p.oemReference}</span></div>
+                        <div><span className="font-semibold text-slate-700">Custo Unitário:</span> <span className="text-slate-900 font-bold">{formatMZN(p.unit_cost ?? p.unitCost)}</span></div>
+                        <div><span className="font-semibold text-slate-700">Localização:</span> <span className="text-slate-700">{p.warehouse_location || p.warehouseLocation || 'Geral'}</span></div>
                       </>
                     );
                   })()}
@@ -2428,7 +2428,7 @@ export const WorkOrdersPage: React.FC = () => {
               )}
 
               <div>
-                <label htmlFor="qtyToUse" className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Quantidade Requerida *</label>
+                <label htmlFor="qtyToUse" className="block text-xs font-medium text-slate-700 mb-1">Quantidade Requerida *</label>
                 <input
                   id="qtyToUse"
                   type="number"
@@ -2437,22 +2437,22 @@ export const WorkOrdersPage: React.FC = () => {
                   value={partQtyToUse}
                   onChange={(e) => setPartQtyToUse(e.target.value !== '' ? Number(e.target.value) : '')}
                   placeholder="unidades a retirar do stock"
-                  className="w-full bg-slate-950 border border-slate-850 focus:border-emerald-500/50 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-none"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setIsAddPartModalOpen(false)}
-                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-450 text-xs font-semibold rounded-lg"
+                  className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-md"
                 >
                   Voltar
                 </button>
                 <button
                   type="submit"
                   disabled={submittingAddPart || !selectedPartId || partQtyToUse === ''}
-                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium rounded-md flex items-center gap-1 cursor-pointer disabled:opacity-50"
                 >
                   {submittingAddPart ? <Loader2 size={13} className="animate-spin" /> : <span>Confirmar Apontamento</span>}
                 </button>

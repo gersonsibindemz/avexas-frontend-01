@@ -47,31 +47,27 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-950 text-slate-100 p-4">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-8 relative overflow-hidden">
+    <div className="flex items-center justify-center min-h-screen bg-slate-50 text-slate-900 p-4">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-md shadow-sm p-8 relative">
         
-        {/* Elemento de iluminação de fundo minimalista */}
-        <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 blur-3xl rounded-full pointer-events-none"></div>
-        <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-blue-500/5 blur-3xl rounded-full pointer-events-none"></div>
-
         {/* Cabeçalho do Card de Login */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 mb-4 shadow-sm">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-md bg-blue-50 text-blue-700 border border-blue-200 mb-4 shadow-none">
             <Wrench size={24} />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Avexas CMMS</h1>
-          <p className="text-slate-400 text-xs mt-1.5 leading-relaxed font-medium">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Avexas CMMS</h1>
+          <p className="text-slate-500 text-xs mt-1.5 leading-relaxed font-medium">
             Gestão de Frotas e Manutenção Fabril
           </p>
         </div>
 
         {/* Banner de Alerta de Erro Vermelho Destacado */}
         {error && (
-          <div className="p-4 bg-red-950/40 border border-red-500/30 text-red-400 text-xs rounded-xl flex gap-3 items-start mb-6 animate-fade-in">
-            <AlertTriangle size={18} className="shrink-0 text-red-500 mt-0.5" />
+          <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md flex gap-3 items-start mb-6 animate-fade-in">
+            <AlertTriangle size={18} className="shrink-0 text-red-600 mt-0.5" />
             <div className="flex-1">
-              <span className="font-bold block mb-0.5 text-red-300">Falha na Autenticação</span>
-              <span className="leading-relaxed block text-slate-300">{error}</span>
+              <span className="font-bold block mb-0.5 text-red-800">Falha na Autenticação</span>
+              <span className="leading-relaxed block text-red-700">{error}</span>
             </div>
           </div>
         )}
@@ -79,7 +75,7 @@ export const LoginPage: React.FC = () => {
         {/* Formulário Corporativo */}
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label htmlFor="email" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
+            <label htmlFor="email" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider">
               E-mail Corporativo
             </label>
             <input
@@ -90,12 +86,12 @@ export const LoginPage: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="ex: utilizador@empresa.co.mz"
-              className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all font-mono"
+              className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none transition-all font-mono placeholder-slate-400"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
+            <label htmlFor="password" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider">
               Palavra-passe
             </label>
             <div className="relative">
@@ -107,12 +103,12 @@ export const LoginPage: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Introduza a sua senha"
-                className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg pl-3.5 pr-11 py-2.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all font-mono"
+                className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-3.5 pr-11 py-2.5 text-sm text-slate-900 focus:outline-none transition-all font-mono placeholder-slate-400"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-3 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                 aria-label={showPassword ? 'Ocultar palavra-passe' : 'Exibir palavra-passe'}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -127,7 +123,7 @@ export const LoginPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-200 text-sm shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white font-medium py-2.5 px-4 rounded-md transition-all text-sm shadow-none flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>

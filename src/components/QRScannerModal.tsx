@@ -311,55 +311,55 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
   const level = activeAsset?.criticality_level || activeAsset?.criticalityLevel || 'B';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+      <div className="bg-white border border-slate-200 w-full max-w-lg rounded-md shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header do Scanner */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/40">
+        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
           <div className="flex items-center gap-2">
-            <QrCode className="text-emerald-500 animate-pulse" size={20} />
-            <span className="font-bold text-sm tracking-wide text-white">Leitor de QR Code Móvel</span>
+            <QrCode className="text-blue-700" size={20} />
+            <span className="font-bold text-sm text-slate-900">Leitor de QR Code Móvel</span>
           </div>
           <button
             onClick={() => {
               stopCamera();
               onClose();
             }}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Corpo do Modal */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           
           {/* MODO A: ESCANEANDO (Sem ativo selecionado) */}
           {!activeAsset && !loadingAsset && (
             <div className="flex flex-col items-center justify-center py-6 space-y-6">
               
               {/* Moldura do Leitor QR */}
-              <div className="relative w-72 h-72 border-2 border-slate-800 rounded-2xl bg-slate-950 overflow-hidden flex items-center justify-center">
+              <div className="relative w-72 h-72 border border-slate-300 rounded-md bg-slate-100 overflow-hidden flex items-center justify-center">
                 
                 {/* Visualizador HTML5-QRCode */}
                 <div id={scannerId} className="w-full h-full object-cover"></div>
 
                 {/* Laser de Scan de Campo */}
                 {!scannerError && (
-                  <div className="absolute left-0 right-0 h-0.5 bg-emerald-500 shadow-md shadow-emerald-500/50 animate-laser-scanning z-10 pointer-events-none"></div>
+                  <div className="absolute left-0 right-0 h-0.5 bg-blue-600 shadow-md shadow-blue-500/50 animate-laser-scanning z-10 pointer-events-none"></div>
                 )}
 
                 {/* Cantos Iluminados (Moldura Tecnológica) */}
-                <div className="absolute top-3 left-3 w-6 h-6 border-t-4 border-l-4 border-emerald-500 rounded-tl-md pointer-events-none z-10"></div>
-                <div className="absolute top-3 right-3 w-6 h-6 border-t-4 border-r-4 border-emerald-500 rounded-tr-md pointer-events-none z-10"></div>
-                <div className="absolute bottom-3 left-3 w-6 h-6 border-b-4 border-l-4 border-emerald-500 rounded-bl-md pointer-events-none z-10"></div>
-                <div className="absolute bottom-3 right-3 w-6 h-6 border-b-4 border-r-4 border-emerald-500 rounded-br-md pointer-events-none z-10"></div>
+                <div className="absolute top-3 left-3 w-6 h-6 border-t-2 border-l-2 border-blue-700 rounded-tl-sm pointer-events-none z-10"></div>
+                <div className="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2 border-blue-700 rounded-tr-sm pointer-events-none z-10"></div>
+                <div className="absolute bottom-3 left-3 w-6 h-6 border-b-2 border-l-2 border-blue-700 rounded-bl-sm pointer-events-none z-10"></div>
+                <div className="absolute bottom-3 right-3 w-6 h-6 border-b-2 border-r-2 border-blue-700 rounded-br-sm pointer-events-none z-10"></div>
               </div>
 
               {/* Mensagem orientadora */}
               <div className="text-center px-4 max-w-sm">
-                <p className="text-xs text-slate-300 font-medium leading-relaxed">
-                  Aponte a câmara do telemóvel para a etiqueta **QR Code** colada na viatura ou gerador.
+                <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                  Aponte a câmara do telemóvel para a etiqueta QR Code colada na viatura ou gerador.
                 </p>
                 <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider font-semibold">
                   Abertura automática de ficha técnica
@@ -368,14 +368,14 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
 
               {/* Tratamento de Erros de Permissão ou Scanner */}
               {scannerError && (
-                <div className="p-4 bg-red-950/30 border border-red-500/20 text-red-400 text-xs rounded-xl flex gap-3 items-start max-w-sm">
-                  <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md flex gap-3 items-start max-w-sm">
+                  <AlertTriangle size={18} className="text-red-600 shrink-0 mt-0.5" />
                   <div className="flex-1 space-y-1">
-                    <span className="font-bold block text-red-300">Falha no Scanner</span>
-                    <span className="leading-relaxed block text-slate-300">{scannerError}</span>
+                    <span className="font-bold block text-red-800">Falha no Scanner</span>
+                    <span className="leading-relaxed block text-red-700">{scannerError}</span>
                     <button
                       onClick={startCamera}
-                      className="mt-2 text-[10px] font-bold bg-red-900/40 text-red-300 px-2 py-1 rounded border border-red-800/30 hover:bg-red-900/60"
+                      className="mt-2 text-xs font-medium bg-white text-red-700 px-2 py-1 rounded-md border border-red-300 hover:bg-red-50 cursor-pointer"
                     >
                       Tentar Novamente
                     </button>
@@ -388,43 +388,43 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
           {/* MODO B: CARREGANDO DETALHES DO ATIVO */}
           {loadingAsset && (
             <div className="flex flex-col items-center justify-center py-20 space-y-3">
-              <Loader2 className="animate-spin text-emerald-500" size={36} />
-              <p className="text-xs text-slate-400 font-medium tracking-wide">A carregar detalhes de campo do ativo...</p>
+              <Loader2 className="animate-spin text-blue-700" size={36} />
+              <p className="text-xs text-slate-500 font-medium tracking-wide">A carregar detalhes de campo do ativo...</p>
             </div>
           )}
 
           {/* MODO C: PAINEL DE AÇÃO RÁPIDA DE CAMPO (Ativo Identificado!) */}
           {activeAsset && (
-            <div className="space-y-5 animate-slide-up">
+            <div className="space-y-4 animate-slide-up">
               
               {/* Header de Identificação do Ativo */}
-              <div className="p-4 bg-slate-950/40 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-md flex items-start justify-between gap-3">
                 <div className="space-y-1">
-                  <span className="font-mono font-bold text-sm text-emerald-400 block tracking-wider uppercase">
+                  <span className="font-mono font-bold text-xs text-blue-700 block tracking-wider uppercase">
                     {activeAsset.code_tag || activeAsset.codeTag}
                   </span>
-                  <h3 className="text-white font-bold text-base leading-tight">{activeAsset.name}</h3>
-                  <span className="text-xs text-slate-400 block mt-0.5">{activeAsset.brand} {activeAsset.model}</span>
+                  <h3 className="text-slate-900 font-bold text-base leading-tight">{activeAsset.name}</h3>
+                  <span className="text-xs text-slate-600 block mt-0.5">{activeAsset.brand} {activeAsset.model}</span>
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
-                  <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold ${
+                  <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-medium border ${
                     level === 'A' 
-                      ? 'bg-red-950/40 text-red-400 border border-red-500/20' 
+                      ? 'bg-red-50 text-red-700 border-red-200' 
                       : level === 'B' 
-                      ? 'bg-amber-950/40 text-amber-400 border border-amber-500/20' 
-                      : 'bg-blue-950/40 text-blue-400 border border-blue-500/20'
+                      ? 'bg-amber-50 text-amber-700 border-amber-200' 
+                      : 'bg-blue-50 text-blue-700 border-blue-200'
                   }`}>
                     Criticidade {level}
                   </span>
-                  <span className="text-[10px] text-slate-500 font-semibold uppercase">
+                  <span className="text-[10px] text-slate-500 font-medium uppercase">
                     {isVehicle ? "Frota de Campo" : "Equipamento Industrial"}
                   </span>
                 </div>
               </div>
 
               {/* Detalhes Técnicos e de Conformidade */}
-              <div className="bg-slate-950/20 border border-slate-850 p-4 rounded-xl space-y-3">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-850 pb-1.5">
+              <div className="bg-white border border-slate-200 p-4 rounded-md space-y-3">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide block border-b border-slate-200 pb-2">
                   Ficha Operacional & Conformidade
                 </span>
                 
@@ -432,17 +432,17 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
                   /* INFORMAÇÕES DE VIATURA */
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div>
-                      <span className="text-slate-500 block uppercase text-[10px]">Matrícula</span>
-                      <span className="text-slate-200 font-mono font-bold">{activeAsset.license_plate || activeAsset.licensePlate || '---'}</span>
+                      <span className="text-slate-500 block uppercase text-[10px] font-semibold">Matrícula</span>
+                      <span className="text-slate-900 font-mono font-bold">{activeAsset.license_plate || activeAsset.licensePlate || '---'}</span>
                     </div>
                     <div>
-                      <span className="text-slate-500 block uppercase text-[10px]">Odómetro Atual</span>
-                      <span className="text-slate-200 font-bold">{(activeAsset.current_meter ?? activeAsset.currentMeter ?? 0).toLocaleString('pt-MZ')} km</span>
+                      <span className="text-slate-500 block uppercase text-[10px] font-semibold">Odómetro Atual</span>
+                      <span className="text-slate-900 font-bold">{(activeAsset.current_meter ?? activeAsset.currentMeter ?? 0).toLocaleString('pt-MZ')} km</span>
                     </div>
                     <div className="col-span-2">
-                      <span className="text-slate-500 block uppercase text-[10px]">Validade Inspeção INATRO</span>
-                      <span className="text-slate-200 font-semibold flex items-center gap-1 mt-0.5">
-                        <Clock size={12} className="text-emerald-500" />
+                      <span className="text-slate-500 block uppercase text-[10px] font-semibold">Validade Inspeção INATRO</span>
+                      <span className="text-slate-900 font-medium flex items-center gap-1 mt-0.5">
+                        <Clock size={12} className="text-blue-700" />
                         {activeAsset.inatro_inspection_expiry || activeAsset.inatroInspectionExpiry 
                           ? new Date(activeAsset.inatro_inspection_expiry || activeAsset.inatroInspectionExpiry || '').toLocaleDateString('pt-MZ') 
                           : 'Pendente de Certificado'}
@@ -453,23 +453,23 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
                   /* INFORMAÇÕES DE MAQUINARIA/GERADOR */
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div>
-                      <span className="text-slate-500 block uppercase text-[10px]">Setor da Planta</span>
-                      <span className="text-slate-200 font-semibold">{activeAsset.plant_sector || activeAsset.plantSector || 'Não especificado'}</span>
+                      <span className="text-slate-500 block uppercase text-[10px] font-semibold">Setor da Planta</span>
+                      <span className="text-slate-900 font-medium">{activeAsset.plant_sector || activeAsset.plantSector || 'Não especificado'}</span>
                     </div>
                     <div>
-                      <span className="text-slate-500 block uppercase text-[10px]">Horímetro Atual</span>
-                      <span className="text-slate-200 font-bold">{(activeAsset.current_meter ?? activeAsset.currentMeter ?? 0).toLocaleString('pt-MZ')} horas</span>
+                      <span className="text-slate-500 block uppercase text-[10px] font-semibold">Horímetro Atual</span>
+                      <span className="text-slate-900 font-bold">{(activeAsset.current_meter ?? activeAsset.currentMeter ?? 0).toLocaleString('pt-MZ')} horas</span>
                     </div>
                     <div>
-                      <span className="text-slate-500 block uppercase text-[10px]">Tensão / Potência</span>
-                      <span className="text-slate-200 font-mono font-bold">
+                      <span className="text-slate-500 block uppercase text-[10px] font-semibold">Tensão / Potência</span>
+                      <span className="text-slate-900 font-mono font-bold">
                         {activeAsset.voltage_specs || activeAsset.voltageSpecs || '---'} / {activeAsset.power_kw_kva || activeAsset.powerKwKva || '---'} kW
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-500 block uppercase text-[10px]">Calibração INNOQ</span>
-                      <span className="text-slate-200 font-semibold flex items-center gap-1">
-                        <Clock size={12} className="text-emerald-500" />
+                      <span className="text-slate-500 block uppercase text-[10px] font-semibold">Calibração INNOQ</span>
+                      <span className="text-slate-900 font-medium flex items-center gap-1">
+                        <Clock size={12} className="text-blue-700" />
                         {activeAsset.innoq_calibration_expiry || activeAsset.innoqCalibrationExpiry 
                           ? new Date(activeAsset.innoq_calibration_expiry || activeAsset.innoqCalibrationExpiry || '').toLocaleDateString('pt-MZ') 
                           : 'Sem calibração ativa'}
@@ -480,9 +480,9 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
               </div>
 
               {/* AÇÃO A: ATUALIZAR CONTADOR DE CAMPO */}
-              <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block mb-3 flex items-center gap-1.5">
-                  <Gauge size={14} />
+              <div className="bg-white border border-slate-200 p-4 rounded-md">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-3 flex items-center gap-1.5">
+                  <Gauge size={14} className="text-blue-700" />
                   <span>Atualizar Contador de Campo</span>
                 </span>
                 
@@ -494,7 +494,7 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
                       min={activeAsset.current_meter ?? activeAsset.currentMeter ?? 0}
                       value={meterValue}
                       onChange={(e) => setMeterValue(e.target.value !== '' ? Number(e.target.value) : '')}
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white font-mono"
+                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none"
                     />
                     <span className="absolute right-3.5 top-2 text-[10px] font-bold text-slate-500">
                       {isVehicle ? "KM" : "HORAS"}
@@ -504,7 +504,7 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
                   <button
                     type="submit"
                     disabled={submittingMeter || meterValue === '' || Number(meterValue) < (activeAsset.current_meter ?? activeAsset.currentMeter ?? 0)}
-                    className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold py-2 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 shrink-0 h-9"
+                    className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 shrink-0 h-9"
                   >
                     {submittingMeter ? (
                       <Loader2 size={13} className="animate-spin" />
@@ -515,7 +515,7 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
                 </form>
 
                 {meterSuccess && (
-                  <div className="mt-2 text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                  <div className="mt-2 text-xs text-emerald-700 font-medium flex items-center gap-1">
                     <CheckCircle2 size={12} />
                     <span>Contador atualizado e sincronizado com sucesso!</span>
                   </div>
@@ -526,31 +526,31 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
               </div>
 
               {/* AÇÃO B: CONSULTAR DOCUMENTAÇÃO DE CAMPO */}
-              <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-3 flex items-center gap-1.5">
-                  <FileText size={14} className="text-slate-400" />
+              <div className="bg-white border border-slate-200 p-4 rounded-md">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-3 flex items-center gap-1.5">
+                  <FileText size={14} className="text-blue-700" />
                   <span>Documentos e Certificados do Ativo ({documents.length})</span>
                 </span>
 
                 {loadingDocs ? (
                   <div className="text-center py-4">
-                    <Loader2 size={18} className="animate-spin text-slate-500 mx-auto" />
+                    <Loader2 size={18} className="animate-spin text-slate-400 mx-auto" />
                   </div>
                 ) : documents.length === 0 ? (
-                  <p className="text-[11px] text-slate-500 italic">Nenhum certificado ou ficha anexada.</p>
+                  <p className="text-xs text-slate-500 italic">Nenhum certificado ou ficha anexada.</p>
                 ) : (
-                  <div className="space-y-2 max-h-36 overflow-y-auto scrollbar-thin pr-1">
+                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
                     {documents.map((doc) => (
-                      <div key={doc.id} className="p-2 bg-slate-950/40 border border-slate-850 rounded-lg flex items-center justify-between text-xs hover:border-slate-700 transition-colors">
+                      <div key={doc.id} className="p-2 bg-slate-50 border border-slate-200 rounded-md flex items-center justify-between text-xs hover:border-slate-300 transition-colors">
                         <div className="flex items-center gap-2 truncate mr-3">
-                          <File size={14} className="text-emerald-500 shrink-0" />
-                          <span className="font-semibold text-slate-300 truncate" title={doc.title}>{doc.title}</span>
+                          <File size={14} className="text-blue-700 shrink-0" />
+                          <span className="font-medium text-slate-900 truncate" title={doc.title}>{doc.title}</span>
                         </div>
                         <a
                           href={doc.signed_url || doc.signedUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[10px] text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-0.5 shrink-0"
+                          className="text-xs text-blue-700 hover:text-blue-800 hover:underline flex items-center gap-0.5 shrink-0"
                         >
                           <Eye size={12} />
                           <span>Abrir</span>
@@ -562,63 +562,63 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
               </div>
 
               {/* AÇÃO C: REPORTAR ANOMALIA / AVARIA */}
-              <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+              <div className="bg-white border border-slate-200 p-4 rounded-md">
                 {!reportIssue ? (
                   <button
                     onClick={() => setReportIssue(true)}
-                    className="w-full py-2.5 bg-red-950/40 hover:bg-red-950/70 border border-red-900/30 text-red-400 hover:text-red-300 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    className="w-full py-2 bg-white hover:bg-red-50 border border-red-300 text-red-700 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Activity size={14} />
                     <span>Reportar Anomalia / Avaria na Viatura</span>
                   </button>
                 ) : (
                   <form onSubmit={handleReportIssueSubmit} className="space-y-3 animate-fade-in">
-                    <span className="text-xs font-bold text-red-400 uppercase tracking-wider block border-b border-slate-850 pb-1.5 mb-2">
+                    <span className="text-xs font-bold text-red-700 uppercase tracking-wide block border-b border-slate-200 pb-2 mb-2">
                       Nova Ordem de Serviço (Avaria Corretiva)
                     </span>
                     
                     <div>
-                      <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Título da Avaria / Intervenção *</label>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">Título da Avaria / Intervenção *</label>
                       <input
                         type="text"
                         required
                         value={issueTitle}
                         onChange={(e) => setIssueTitle(e.target.value)}
                         placeholder="ex: Fuga de óleo no retentor ou motor com ruído"
-                        className="w-full bg-slate-950 border border-slate-850 focus:border-red-500/50 rounded-lg px-3 py-1.5 text-xs text-white"
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Descrição detalhada do problema *</label>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">Descrição detalhada do problema *</label>
                       <textarea
                         required
                         rows={2}
                         value={issueDescription}
                         onChange={(e) => setReportIssueDescription(e.target.value)}
                         placeholder="Descreva minuciosamente o problema técnico encontrado..."
-                        className="w-full bg-slate-950 border border-slate-850 focus:border-red-500/50 rounded-lg p-2.5 text-xs text-white"
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md p-2.5 text-xs text-slate-900 focus:outline-none"
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Contador no Momento ({isVehicle ? 'km' : 'horas'}) *</label>
+                        <label className="block text-xs font-medium text-slate-700 mb-1">Contador no Momento ({isVehicle ? 'km' : 'horas'}) *</label>
                         <input
                           type="number"
                           required
                           min={activeAsset.current_meter ?? activeAsset.currentMeter ?? 0}
                           value={issueMeterAtService}
                           onChange={(e) => setIssueMeterAtService(e.target.value !== '' ? Number(e.target.value) : '')}
-                          className="w-full bg-slate-950 border border-slate-850 focus:border-red-500/50 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                          className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-2.5 py-1.5 text-xs text-slate-900 font-mono focus:outline-none"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Prioridade Sugerida *</label>
+                        <label className="block text-xs font-medium text-slate-700 mb-1">Prioridade Sugerida *</label>
                         <select
                           value={issuePriority}
                           onChange={(e) => setIssuePriority(e.target.value as any)}
-                          className="w-full bg-slate-950 border border-slate-850 focus:border-red-500/50 rounded-lg px-2 py-1.5 text-xs text-white"
+                          className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-2 py-1.5 text-xs text-slate-900 focus:outline-none cursor-pointer"
                         >
                           <option value="low">Baixa</option>
                           <option value="medium">Média</option>
@@ -629,24 +629,24 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
                     </div>
                     
                     {issueSuccess && (
-                      <div className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 py-1">
+                      <div className="text-xs text-emerald-700 font-medium flex items-center gap-1 py-1">
                         <CheckCircle2 size={12} />
                         <span>Ordem de Manutenção Corretiva Aberta!</span>
                       </div>
                     )}
 
-                    <div className="flex justify-end gap-2 pt-1 border-t border-slate-850">
+                    <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
                       <button
                         type="button"
                         onClick={() => setReportIssue(false)}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-semibold rounded-lg"
+                        className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-md"
                       >
                         Cancelar
                       </button>
                       <button
                         type="submit"
                         disabled={submittingIssue || !issueTitle.trim() || !issueDescription.trim() || issueMeterAtService === ''}
-                        className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                        className="px-3 py-1.5 bg-red-700 hover:bg-red-800 text-white text-xs font-medium rounded-md flex items-center gap-1 cursor-pointer disabled:opacity-50"
                       >
                         {submittingIssue ? (
                           <Loader2 size={13} className="animate-spin" />
@@ -666,7 +666,7 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
                   setDocuments([]);
                   startCamera();
                 }}
-                className="w-full py-2 border border-slate-800 hover:border-slate-700 bg-slate-950/20 text-xs text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+                className="w-full py-2 border border-slate-300 hover:bg-slate-50 bg-white text-xs font-medium text-slate-700 rounded-md transition-colors cursor-pointer"
               >
                 Escanear Outro Equipamento
               </button>

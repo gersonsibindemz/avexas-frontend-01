@@ -214,11 +214,11 @@ export const FuelPage: React.FC = () => {
       
       {/* Toast de Sucesso */}
       {successMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl shadow-2xl max-w-md flex gap-3 items-start animate-bounce">
-          <CheckCircle2 className="text-emerald-500 shrink-0 mt-0.5" size={18} />
+        <div className="fixed bottom-6 right-6 z-50 bg-white border border-slate-200 text-slate-900 p-4 rounded-md shadow-lg max-w-md flex gap-3 items-start animate-fade-in">
+          <CheckCircle2 className="text-emerald-700 shrink-0 mt-0.5" size={18} />
           <div>
-            <span className="font-bold block text-sm text-white">Consumo Atualizado</span>
-            <span className="text-xs text-slate-300">{successMessage}</span>
+            <span className="font-bold block text-sm text-slate-900">Consumo Atualizado</span>
+            <span className="text-xs text-slate-600">{successMessage}</span>
           </div>
         </div>
       )}
@@ -226,11 +226,11 @@ export const FuelPage: React.FC = () => {
       {/* Cabeçalho */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <span>Gestão de Combustível</span>
-            {loading && <Loader2 size={18} className="animate-spin text-slate-500" />}
+            {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
-          <p className="text-slate-400 text-xs mt-1">
+          <p className="text-slate-500 text-xs mt-1">
             Controlo analítico de abastecimentos, verificação de recibos e eficiência energética da frota.
           </p>
         </div>
@@ -238,7 +238,7 @@ export const FuelPage: React.FC = () => {
           <button
             onClick={fetchFuelLogs}
             disabled={loading}
-            className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white rounded-lg transition-all cursor-pointer disabled:opacity-50"
+            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-colors cursor-pointer disabled:opacity-50"
             title="Recarregar histórico"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
@@ -248,7 +248,7 @@ export const FuelPage: React.FC = () => {
               fetchAssetsForDropdown();
               setIsModalOpen(true);
             }}
-            className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold py-2.5 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-md"
+            className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
           >
             <Plus size={16} />
             <span>Registar Abastecimento</span>
@@ -258,15 +258,15 @@ export const FuelPage: React.FC = () => {
 
       {/* Alerta de erro da API */}
       {error && (
-        <div className="p-4 bg-red-950/30 border border-red-500/20 text-red-400 text-xs rounded-xl flex gap-3 items-start">
-          <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md flex gap-3 items-start">
+          <AlertTriangle size={18} className="text-red-600 shrink-0 mt-0.5" />
           <div className="flex-1">
-            <span className="font-bold block text-red-300 mb-0.5">Erro no Histórico de Combustível</span>
-            <span className="leading-relaxed block text-slate-300">{error}</span>
+            <span className="font-bold block text-red-800 mb-0.5">Erro no Histórico de Combustível</span>
+            <span className="leading-relaxed block text-red-700">{error}</span>
           </div>
           <button 
             onClick={fetchFuelLogs}
-            className="text-[11px] font-bold bg-red-900/30 hover:bg-red-900/50 px-2.5 py-1 rounded border border-red-800/40 transition-colors"
+            className="text-xs font-medium bg-white text-red-700 hover:bg-red-50 px-2.5 py-1 rounded-md border border-red-300 transition-colors"
           >
             Tentar Novamente
           </button>
@@ -275,56 +275,56 @@ export const FuelPage: React.FC = () => {
 
       {/* Grid de Estatísticas Rápidas baseadas nos filtros */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-slate-900 border border-slate-800/80 p-5 rounded-xl">
-          <span className="text-xs text-slate-400 block font-semibold uppercase tracking-wider mb-2">Preço de Referência em Moçambique</span>
-          <div className="flex justify-between items-center py-2 border-b border-slate-800/40">
-            <span className="text-slate-300 text-xs">Gasóleo (Diesel) / Litro</span>
-            <span className="font-mono font-bold text-white text-sm">{formatMZN(75.00)}</span>
+        <div className="bg-white border border-slate-200 p-5 rounded-md shadow-none">
+          <span className="text-xs text-slate-500 block font-semibold uppercase tracking-wider mb-2">Preço de Referência em Moçambique</span>
+          <div className="flex justify-between items-center py-2 border-b border-slate-100">
+            <span className="text-slate-600 text-xs">Gasóleo (Diesel) / Litro</span>
+            <span className="font-mono font-bold text-slate-900 text-sm">{formatMZN(75.00)}</span>
           </div>
           <div className="flex justify-between items-center py-2">
-            <span className="text-slate-300 text-xs">Gasolina / Litro</span>
-            <span className="font-mono font-bold text-white text-sm">{formatMZN(86.25)}</span>
+            <span className="text-slate-600 text-xs">Gasolina / Litro</span>
+            <span className="font-mono font-bold text-slate-900 text-sm">{formatMZN(86.25)}</span>
           </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800/80 p-5 rounded-xl flex flex-col justify-between">
+        <div className="bg-white border border-slate-200 p-5 rounded-md shadow-none flex flex-col justify-between">
           <div>
-            <span className="text-xs text-slate-400 block font-semibold uppercase tracking-wider mb-1">Combustível Total Adquirido</span>
-            <span className="text-2xl font-bold text-emerald-400 font-mono tracking-tight block mt-1">
+            <span className="text-xs text-slate-500 block font-semibold uppercase tracking-wider mb-1">Combustível Total Adquirido</span>
+            <span className="text-2xl font-bold text-slate-900 font-mono tracking-tight block mt-1">
               {loading ? '--- L' : formatLiters(totalLiters)}
             </span>
           </div>
-          <span className="text-[10px] text-slate-500 block mt-2">Volume cumulativo dos registros filtrados</span>
+          <span className="text-xs text-slate-500 block mt-2">Volume cumulativo dos registros filtrados</span>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800/80 p-5 rounded-xl flex flex-col justify-between">
+        <div className="bg-white border border-slate-200 p-5 rounded-md shadow-none flex flex-col justify-between">
           <div>
-            <span className="text-xs text-slate-400 block font-semibold uppercase tracking-wider mb-1">Investimento Acumulado</span>
-            <span className="text-2xl font-bold text-blue-400 font-mono tracking-tight block mt-1">
+            <span className="text-xs text-slate-500 block font-semibold uppercase tracking-wider mb-1">Investimento Acumulado</span>
+            <span className="text-2xl font-bold text-blue-700 font-mono tracking-tight block mt-1">
               {loading ? '--- MZN' : formatMZN(totalCost)}
             </span>
           </div>
-          <span className="text-[10px] text-slate-500 block mt-2">Custo total dos abastecimentos faturados</span>
+          <span className="text-xs text-slate-500 block mt-2">Custo total dos abastecimentos faturados</span>
         </div>
       </div>
 
       {/* Caixa de Pesquisa e Filtros */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row gap-3">
+      <div className="bg-white border border-slate-200 rounded-md p-4 flex flex-col sm:flex-row gap-3 shadow-none">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3.5 top-3 text-slate-500" />
+          <Search size={14} className="absolute left-3.5 top-3 text-slate-400" />
           <input
             type="text"
             placeholder="Filtrar por matrícula, nome, posto, ou nº de recibo..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none"
+            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-9 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none"
           />
         </div>
         <div>
           <select
             value={fuelTypeFilter}
             onChange={(e) => setFuelTypeFilter(e.target.value)}
-            className="bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none"
+            className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-700 focus:outline-none cursor-pointer"
           >
             <option value="all">Qualquer Tipo</option>
             <option value="diesel">Diesel (Gasóleo)</option>
@@ -334,25 +334,25 @@ export const FuelPage: React.FC = () => {
       </div>
 
       {/* Tabela de Abastecimentos */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
         {loading ? (
           /* SKELETON */
           <div className="p-8 space-y-4">
-            <div className="h-4 bg-slate-800 rounded w-1/4 animate-pulse"></div>
+            <div className="h-4 bg-slate-100 rounded w-1/4 animate-pulse"></div>
             {[1, 2, 3].map((n) => (
               <div key={n} className="flex gap-4 items-center py-2.5">
-                <div className="h-6 bg-slate-800 rounded w-12 animate-pulse"></div>
-                <div className="h-6 bg-slate-800 rounded flex-1 animate-pulse"></div>
-                <div className="h-6 bg-slate-800 rounded w-24 animate-pulse"></div>
+                <div className="h-6 bg-slate-100 rounded w-12 animate-pulse"></div>
+                <div className="h-6 bg-slate-100 rounded flex-1 animate-pulse"></div>
+                <div className="h-6 bg-slate-100 rounded w-24 animate-pulse"></div>
               </div>
             ))}
           </div>
         ) : filteredLogs.length === 0 ? (
           <div className="text-center py-16 px-4">
-            <div className="w-12 h-12 bg-slate-800 text-slate-500 border border-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-12 h-12 bg-slate-100 text-slate-500 border border-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
               <Fuel size={20} />
             </div>
-            <h3 className="text-sm font-semibold text-slate-200">Nenhum Registo de Combustível</h3>
+            <h3 className="text-sm font-semibold text-slate-900">Nenhum Registo de Combustível</h3>
             <p className="text-slate-500 text-xs mt-1 max-w-sm mx-auto">
               Não existem abastecimentos correspondentes aos filtros aplicados na base de dados real.
             </p>
@@ -361,19 +361,19 @@ export const FuelPage: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-400 text-xs uppercase tracking-wider bg-slate-950/40">
-                  <th className="py-3.5 px-4 font-semibold">Data Abastecimento</th>
-                  <th className="py-3.5 px-4 font-semibold">Viatura / Ativo</th>
-                  <th className="py-3.5 px-4 font-semibold">Tipo</th>
-                  <th className="py-3.5 px-4 font-semibold text-right">Litragem</th>
-                  <th className="py-3.5 px-4 font-semibold text-right">Preço / L</th>
-                  <th className="py-3.5 px-4 font-semibold text-right">Custo Abastecido</th>
-                  <th className="py-3.5 px-4 font-semibold text-right">Odómetro</th>
-                  <th className="py-3.5 px-4 font-semibold">Posto</th>
-                  <th className="py-3.5 px-4 font-semibold">Fatura / Recibo</th>
+                <tr className="border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider bg-slate-50">
+                  <th className="py-3 px-4 font-semibold">Data Abastecimento</th>
+                  <th className="py-3 px-4 font-semibold">Viatura / Ativo</th>
+                  <th className="py-3 px-4 font-semibold">Tipo</th>
+                  <th className="py-3 px-4 font-semibold text-right">Litragem</th>
+                  <th className="py-3 px-4 font-semibold text-right">Preço / L</th>
+                  <th className="py-3 px-4 font-semibold text-right">Custo Abastecido</th>
+                  <th className="py-3 px-4 font-semibold text-right">Odómetro</th>
+                  <th className="py-3 px-4 font-semibold">Posto</th>
+                  <th className="py-3 px-4 font-semibold">Fatura / Recibo</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-slate-100">
                 {filteredLogs.map((log) => {
                   const matchingAsset = assets.find(a => a.id === log.asset_id || a.id === log.assetId);
                   
@@ -394,35 +394,35 @@ export const FuelPage: React.FC = () => {
                   const receipt = log.receipt_doc_ref || log.receiptDocRef || 'Sem ref';
 
                   return (
-                    <tr key={log.id} className="hover:bg-slate-800/20 transition-colors duration-150">
-                      <td className="py-3.5 px-4 text-xs text-slate-400">
+                    <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 text-xs text-slate-500">
                         {loggedDate ? new Date(loggedDate).toLocaleString('pt-MZ') : '---'}
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td className="py-3 px-4">
                         <div className="flex flex-col">
-                          <span className="font-mono text-emerald-400 text-xs font-bold">{assetCode}</span>
-                          <span className="text-[11px] text-slate-400">{assetLabel}</span>
+                          <span className="font-mono text-blue-700 text-xs font-bold">{assetCode}</span>
+                          <span className="text-xs text-slate-500">{assetLabel}</span>
                         </div>
                       </td>
-                      <td className="py-3.5 px-4 text-xs font-semibold text-slate-300">
+                      <td className="py-3 px-4 text-xs font-medium text-slate-700">
                         {fuelKind}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono text-xs text-slate-300">
+                      <td className="py-3 px-4 text-right font-mono text-xs text-slate-700">
                         {formatLiters(logLiters)}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono text-xs text-slate-400">
+                      <td className="py-3 px-4 text-right font-mono text-xs text-slate-500">
                         {formatMZN(price)}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono text-xs text-emerald-400 font-bold">
+                      <td className="py-3 px-4 text-right font-mono text-xs text-blue-700 font-bold">
                         {formatMZN(total)}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono text-xs text-slate-300 tabular-nums">
+                      <td className="py-3 px-4 text-right font-mono text-xs text-slate-700 tabular-nums">
                         {odometer.toLocaleString('pt-MZ')} km
                       </td>
-                      <td className="py-3.5 px-4 text-xs font-medium text-slate-300">
+                      <td className="py-3 px-4 text-xs text-slate-700">
                         {station}
                       </td>
-                      <td className="py-3.5 px-4 text-mono text-xs text-slate-400">
+                      <td className="py-3 px-4 text-mono text-xs text-slate-500">
                         {receipt}
                       </td>
                     </tr>
@@ -436,17 +436,17 @@ export const FuelPage: React.FC = () => {
 
       {/* MODAL DE CADASTRO: REGISTAR ABASTECIMENTO */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-lg rounded-md shadow-xl overflow-hidden animate-slide-up">
             
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
+            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white">
               <div className="flex items-center gap-2">
-                <Fuel className="text-emerald-500" size={18} />
-                <h2 className="text-base font-bold text-white">Registar Abastecimento</h2>
+                <Fuel className="text-blue-700" size={18} />
+                <h2 className="text-base font-bold text-slate-900">Registar Abastecimento</h2>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -456,7 +456,7 @@ export const FuelPage: React.FC = () => {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="fuelAsset" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                  <label htmlFor="fuelAsset" className="block text-xs font-medium text-slate-700 mb-1">
                     Ativo Abastecido *
                   </label>
                   <select
@@ -464,7 +464,7 @@ export const FuelPage: React.FC = () => {
                     required
                     value={selectedAssetId}
                     onChange={(e) => setSelectedAssetId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
                   >
                     {assets.length === 0 ? (
                       <option value="">A carregar ativos...</option>
@@ -478,14 +478,14 @@ export const FuelPage: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="fuelKindSelect" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                  <label htmlFor="fuelKindSelect" className="block text-xs font-medium text-slate-700 mb-1">
                     Tipo de Combustível *
                   </label>
                   <select
                     id="fuelKindSelect"
                     value={fuelType}
                     onChange={(e) => setFuelType(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
                   >
                     <option value="Diesel">Diesel (Gasóleo)</option>
                     <option value="Gasolina">Gasolina</option>
@@ -495,7 +495,7 @@ export const FuelPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="litersInput" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                  <label htmlFor="litersInput" className="block text-xs font-medium text-slate-700 mb-1">
                     Litros Abastecidos *
                   </label>
                   <div className="relative">
@@ -508,13 +508,13 @@ export const FuelPage: React.FC = () => {
                       value={liters}
                       onChange={(e) => setLiters(e.target.value !== '' ? Number(e.target.value) : '')}
                       placeholder="ex: 120,50"
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3.5 py-2 text-xs text-white font-mono"
+                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3.5 py-2 text-xs text-slate-900 font-mono focus:outline-none"
                     />
                     <span className="absolute right-3 top-2 text-[11px] font-bold text-slate-500">LITROS</span>
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="priceInput" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                  <label htmlFor="priceInput" className="block text-xs font-medium text-slate-700 mb-1">
                     Preço por Litro (MZN) *
                   </label>
                   <div className="relative">
@@ -527,7 +527,7 @@ export const FuelPage: React.FC = () => {
                       value={pricePerLiterMzn}
                       onChange={(e) => setPricePerLiterMzn(e.target.value !== '' ? Number(e.target.value) : '')}
                       placeholder="ex: 75,00"
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3.5 py-2 text-xs text-white font-mono"
+                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3.5 py-2 text-xs text-slate-900 font-mono focus:outline-none"
                     />
                     <span className="absolute right-3 top-2 text-[11px] font-bold text-slate-500">MZN</span>
                   </div>
@@ -536,7 +536,7 @@ export const FuelPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="meterInput" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                  <label htmlFor="meterInput" className="block text-xs font-medium text-slate-700 mb-1">
                     Odómetro Atual (km) *
                   </label>
                   <input
@@ -547,11 +547,11 @@ export const FuelPage: React.FC = () => {
                     value={currentMeter}
                     onChange={(e) => setCurrentMeter(e.target.value !== '' ? Number(e.target.value) : '')}
                     placeholder="ex: 142500"
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white font-mono"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label htmlFor="station" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                  <label htmlFor="station" className="block text-xs font-medium text-slate-700 mb-1">
                     Posto de Abastecimento *
                   </label>
                   <input
@@ -561,13 +561,13 @@ export const FuelPage: React.FC = () => {
                     value={stationName}
                     onChange={(e) => setStationName(e.target.value)}
                     placeholder="ex: Petromoc Maputo"
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="receipt" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                <label htmlFor="receipt" className="block text-xs font-medium text-slate-700 mb-1">
                   Referência do Recibo / Fatura *
                 </label>
                 <input
@@ -577,37 +577,37 @@ export const FuelPage: React.FC = () => {
                   value={receiptDocRef}
                   onChange={(e) => setReceiptDocRef(e.target.value)}
                   placeholder="ex: FAT-2026/8942"
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white font-mono"
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none"
                 />
               </div>
 
               {/* Pré-visualização do Custo Estimado */}
               {liters && pricePerLiterMzn && (
-                <div className="p-3 bg-emerald-950/20 border border-emerald-500/20 rounded-lg flex items-center justify-between text-xs">
-                  <span className="font-semibold text-emerald-400 flex items-center gap-1">
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center justify-between text-xs">
+                  <span className="font-medium text-blue-700 flex items-center gap-1">
                     <DollarSign size={14} />
                     Custo Total Calculado:
                   </span>
-                  <span className="font-mono font-bold text-white text-sm">
+                  <span className="font-mono font-bold text-slate-900 text-sm">
                     {formatMZN(Number(liters) * Number(pricePerLiterMzn))}
                   </span>
                 </div>
               )}
 
               {/* Botões */}
-              <div className="flex justify-end gap-3 border-t border-slate-800 pt-5 mt-2">
+              <div className="flex justify-end gap-3 border-t border-slate-200 pt-4 mt-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   disabled={submitting}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/40 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                  className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md text-xs font-medium transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {submitting ? (
                     <>

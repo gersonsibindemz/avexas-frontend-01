@@ -312,12 +312,12 @@ export const InventoryPage: React.FC = () => {
   // Apenas admins e supervisores podem aceder
   if (!isTenantAdmin && !isSupervisor) {
     return (
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center max-w-md mx-auto my-12 shadow-2xl">
-        <div className="w-16 h-16 bg-red-950/40 text-red-500 border border-red-800/30 rounded-full flex items-center justify-center mx-auto mb-4">
+      <div className="bg-white border border-slate-200 rounded-md p-8 text-center max-w-md mx-auto my-12 shadow-none">
+        <div className="w-16 h-16 bg-red-50 text-red-600 border border-red-200 rounded-full flex items-center justify-center mx-auto mb-4">
           <AlertTriangle size={32} />
         </div>
-        <h3 className="text-base font-bold text-slate-100">Acesso Restrito</h3>
-        <p className="text-slate-400 text-xs mt-2 leading-relaxed">
+        <h3 className="text-base font-bold text-slate-900">Acesso Restrito</h3>
+        <p className="text-slate-500 text-xs mt-2 leading-relaxed">
           O módulo de Inventário e Armazém é acessível apenas a Administradores da Empresa e Supervisores de Manutenção.
         </p>
       </div>
@@ -329,11 +329,11 @@ export const InventoryPage: React.FC = () => {
       
       {/* Toast de Sucesso */}
       {successMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl shadow-2xl max-w-md flex gap-3 items-start animate-bounce">
-          <CheckCircle2 className="text-emerald-500 shrink-0 mt-0.5" size={18} />
+        <div className="fixed bottom-6 right-6 z-50 bg-white border border-slate-200 text-slate-900 p-4 rounded-md shadow-lg max-w-md flex gap-3 items-start animate-bounce">
+          <CheckCircle2 className="text-blue-700 shrink-0 mt-0.5" size={18} />
           <div>
-            <span className="font-bold block text-sm text-white">Gestão de Peças</span>
-            <span className="text-xs text-slate-300">{successMessage}</span>
+            <span className="font-bold block text-sm text-slate-900">Gestão de Peças</span>
+            <span className="text-xs text-slate-600">{successMessage}</span>
           </div>
         </div>
       )}
@@ -341,11 +341,11 @@ export const InventoryPage: React.FC = () => {
       {/* Cabeçalho */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-in">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <span>Gestão de Inventário</span>
-            {loading && <Loader2 size={18} className="animate-spin text-slate-500" />}
+            {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
-          <p className="text-slate-400 text-xs mt-1">
+          <p className="text-slate-500 text-xs mt-1">
             Controle de stocks de peças sobressalentes, rastreabilidade de consumíveis e alertas de rotura em Moçambique.
           </p>
         </div>
@@ -353,7 +353,7 @@ export const InventoryPage: React.FC = () => {
           <button
             onClick={fetchInventory}
             disabled={loading}
-            className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white rounded-lg transition-all cursor-pointer"
+            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer"
             title="Recarregar"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
@@ -367,7 +367,7 @@ export const InventoryPage: React.FC = () => {
               }
               handleOpenStockModal(parts[0], 'input');
             }}
-            className="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold py-2.5 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <ArrowDownToLine size={15} />
             <span>Entrada de Material</span>
@@ -375,7 +375,7 @@ export const InventoryPage: React.FC = () => {
 
           <button
             onClick={handleOpenCreateModal}
-            className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold py-2.5 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-md"
+            className="bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
           >
             <Plus size={16} />
             <span>+ Nova Peça</span>
@@ -386,60 +386,57 @@ export const InventoryPage: React.FC = () => {
       {/* Indicadores Rápidos (Requisito 1.1) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-sm relative overflow-hidden">
-          <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-500/5 blur-2xl pointer-events-none"></div>
-          <div className="w-11 h-11 bg-emerald-650/10 text-emerald-400 border border-emerald-500/20 rounded-xl flex items-center justify-center shrink-0">
+        <div className="bg-white border border-slate-200 rounded-md p-4 flex items-center gap-4 shadow-none">
+          <div className="w-11 h-11 bg-slate-100 text-slate-700 border border-slate-200 rounded-md flex items-center justify-center shrink-0">
             <Package size={20} />
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Total de Itens</span>
-            <span className="text-xl font-extrabold text-white block mt-0.5">{totalItems}</span>
+            <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">Total de Itens</span>
+            <span className="text-xl font-bold text-slate-900 block mt-0.5">{totalItems}</span>
           </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-sm relative overflow-hidden">
-          <div className="absolute right-0 top-0 w-24 h-24 bg-red-500/5 blur-2xl pointer-events-none"></div>
-          <div className="w-11 h-11 bg-red-950/40 text-red-400 border border-red-500/20 rounded-xl flex items-center justify-center shrink-0">
-            <AlertTriangle size={20} className={lowStockItems > 0 ? "animate-pulse text-red-500" : ""} />
+        <div className="bg-white border border-slate-200 rounded-md p-4 flex items-center gap-4 shadow-none">
+          <div className="w-11 h-11 bg-red-50 text-red-700 border border-red-200 rounded-md flex items-center justify-center shrink-0">
+            <AlertTriangle size={20} className={lowStockItems > 0 ? "animate-pulse text-red-600" : ""} />
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Itens Abaixo do Mínimo (Alerta)</span>
-            <span className={`text-xl font-extrabold block mt-0.5 ${lowStockItems > 0 ? "text-red-400" : "text-white"}`}>
+            <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">Itens Abaixo do Mínimo (Alerta)</span>
+            <span className={`text-xl font-bold block mt-0.5 ${lowStockItems > 0 ? "text-red-700" : "text-slate-900"}`}>
               {lowStockItems}
             </span>
           </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-sm relative overflow-hidden">
-          <div className="absolute right-0 top-0 w-24 h-24 bg-blue-500/5 blur-2xl pointer-events-none"></div>
-          <div className="w-11 h-11 bg-blue-950/40 text-blue-400 border border-blue-500/20 rounded-xl flex items-center justify-center shrink-0">
+        <div className="bg-white border border-slate-200 rounded-md p-4 flex items-center gap-4 shadow-none">
+          <div className="w-11 h-11 bg-blue-50 text-blue-700 border border-blue-200 rounded-md flex items-center justify-center shrink-0">
             <TrendingUp size={20} />
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Valor Total Imobilizado</span>
-            <span className="text-lg font-extrabold text-emerald-400 block mt-0.5">{formatMZN(totalValue)}</span>
+            <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">Valor Total Imobilizado</span>
+            <span className="text-lg font-bold text-blue-700 block mt-0.5">{formatMZN(totalValue)}</span>
           </div>
         </div>
 
       </div>
 
       {/* Caixa de Busca e Filtros */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row gap-3">
+      <div className="bg-white border border-slate-200 rounded-md p-4 flex flex-col md:flex-row gap-3 shadow-none">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3.5 top-3.5 text-slate-500" />
+          <Search size={14} className="absolute left-3.5 top-3.5 text-slate-400" />
           <input
             type="text"
             placeholder="Pesquisar por OEM/Referência, nome da peça ou localização no armazém..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none"
+            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-9 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none"
           />
         </div>
         <div className="flex gap-2">
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:ring-0"
+            className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-700 focus:outline-none"
           >
             <option value="all">Todas as Categorias</option>
             <option value="mechanical">Mecânica</option>
@@ -453,7 +450,7 @@ export const InventoryPage: React.FC = () => {
           <select
             value={stockStatusFilter}
             onChange={(e) => setStockStatusFilter(e.target.value)}
-            className="bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:ring-0"
+            className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-700 focus:outline-none"
           >
             <option value="all">Todos os Stocks</option>
             <option value="low">Abaixo do Mínimo</option>
@@ -464,72 +461,72 @@ export const InventoryPage: React.FC = () => {
       </div>
 
       {/* Tabela de Peças (Requisito 1.2) */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
         {loading ? (
           <div className="p-8 space-y-4">
-            <div className="h-4 bg-slate-800 rounded w-1/4 animate-pulse"></div>
+            <div className="h-4 bg-slate-100 rounded w-1/4 animate-pulse"></div>
             {[1, 2, 3].map((n) => (
               <div key={n} className="flex gap-4 items-center py-2">
-                <div className="h-8 bg-slate-800 rounded flex-1 animate-pulse"></div>
+                <div className="h-8 bg-slate-100 rounded flex-1 animate-pulse"></div>
               </div>
             ))}
           </div>
         ) : filteredParts.length === 0 ? (
           <div className="text-center py-16 px-4">
-            <Package size={36} className="text-slate-650 mx-auto mb-4" />
-            <h3 className="text-sm font-semibold text-slate-250">Nenhuma peça encontrada</h3>
+            <Package size={36} className="text-slate-300 mx-auto mb-4" />
+            <h3 className="text-sm font-semibold text-slate-700">Nenhuma peça encontrada</h3>
             <p className="text-slate-500 text-xs mt-1">Registe novas peças sobressalentes para o armazém.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-450 uppercase text-[10px] bg-slate-950/40">
-                  <th className="py-3 px-4 font-bold">Referência / OEM</th>
-                  <th className="py-3 px-4 font-bold">Nome da Peça / Artigo</th>
-                  <th className="py-3 px-4 font-bold">Categoria</th>
-                  <th className="py-3 px-4 font-bold">Localização</th>
-                  <th className="py-3 px-4 font-bold text-center">Stock Atual</th>
-                  <th className="py-3 px-4 font-bold text-right">Custo Unitário</th>
-                  <th className="py-3 px-4 font-bold text-center">Ações Rápidas</th>
+                <tr className="border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] bg-slate-50">
+                  <th className="py-3 px-4">Referência / OEM</th>
+                  <th className="py-3 px-4">Nome da Peça / Artigo</th>
+                  <th className="py-3 px-4">Categoria</th>
+                  <th className="py-3 px-4">Localização</th>
+                  <th className="py-3 px-4 text-center">Stock Atual</th>
+                  <th className="py-3 px-4 text-right">Custo Unitário</th>
+                  <th className="py-3 px-4 text-center">Ações Rápidas</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/50">
+              <tbody className="divide-y divide-slate-100">
                 {filteredParts.map((part) => {
                   const currentStock = Number(part.current_stock ?? part.currentStock ?? 0);
                   const minStock = Number(part.min_stock ?? part.minStock ?? 0);
                   const isLowStock = currentStock <= minStock;
                   
                   return (
-                    <tr key={part.id} className="hover:bg-slate-850/30 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-bold text-emerald-400">
+                    <tr key={part.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4 font-mono font-semibold text-blue-700">
                         {part.oem_reference || part.oemReference}
                       </td>
                       <td className="py-3.5 px-4">
-                        <span className="text-white font-semibold block">{part.name}</span>
+                        <span className="text-slate-900 font-medium block">{part.name}</span>
                       </td>
-                      <td className="py-3.5 px-4 text-slate-400">
+                      <td className="py-3.5 px-4 text-slate-600">
                         {getCategoryLabel(part.category)}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-350">
+                      <td className="py-3.5 px-4 text-slate-600">
                         <div className="flex items-center gap-1.5">
-                          <MapPin size={11} className="text-slate-500" />
+                          <MapPin size={12} className="text-slate-400" />
                           <span>{part.warehouse_location || part.warehouseLocation || 'Geral'}</span>
                         </div>
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         {isLowStock ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-950/50 text-red-400 border border-red-500/25">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200">
                             <AlertTriangle size={10} className="animate-pulse" />
                             <span>{currentStock} un (Min: {minStock})</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/40 text-emerald-400 border border-emerald-500/10">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
                             {currentStock} un
                           </span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono text-white font-bold">
+                      <td className="py-3.5 px-4 text-right font-mono text-slate-900 font-bold">
                         {formatMZN(part.unit_cost ?? part.unitCost)}
                       </td>
                       <td className="py-3.5 px-4 text-center">
@@ -538,7 +535,7 @@ export const InventoryPage: React.FC = () => {
                           {/* Botão Ação Rápida: Repor Stock */}
                           <button
                             onClick={() => handleOpenStockModal(part, 'input')}
-                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-[10px] flex items-center gap-0.5 transition-all shadow cursor-pointer"
+                            className="px-2 py-1 bg-blue-700 hover:bg-blue-800 text-white font-medium rounded-md text-[10px] flex items-center gap-0.5 transition-all shadow-none cursor-pointer"
                             title="Entrada de Material / Repor"
                           >
                             <Plus size={10} />
@@ -547,7 +544,7 @@ export const InventoryPage: React.FC = () => {
 
                           <button
                             onClick={() => handleOpenStockModal(part, 'output')}
-                            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded text-[10px] flex items-center gap-0.5 transition-all border border-slate-700"
+                            className="px-2 py-1 bg-white hover:bg-slate-50 text-slate-700 font-medium rounded-md text-[10px] flex items-center gap-0.5 transition-all border border-slate-300"
                             title="Dar Saída para Serviço"
                           >
                             <span>Retirar</span>
@@ -555,10 +552,10 @@ export const InventoryPage: React.FC = () => {
 
                           <button
                             onClick={() => handleOpenEditModal(part)}
-                            className="p-1 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-all cursor-pointer"
+                            className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-all cursor-pointer"
                             title="Editar Peça"
                           >
-                            <Edit2 size={12} />
+                            <Edit2 size={13} />
                           </button>
 
                           <button
@@ -566,10 +563,10 @@ export const InventoryPage: React.FC = () => {
                               setDeletingPart(part);
                               setIsDeleteModalOpen(true);
                             }}
-                            className="p-1 text-slate-500 hover:text-red-400 rounded hover:bg-slate-800 transition-all cursor-pointer"
+                            className="p-1 text-slate-400 hover:text-red-700 hover:bg-red-50 rounded-md transition-all cursor-pointer"
                             title="Eliminar Artigo"
                           >
-                            <Trash2 size={12} />
+                            <Trash2 size={13} />
                           </button>
 
                         </div>
@@ -587,19 +584,19 @@ export const InventoryPage: React.FC = () => {
           MODAL: CADASTRAR OU EDITAR PEÇA
           ========================================== */}
       {isPartModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-md rounded-md shadow-xl overflow-hidden animate-slide-up">
             
-            <div className="p-4.5 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
               <div className="flex items-center gap-2">
-                <Package className="text-emerald-500" size={18} />
-                <h2 className="text-base font-bold text-white">
+                <Package className="text-blue-700" size={18} />
+                <h2 className="text-base font-bold text-slate-900">
                   {partModalMode === 'create' ? 'Cadastrar Peça de Reposição' : 'Editar Ficha da Peça'}
                 </h2>
               </div>
               <button
                 onClick={() => setIsPartModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
               >
                 <X size={18} />
               </button>
@@ -608,22 +605,22 @@ export const InventoryPage: React.FC = () => {
             <form onSubmit={handleSavePart} className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Referência / OEM *</label>
+                  <label className="block text-[10px] font-semibold text-slate-600 mb-1.5 uppercase">Referência / OEM *</label>
                   <input
                     type="text"
                     required
                     value={formOemReference}
                     onChange={(e) => setFormOemReference(e.target.value)}
                     placeholder="ex: FIL-LF16015"
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white uppercase focus:outline-none font-mono"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-1.5 text-xs text-slate-900 uppercase focus:outline-none font-mono placeholder-slate-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Categoria *</label>
+                  <label className="block text-[10px] font-semibold text-slate-600 mb-1.5 uppercase">Categoria *</label>
                   <select
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-2 py-1.5 text-xs text-white cursor-pointer focus:outline-none"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-2 py-1.5 text-xs text-slate-900 cursor-pointer focus:outline-none"
                   >
                     <option value="mechanical">Mecânica</option>
                     <option value="electrical">Elétrica</option>
@@ -637,32 +634,32 @@ export const InventoryPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Nome Completo da Peça / Descrição Técnica *</label>
+                <label className="block text-[10px] font-semibold text-slate-600 mb-1.5 uppercase">Nome Completo da Peça / Descrição Técnica *</label>
                 <input
                   type="text"
                   required
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="ex: Filtro de Combustível Secundário Cat"
-                  className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-none placeholder-slate-400"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Localização no Armazém *</label>
+                <label className="block text-[10px] font-semibold text-slate-600 mb-1.5 uppercase">Localização no Armazém *</label>
                 <input
                   type="text"
                   required
                   value={formWarehouseLocation}
                   onChange={(e) => setFormWarehouseLocation(e.target.value)}
                   placeholder="ex: Prateleira B2, Gaveta 3"
-                  className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-none placeholder-slate-400"
                 />
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Stock Inicial *</label>
+                  <label className="block text-[10px] font-semibold text-slate-600 mb-1.5 uppercase">Stock Inicial *</label>
                   <input
                     type="number"
                     required
@@ -671,11 +668,11 @@ export const InventoryPage: React.FC = () => {
                     value={formCurrentStock}
                     onChange={(e) => setFormCurrentStock(e.target.value !== '' ? Number(e.target.value) : '')}
                     placeholder="ex: 10"
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none font-mono"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-none font-mono placeholder-slate-400 disabled:bg-slate-50 disabled:text-slate-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Stock Mínimo *</label>
+                  <label className="block text-[10px] font-semibold text-slate-600 mb-1.5 uppercase">Stock Mínimo *</label>
                   <input
                     type="number"
                     required
@@ -683,11 +680,11 @@ export const InventoryPage: React.FC = () => {
                     value={formMinStock}
                     onChange={(e) => setFormMinStock(e.target.value !== '' ? Number(e.target.value) : '')}
                     placeholder="ex: 3"
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none font-mono"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-none font-mono placeholder-slate-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Custo Unitário *</label>
+                  <label className="block text-[10px] font-semibold text-slate-600 mb-1.5 uppercase">Custo Unitário *</label>
                   <input
                     type="number"
                     required
@@ -695,23 +692,23 @@ export const InventoryPage: React.FC = () => {
                     value={formUnitCost}
                     onChange={(e) => setFormUnitCost(e.target.value !== '' ? Number(e.target.value) : '')}
                     placeholder="MZN"
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none font-mono"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-none font-mono placeholder-slate-400"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setIsPartModalOpen(false)}
-                  className="px-4 py-2 bg-slate-850 hover:bg-slate-800 text-slate-400 text-xs font-semibold rounded-lg transition-colors"
+                  className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-md transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submittingPart}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1 disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium rounded-md transition-all flex items-center gap-1 disabled:opacity-50 shadow-none"
                 >
                   {submittingPart ? <Loader2 size={13} className="animate-spin" /> : <span>Guardar Peça</span>}
                 </button>
@@ -725,13 +722,13 @@ export const InventoryPage: React.FC = () => {
           MODAL: ENTRADA / SAÍDA RÁPIDA DE STOCK (REPOR STOCK)
           ========================================== */}
       {isStockModalOpen && selectedStockPart && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-sm rounded-md shadow-xl overflow-hidden animate-slide-up">
             
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
               <div className="flex items-center gap-2">
-                <ArrowRightLeft className="text-emerald-500 animate-pulse" size={18} />
-                <span className="font-bold text-sm text-white">
+                <ArrowRightLeft className="text-blue-700" size={18} />
+                <span className="font-bold text-sm text-slate-900">
                   {stockActionType === 'input' ? 'Entrada de Material' : 'Saída para Consumo'}
                 </span>
               </div>
@@ -740,30 +737,30 @@ export const InventoryPage: React.FC = () => {
                   setIsStockModalOpen(false);
                   setSelectedStockPart(null);
                 }}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
               >
                 <X size={18} />
               </button>
             </div>
 
             <form onSubmit={handleStockUpdateSubmit} className="p-5 space-y-4">
-              <div className="bg-slate-950/40 border border-slate-850 p-3 rounded-lg text-xs space-y-1 text-slate-450">
-                <div><span className="font-semibold text-slate-300">Peça:</span> <span className="text-white font-bold">{selectedStockPart.name}</span></div>
-                <div><span className="font-semibold text-slate-300">OEM / Ref:</span> <span className="font-mono text-emerald-400 font-bold">{selectedStockPart.oem_reference || selectedStockPart.oemReference}</span></div>
-                <div><span className="font-semibold text-slate-300">Localização:</span> <span className="text-slate-200">{selectedStockPart.warehouse_location || selectedStockPart.warehouseLocation}</span></div>
-                <div><span className="font-semibold text-slate-300">Stock Disponível:</span> <span className="text-slate-200 font-bold">{selectedStockPart.current_stock ?? selectedStockPart.currentStock ?? 0} un</span></div>
+              <div className="bg-slate-50 border border-slate-200 p-3 rounded-md text-xs space-y-1 text-slate-600">
+                <div><span className="font-semibold text-slate-700">Peça:</span> <span className="text-slate-900 font-bold">{selectedStockPart.name}</span></div>
+                <div><span className="font-semibold text-slate-700">OEM / Ref:</span> <span className="font-mono text-blue-700 font-bold">{selectedStockPart.oem_reference || selectedStockPart.oemReference}</span></div>
+                <div><span className="font-semibold text-slate-700">Localização:</span> <span className="text-slate-800">{selectedStockPart.warehouse_location || selectedStockPart.warehouseLocation}</span></div>
+                <div><span className="font-semibold text-slate-700">Stock Disponível:</span> <span className="text-slate-900 font-bold">{selectedStockPart.current_stock ?? selectedStockPart.currentStock ?? 0} un</span></div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Operação Técnica</label>
+                <label className="block text-[10px] font-semibold text-slate-600 mb-1.5 uppercase">Operação Técnica</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setStockActionType('input')}
-                    className={`py-2 text-xs font-bold rounded-lg border transition-all flex items-center justify-center gap-1.5 ${
+                    className={`py-2 text-xs font-medium rounded-md border transition-all flex items-center justify-center gap-1.5 ${
                       stockActionType === 'input'
-                        ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/30'
-                        : 'bg-slate-950 text-slate-500 border-slate-850 hover:text-white'
+                        ? 'bg-blue-50 text-blue-700 border-blue-300 font-semibold'
+                        : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
                     }`}
                   >
                     <ArrowDownToLine size={13} />
@@ -772,10 +769,10 @@ export const InventoryPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setStockActionType('output')}
-                    className={`py-2 text-xs font-bold rounded-lg border transition-all flex items-center justify-center gap-1.5 ${
+                    className={`py-2 text-xs font-medium rounded-md border transition-all flex items-center justify-center gap-1.5 ${
                       stockActionType === 'output'
-                        ? 'bg-red-950/40 text-red-400 border-red-500/30'
-                        : 'bg-slate-950 text-slate-500 border-slate-850 hover:text-white'
+                        ? 'bg-red-50 text-red-700 border-red-300 font-semibold'
+                        : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
                     }`}
                   >
                     <ArrowUpFromLine size={13} />
@@ -786,7 +783,7 @@ export const InventoryPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Quantidade *</label>
+                  <label className="block text-[10px] font-semibold text-slate-600 mb-1.5 uppercase">Quantidade *</label>
                   <input
                     type="number"
                     required
@@ -794,11 +791,11 @@ export const InventoryPage: React.FC = () => {
                     value={stockQuantity}
                     onChange={(e) => setStockQuantity(e.target.value !== '' ? Number(e.target.value) : '')}
                     placeholder="unidades"
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-none placeholder-slate-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Novo Custo / Uni (MZN) *</label>
+                  <label className="block text-[10px] font-semibold text-slate-600 mb-1.5 uppercase">Novo Custo / Uni (MZN) *</label>
                   <input
                     type="number"
                     required
@@ -806,27 +803,27 @@ export const InventoryPage: React.FC = () => {
                     value={stockUnitCost}
                     onChange={(e) => setStockUnitCost(e.target.value !== '' ? Number(e.target.value) : '')}
                     placeholder="MZN"
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-none placeholder-slate-400"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => {
                     setIsStockModalOpen(false);
                     setSelectedStockPart(null);
                   }}
-                  className="px-4 py-1.5 bg-slate-850 hover:bg-slate-800 text-slate-400 text-xs font-semibold rounded-lg"
+                  className="px-4 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-md"
                 >
                   Voltar
                 </button>
                 <button
                   type="submit"
                   disabled={submittingPart || stockQuantity === ''}
-                  className={`px-4 py-1.5 text-white text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer disabled:opacity-50 ${
-                    stockActionType === 'input' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-red-600 hover:bg-red-500'
+                  className={`px-4 py-1.5 text-white text-xs font-medium rounded-md flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-none ${
+                    stockActionType === 'input' ? 'bg-blue-700 hover:bg-blue-800' : 'bg-red-600 hover:bg-red-700'
                   }`}
                 >
                   {submittingPart ? <Loader2 size={13} className="animate-spin" /> : <span>Confirmar</span>}
@@ -841,15 +838,15 @@ export const InventoryPage: React.FC = () => {
           MODAL: CONFIRMAR ELIMINAÇÃO
           ========================================== */}
       {isDeleteModalOpen && deletingPart && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl shadow-2xl p-6 space-y-4 animate-slide-up">
-            <div className="w-12 h-12 bg-red-950/40 text-red-500 border border-red-800/30 rounded-xl flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-sm rounded-md shadow-xl p-6 space-y-4 animate-slide-up">
+            <div className="w-12 h-12 bg-red-50 text-red-600 border border-red-200 rounded-md flex items-center justify-center">
               <AlertTriangle size={24} />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Eliminar Artigo do Inventário</h3>
-              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                Tem a certeza que deseja eliminar a peça <span className="font-bold text-white font-mono">{deletingPart.oem_reference}</span> - <span className="font-bold text-white">{deletingPart.name}</span>? 
+              <h3 className="text-base font-bold text-slate-900">Eliminar Artigo do Inventário</h3>
+              <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                Tem a certeza que deseja eliminar a peça <span className="font-bold text-slate-900 font-mono">{deletingPart.oem_reference}</span> - <span className="font-bold text-slate-900">{deletingPart.name}</span>? 
                 Esta ação apagará as informações do armazém de forma irreversível.
               </p>
             </div>
@@ -859,13 +856,13 @@ export const InventoryPage: React.FC = () => {
                   setIsDeleteModalOpen(false);
                   setDeletingPart(null);
                 }}
-                className="px-4 py-2 bg-slate-850 hover:bg-slate-800 text-slate-400 text-xs font-semibold rounded-lg transition-all"
+                className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-md transition-all"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleDeletePartConfirm}
-                className="px-4 py-2 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white text-xs font-semibold rounded-lg transition-all"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-medium rounded-md transition-all shadow-none"
               >
                 Confirmar Eliminação
               </button>

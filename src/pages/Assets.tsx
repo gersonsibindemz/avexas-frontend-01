@@ -604,25 +604,25 @@ export const AssetsPage: React.FC = () => {
     switch (status) {
       case 'operational':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-950/40 text-emerald-400 border border-emerald-500/20">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
             Disponível
           </span>
         );
       case 'breakdown':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-red-950/40 text-red-400 border border-red-500/20 shadow-sm animate-pulse">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-red-50 text-red-700 border border-red-200">
             Avariado
           </span>
         );
       case 'maintenance':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-950/40 text-amber-400 border border-amber-500/20 shadow-sm">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
             Em Oficina
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
             {status}
           </span>
         );
@@ -665,11 +665,11 @@ export const AssetsPage: React.FC = () => {
       
       {/* Toast de Sucesso */}
       {successMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl shadow-2xl max-w-md flex gap-3 items-start animate-bounce">
-          <CheckCircle2 className="text-emerald-500 shrink-0 mt-0.5" size={18} />
+        <div className="fixed bottom-6 right-6 z-50 bg-white border border-slate-200 text-slate-900 p-4 rounded-md shadow-lg max-w-md flex gap-3 items-start animate-fade-in">
+          <CheckCircle2 className="text-emerald-700 shrink-0 mt-0.5" size={18} />
           <div>
-            <span className="font-bold block text-sm text-white">Sucesso</span>
-            <span className="text-xs text-slate-300">{successMessage}</span>
+            <span className="font-bold block text-sm text-slate-900">Sucesso</span>
+            <span className="text-xs text-slate-600">{successMessage}</span>
           </div>
         </div>
       )}
@@ -677,11 +677,11 @@ export const AssetsPage: React.FC = () => {
       {/* Título */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <span>Ativos e Frotas</span>
-            {loading && <Loader2 size={18} className="animate-spin text-slate-500" />}
+            {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
-          <p className="text-slate-400 text-xs mt-1">
+          <p className="text-slate-500 text-xs mt-1">
             Gestão completa, auditoria documental in-loco, conformidade regulamentar INATRO / INNOQ e etiquetagem QR Code.
           </p>
         </div>
@@ -689,7 +689,7 @@ export const AssetsPage: React.FC = () => {
           <button
             onClick={fetchAssets}
             disabled={loading}
-            className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white rounded-lg transition-all cursor-pointer"
+            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-colors cursor-pointer"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
@@ -700,7 +700,7 @@ export const AssetsPage: React.FC = () => {
                 setModalOpenMode('create');
                 setIsModalOpen(true);
               }}
-              className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold py-2.5 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
             >
               <Plus size={16} />
               <span>Cadastrar Ativo</span>
@@ -711,32 +711,32 @@ export const AssetsPage: React.FC = () => {
 
       {/* Tratamento de erro */}
       {error && (
-        <div className="p-4 bg-red-950/30 border border-red-500/20 text-red-400 text-xs rounded-xl flex gap-3 items-start">
-          <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md flex gap-3 items-start">
+          <AlertTriangle size={18} className="text-red-600 shrink-0 mt-0.5" />
           <div className="flex-1">
-            <span className="font-bold block text-red-300 mb-0.5">Erro na API</span>
-            <span className="leading-relaxed block text-slate-300">{error}</span>
+            <span className="font-bold block text-red-800 mb-0.5">Erro na API</span>
+            <span className="leading-relaxed block text-red-700">{error}</span>
           </div>
         </div>
       )}
 
       {/* Caixa de Busca e Filtros */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row gap-3">
+      <div className="bg-white border border-slate-200 rounded-md p-4 flex flex-col sm:flex-row gap-3 shadow-none">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3.5 top-3.5 text-slate-500" />
+          <Search size={14} className="absolute left-3.5 top-3 text-slate-400" />
           <input
             type="text"
             placeholder="Pesquisar por tag, nome, matrícula ou modelo..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none"
+            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-9 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none"
           />
         </div>
         <div className="flex gap-2">
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none"
+            className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-700 focus:outline-none cursor-pointer"
           >
             <option value="all">Todas as Categorias</option>
             <option value="vehicle_light">Veículos Ligeiros</option>
@@ -748,69 +748,69 @@ export const AssetsPage: React.FC = () => {
       </div>
 
       {/* Tabela de Ativos com Ações Completas */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
         {loading ? (
           <div className="p-8 space-y-4">
-            <div className="h-4 bg-slate-800 rounded w-1/4 animate-pulse"></div>
+            <div className="h-4 bg-slate-100 rounded w-1/4 animate-pulse"></div>
             {[1, 2, 3].map((n) => (
               <div key={n} className="flex gap-4 items-center py-2">
-                <div className="h-8 bg-slate-800 rounded flex-1 animate-pulse"></div>
+                <div className="h-8 bg-slate-100 rounded flex-1 animate-pulse"></div>
               </div>
             ))}
           </div>
         ) : filteredAssets.length === 0 ? (
           <div className="text-center py-16 px-4">
-            <h3 className="text-sm font-semibold text-slate-200">Nenhum Ativo Encontrado</h3>
+            <h3 className="text-sm font-semibold text-slate-900">Nenhum Ativo Encontrado</h3>
             <p className="text-slate-500 text-xs mt-1">Registe frotas para iniciar.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-400 text-xs uppercase bg-slate-950/40">
-                  <th className="py-3.5 px-4 font-semibold">Código / Tag</th>
-                  <th className="py-3.5 px-4 font-semibold">Ativo / Equipamento</th>
-                  <th className="py-3.5 px-4 font-semibold">Categoria</th>
-                  <th className="py-3.5 px-4 font-semibold">Centro de Custo</th>
-                  <th className="py-3.5 px-4 font-semibold text-center">Criticidade</th>
-                  <th className="py-3.5 px-4 font-semibold text-center">Estado</th>
-                  <th className="py-3.5 px-4 font-semibold text-center">Ações</th>
+                <tr className="border-b border-slate-200 text-slate-600 text-xs uppercase bg-slate-50">
+                  <th className="py-3 px-4 font-semibold">Código / Tag</th>
+                  <th className="py-3 px-4 font-semibold">Ativo / Equipamento</th>
+                  <th className="py-3 px-4 font-semibold">Categoria</th>
+                  <th className="py-3 px-4 font-semibold">Centro de Custo</th>
+                  <th className="py-3 px-4 font-semibold text-center">Criticidade</th>
+                  <th className="py-3 px-4 font-semibold text-center">Estado</th>
+                  <th className="py-3 px-4 font-semibold text-center">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-slate-100">
                 {filteredAssets.map((asset) => {
                   const tag = asset.code_tag || asset.codeTag || 'AUTO-TAG';
                   const level = asset.criticality_level || asset.criticalityLevel || 'B';
                   return (
-                    <tr key={asset.id} className="hover:bg-slate-800/10 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-bold text-emerald-400">{tag}</td>
-                      <td className="py-3.5 px-4">
+                    <tr key={asset.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-mono font-bold text-blue-700">{tag}</td>
+                      <td className="py-3 px-4">
                         <div className="flex flex-col">
-                          <span className="text-white font-medium text-sm">{asset.name}</span>
-                          <span className="text-xs text-slate-400 mt-0.5">{asset.brand} {asset.model}</span>
+                          <span className="text-slate-900 font-medium text-sm">{asset.name}</span>
+                          <span className="text-xs text-slate-500 mt-0.5">{asset.brand} {asset.model}</span>
                         </div>
                       </td>
-                      <td className="py-3.5 px-4 text-xs text-slate-300">
+                      <td className="py-3 px-4 text-xs text-slate-600">
                         {formatCategory(asset.category)}
                       </td>
-                      <td className="py-3.5 px-4 text-xs text-slate-400">
+                      <td className="py-3 px-4 text-xs text-slate-600">
                         {asset.cost_center || asset.costCenter}
                       </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-bold ${
+                      <td className="py-3 px-4 text-center">
+                        <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium border ${
                           level === 'A' 
-                            ? 'bg-red-950/40 text-red-400 border border-red-500/20' 
+                            ? 'bg-red-50 text-red-700 border-red-200' 
                             : level === 'B' 
-                            ? 'bg-amber-950/40 text-amber-400 border border-amber-500/20' 
-                            : 'bg-blue-950/40 text-blue-400 border border-blue-500/20'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200' 
+                            : 'bg-blue-50 text-blue-700 border-blue-200'
                         }`}>
                           Nível {level}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-center">
+                      <td className="py-3 px-4 text-center">
                         {renderStatusBadge(asset.status)}
                       </td>
-                      <td className="py-3.5 px-4 text-center">
+                      <td className="py-3 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           {/* Gestão Documental */}
                           <button
@@ -819,7 +819,7 @@ export const AssetsPage: React.FC = () => {
                               setIsDocModalOpen(true);
                               loadDocuments(asset.id);
                             }}
-                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                            className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors"
                             title="Documentos do Ativo"
                           >
                             <FileText size={15} />
@@ -831,7 +831,7 @@ export const AssetsPage: React.FC = () => {
                               setSelectedQrAsset(asset);
                               setIsQrModalOpen(true);
                             }}
-                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                            className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors"
                             title="Código QR / Etiqueta"
                           >
                             <QrCode size={15} />
@@ -841,7 +841,7 @@ export const AssetsPage: React.FC = () => {
                           {!isTechnician && !isDriverOperator && (
                             <button
                               onClick={() => handleOpenEditModal(asset)}
-                              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                              className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors"
                               title="Editar Ativo"
                             >
                               <Edit2 size={15} />
@@ -855,7 +855,7 @@ export const AssetsPage: React.FC = () => {
                                 setDeletingAsset(asset);
                                 setIsDeleteModalOpen(true);
                               }}
-                              className="p-1.5 text-red-400 hover:text-red-300 hover:bg-slate-800 rounded-lg transition-all"
+                              className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
                               title="Arquivar Ativo"
                             >
                               <Trash2 size={15} />
@@ -876,55 +876,55 @@ export const AssetsPage: React.FC = () => {
           MODAL: ASSISTENTE DE CADASTRO (4 ETAPAS)
           ========================================== */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-xl rounded-md shadow-xl overflow-hidden flex flex-col">
             
             {/* Header */}
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
-                <Wrench className="text-emerald-500" size={18} />
-                <h2 className="text-base font-bold text-white">
+                <Wrench className="text-blue-700" size={18} />
+                <h2 className="text-base font-bold text-slate-900">
                   {modalMode === 'create' ? 'Cadastrar Novo Ativo' : 'Editar Ativo Corporativo'}
                 </h2>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
             {/* Indicador de Passos */}
-            <div className="bg-slate-950/30 px-6 py-4 border-b border-slate-850 flex items-center justify-between text-xs font-semibold">
+            <div className="bg-slate-50/60 px-6 py-3 border-b border-slate-200 flex items-center justify-between text-xs font-semibold">
               <div className="flex items-center gap-2">
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center border font-mono ${
-                  currentStep >= 1 ? 'bg-emerald-600/10 border-emerald-500 text-emerald-400' : 'border-slate-700 text-slate-500'
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center border font-mono text-[11px] ${
+                  currentStep >= 1 ? 'bg-blue-50 border-blue-600 text-blue-700 font-bold' : 'border-slate-300 text-slate-400'
                 }`}>1</span>
-                <span className={currentStep >= 1 ? 'text-slate-200' : 'text-slate-500'}>Identificação</span>
+                <span className={currentStep >= 1 ? 'text-slate-900' : 'text-slate-400'}>Identificação</span>
               </div>
-              <ChevronRight size={14} className="text-slate-700" />
+              <ChevronRight size={14} className="text-slate-400" />
               <div className="flex items-center gap-2">
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center border font-mono ${
-                  currentStep >= 2 ? 'bg-emerald-600/10 border-emerald-500 text-emerald-400' : 'border-slate-700 text-slate-500'
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center border font-mono text-[11px] ${
+                  currentStep >= 2 ? 'bg-blue-50 border-blue-600 text-blue-700 font-bold' : 'border-slate-300 text-slate-400'
                 }`}>2</span>
-                <span className={currentStep >= 2 ? 'text-slate-200' : 'text-slate-500'}>Operação</span>
+                <span className={currentStep >= 2 ? 'text-slate-900' : 'text-slate-400'}>Operação</span>
               </div>
-              <ChevronRight size={14} className="text-slate-700" />
+              <ChevronRight size={14} className="text-slate-400" />
               <div className="flex items-center gap-2">
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center border font-mono ${
-                  currentStep >= 3 ? 'bg-emerald-600/10 border-emerald-500 text-emerald-400' : 'border-slate-700 text-slate-500'
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center border font-mono text-[11px] ${
+                  currentStep >= 3 ? 'bg-blue-50 border-blue-600 text-blue-700 font-bold' : 'border-slate-300 text-slate-400'
                 }`}>3</span>
-                <span className={currentStep >= 3 ? 'text-slate-200' : 'text-slate-500'}>Conformidade</span>
+                <span className={currentStep >= 3 ? 'text-slate-900' : 'text-slate-400'}>Conformidade</span>
               </div>
               {modalMode === 'create' && (
                 <>
-                  <ChevronRight size={14} className="text-slate-700" />
+                  <ChevronRight size={14} className="text-slate-400" />
                   <div className="flex items-center gap-2">
-                    <span className={`w-6 h-6 rounded-full flex items-center justify-center border font-mono ${
-                      currentStep >= 4 ? 'bg-emerald-600/10 border-emerald-500 text-emerald-400' : 'border-slate-700 text-slate-500'
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center border font-mono text-[11px] ${
+                      currentStep >= 4 ? 'bg-blue-50 border-blue-600 text-blue-700 font-bold' : 'border-slate-300 text-slate-400'
                     }`}>4</span>
-                    <span className={currentStep >= 4 ? 'text-slate-200' : 'text-slate-500'}>Anexos</span>
+                    <span className={currentStep >= 4 ? 'text-slate-900' : 'text-slate-400'}>Anexos</span>
                   </div>
                 </>
               )}
@@ -938,14 +938,14 @@ export const AssetsPage: React.FC = () => {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                         Categoria de Ativo *
                       </label>
                       <select
                         value={category}
                         disabled={modalMode === 'edit'} // Categoria fixa na edição
                         onChange={(e) => setCategory(e.target.value as any)}
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                       >
                         <option value="vehicle_light">Veículo Ligeiro (Frota)</option>
                         <option value="vehicle_heavy">Veículo Pesado (Logística)</option>
@@ -954,7 +954,7 @@ export const AssetsPage: React.FC = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                         Tag / Código do Ativo
                       </label>
                       <input
@@ -962,13 +962,14 @@ export const AssetsPage: React.FC = () => {
                         value={codeTag}
                         onChange={(e) => setCodeTag(e.target.value)}
                         placeholder="Deixe vazio para gerar automaticamente"
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
-                      />
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
+                      >
+                      </input>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                       Nome / Designação do Ativo *
                     </label>
                     <input
@@ -977,13 +978,13 @@ export const AssetsPage: React.FC = () => {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="ex: Camião Volvo FMX Basculante ou Gerador Cummins"
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                     />
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                         Marca
                       </label>
                       <input
@@ -991,11 +992,11 @@ export const AssetsPage: React.FC = () => {
                         value={brand}
                         onChange={(e) => setBrand(e.target.value)}
                         placeholder="ex: Volvo, Cummins"
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                         Modelo *
                       </label>
                       <input
@@ -1004,25 +1005,25 @@ export const AssetsPage: React.FC = () => {
                         value={model}
                         onChange={(e) => setModel(e.target.value)}
                         placeholder="ex: FMX 460 ou C500"
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                         Ano de Fabrico
                       </label>
                       <input
                         type="number"
                         value={manufactureYear}
                         onChange={(e) => setManufactureYear(Number(e.target.value))}
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                         Centro de Custo / Província *
                       </label>
                       <input
@@ -1031,17 +1032,17 @@ export const AssetsPage: React.FC = () => {
                         value={costCenter}
                         onChange={(e) => setCostCenter(e.target.value)}
                         placeholder="ex: CFM Maputo, Nampula Logística"
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                         Nível de Criticidade
                       </label>
                       <select
                         value={criticalityLevel}
                         onChange={(e) => setCriticalityLevel(e.target.value as any)}
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                       >
                         <option value="A">Nível A (Alta Paragem Crítica)</option>
                         <option value="B">Nível B (Média Criticidade)</option>
@@ -1060,7 +1061,7 @@ export const AssetsPage: React.FC = () => {
                     <>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                             Matrícula / Registro *
                           </label>
                           <input
@@ -1069,11 +1070,11 @@ export const AssetsPage: React.FC = () => {
                             value={licensePlate}
                             onChange={(e) => setLicensePlate(e.target.value)}
                             placeholder="ex: MM-10-24"
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                             Número de Chassis (VIN)
                           </label>
                           <input
@@ -1081,14 +1082,14 @@ export const AssetsPage: React.FC = () => {
                             value={chassisVin}
                             onChange={(e) => setChassisVin(e.target.value)}
                             placeholder="ex: 938Y498HF8..."
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                           />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                             Número do Motor
                           </label>
                           <input
@@ -1096,11 +1097,11 @@ export const AssetsPage: React.FC = () => {
                             value={engineNumber}
                             onChange={(e) => setEngineNumber(e.target.value)}
                             placeholder="ex: D13K460"
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                             Capacidade do Depósito (Litros)
                           </label>
                           <input
@@ -1108,13 +1109,13 @@ export const AssetsPage: React.FC = () => {
                             value={fuelTankCapacityLiters}
                             onChange={(e) => setFuelTankCapacityLiters(e.target.value !== '' ? Number(e.target.value) : '')}
                             placeholder="ex: 300"
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                           Leitura Atual do Odómetro (km) *
                         </label>
                         <input
@@ -1122,7 +1123,7 @@ export const AssetsPage: React.FC = () => {
                           required
                           value={currentMeter}
                           onChange={(e) => setCurrentMeter(Number(e.target.value))}
-                          className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                          className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                         />
                       </div>
                     </>
@@ -1131,7 +1132,7 @@ export const AssetsPage: React.FC = () => {
                     <>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                             Setor Fabril / Área
                           </label>
                           <input
@@ -1139,11 +1140,11 @@ export const AssetsPage: React.FC = () => {
                             value={plantSector}
                             onChange={(e) => setPlantSector(e.target.value)}
                             placeholder="ex: Moagem, Embalamento"
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                             Especificações Elétricas (Voltagem)
                           </label>
                           <input
@@ -1151,13 +1152,13 @@ export const AssetsPage: React.FC = () => {
                             value={voltageSpecs}
                             onChange={(e) => setVoltageSpecs(e.target.value)}
                             placeholder="ex: 380V / 3 Fases"
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                           Potência Estimada (kW / kVA)
                         </label>
                         <input
@@ -1165,12 +1166,12 @@ export const AssetsPage: React.FC = () => {
                           value={powerKwKva}
                           onChange={(e) => setPowerKwKva(e.target.value !== '' ? Number(e.target.value) : '')}
                           placeholder="ex: 150"
-                          className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                          className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                           Leitura Inicial do Horímetro (Horas de Uso) *
                         </label>
                         <input
@@ -1178,7 +1179,7 @@ export const AssetsPage: React.FC = () => {
                           required
                           value={currentMeter}
                           onChange={(e) => setCurrentMeter(Number(e.target.value))}
-                          className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                          className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                         />
                       </div>
                     </>
@@ -1194,18 +1195,18 @@ export const AssetsPage: React.FC = () => {
                     <>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                             Validade Inspeção INATRO
                           </label>
                           <input
                             type="date"
                             value={inatroInspectionExpiry}
                             onChange={(e) => setInatroInspectionExpiry(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                             Companhia de Seguros
                           </label>
                           <input
@@ -1213,14 +1214,14 @@ export const AssetsPage: React.FC = () => {
                             value={insuranceCompany}
                             onChange={(e) => setInsuranceCompany(e.target.value)}
                             placeholder="ex: EMOSE, Fidelidade"
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                           />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                             Número de Apólice do Seguro
                           </label>
                           <input
@@ -1228,18 +1229,18 @@ export const AssetsPage: React.FC = () => {
                             value={insurancePolicyNumber}
                             onChange={(e) => setInsurancePolicyNumber(e.target.value)}
                             placeholder="ex: POL-8429-01"
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                             Validade do Seguro
                           </label>
                           <input
                             type="date"
                             value={insuranceExpiry}
                             onChange={(e) => setInsuranceExpiry(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                           />
                         </div>
                       </div>
@@ -1249,32 +1250,32 @@ export const AssetsPage: React.FC = () => {
                     <>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                             Validade Calibração INNOQ
                           </label>
                           <input
                             type="date"
                             value={innoqCalibrationExpiry}
                             onChange={(e) => setInnoqCalibrationExpiry(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                             Validade Teste Pressão/Caldeira
                           </label>
                           <input
                             type="date"
                             value={pressureTestExpiry}
                             onChange={(e) => setPressureTestExpiry(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                           />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                             Fornecedor Local Moçambicano
                           </label>
                           <input
@@ -1282,18 +1283,18 @@ export const AssetsPage: React.FC = () => {
                             value={localSupplierName}
                             onChange={(e) => setLocalSupplierName(e.target.value)}
                             placeholder="ex: Barloworld Moçambique"
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                             Fim da Garantia
                           </label>
                           <input
                             type="date"
                             value={warrantyExpiry}
                             onChange={(e) => setWarrantyExpiry(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                           />
                         </div>
                       </div>
@@ -1305,7 +1306,7 @@ export const AssetsPage: React.FC = () => {
               {/* ETAPA 4: ANEXOS DOCUMENTAIS (Apenas na criação) */}
               {currentStep === 4 && modalMode === 'create' && (
                 <div className="space-y-4">
-                  <span className="text-xs font-semibold text-slate-400 block mb-2 uppercase tracking-wide">
+                  <span className="text-xs font-semibold text-slate-600 block mb-2 uppercase tracking-wide">
                     Carregar Ficha Técnica Inicial (PDF, PNG ou JPEG até 20MB)
                   </span>
 
@@ -1314,12 +1315,12 @@ export const AssetsPage: React.FC = () => {
                     onDragLeave={handleDrag}
                     onDragOver={handleDrag}
                     onDrop={handleDrop}
-                    className={`border-2 border-dashed rounded-xl p-8 text-center transition-all flex flex-col items-center justify-center gap-3 cursor-pointer ${
+                    className={`border-2 border-dashed rounded-md p-8 text-center transition-all flex flex-col items-center justify-center gap-3 cursor-pointer ${
                       isDragActive 
-                        ? 'border-emerald-500 bg-emerald-950/10' 
+                        ? 'border-blue-600 bg-blue-50/50' 
                         : wizardFile 
-                        ? 'border-emerald-500/50 bg-slate-950/40' 
-                        : 'border-slate-800 bg-slate-950/10 hover:border-slate-700'
+                        ? 'border-blue-500 bg-blue-50/20' 
+                        : 'border-slate-300 bg-slate-50/60 hover:border-slate-400'
                     }`}
                   >
                     <input
@@ -1330,16 +1331,16 @@ export const AssetsPage: React.FC = () => {
                       className="hidden"
                     />
                     <label htmlFor="wizard-file" className="cursor-pointer flex flex-col items-center gap-2">
-                      <UploadCloud size={36} className="text-slate-500 group-hover:text-slate-300" />
+                      <UploadCloud size={36} className="text-slate-400 group-hover:text-slate-600" />
                       {wizardFile ? (
-                        <div className="text-xs font-medium text-emerald-400">
+                        <div className="text-xs font-medium text-blue-700">
                           Ficheiro selecionado: <span className="font-mono underline">{wizardFile.name}</span>
                           <p className="text-[10px] text-slate-500 mt-1">({(wizardFile.size / 1024 / 1024).toFixed(2)} MB)</p>
                         </div>
                       ) : (
-                        <div className="text-xs text-slate-400">
-                          Arrastar e largar ficheiro aqui ou <span className="text-emerald-500 font-semibold underline">procurar</span>
-                          <p className="text-[10px] text-slate-500 mt-1">PDF, JPEG, PNG ou WebP de até 20MB</p>
+                        <div className="text-xs text-slate-600">
+                          Arrastar e largar ficheiro aqui ou <span className="text-blue-700 font-semibold underline">procurar</span>
+                          <p className="text-[10px] text-slate-400 mt-1">PDF, JPEG, PNG ou WebP de até 20MB</p>
                         </div>
                       )}
                     </label>
@@ -1348,14 +1349,14 @@ export const AssetsPage: React.FC = () => {
               )}
 
               {/* Botões do Assistente */}
-              <div className="flex justify-between items-center border-t border-slate-800 pt-5 mt-2">
+              <div className="flex justify-between items-center border-t border-slate-200 pt-5 mt-2">
                 <div>
                   {currentStep > 1 && (
                     <button
                       type="button"
                       onClick={handlePrevStep}
                       disabled={submitting}
-                      className="px-4 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700/50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                      className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
                     >
                       <ChevronLeft size={14} />
                       <span>Anterior</span>
@@ -1368,7 +1369,7 @@ export const AssetsPage: React.FC = () => {
                     type="button"
                     onClick={() => setIsModalOpen(false)}
                     disabled={submitting}
-                    className="px-4 py-2 bg-slate-850 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-xs font-semibold transition-all"
+                    className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium transition-all"
                   >
                     Cancelar
                   </button>
@@ -1378,7 +1379,7 @@ export const AssetsPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleNextStep}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                      className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer shadow-none"
                     >
                       <span>Seguinte</span>
                       <ChevronRight size={14} />
@@ -1387,7 +1388,7 @@ export const AssetsPage: React.FC = () => {
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                      className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shadow-none"
                     >
                       {submitting ? (
                         <>
@@ -1410,14 +1411,14 @@ export const AssetsPage: React.FC = () => {
           MODAL: GESTÃO DOCUMENTAL DO ATIVO
           ========================================== */}
       {isDocModalOpen && selectedDocAsset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-lg rounded-md shadow-xl overflow-hidden flex flex-col">
             
             {/* Header */}
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
-                <FileText className="text-emerald-500" size={18} />
-                <h2 className="text-base font-bold text-white">
+                <FileText className="text-blue-700" size={18} />
+                <h2 className="text-base font-bold text-slate-900">
                   Documentos: {selectedDocAsset.code_tag || selectedDocAsset.codeTag}
                 </h2>
               </div>
@@ -1431,7 +1432,7 @@ export const AssetsPage: React.FC = () => {
                     fileInputRef.current.value = '';
                   }
                 }}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -1440,30 +1441,30 @@ export const AssetsPage: React.FC = () => {
             <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh] scrollbar-thin">
               
               {/* Formulário para Envio de Novo Documento */}
-              <form onSubmit={handleAddAdditionalDocument} className="bg-slate-950/40 p-4 border border-slate-850 rounded-xl space-y-3">
-                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block mb-1">
+              <form onSubmit={handleAddAdditionalDocument} className="bg-slate-50 p-4 border border-slate-200 rounded-md space-y-3">
+                <span className="text-xs font-bold text-blue-700 uppercase tracking-wider block mb-1">
                   Adicionar Anexo de Manutenção / Conformidade
                 </span>
                 
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Título *</label>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1 uppercase">Título *</label>
                   <input
                     type="text"
                     required
                     value={docTitle}
                     onChange={(e) => setDocTitle(e.target.value)}
                     placeholder="ex: Manual do Operador, Apólice de Seguro 2026"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Tipo *</label>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1 uppercase">Tipo *</label>
                     <select
                       value={docType}
                       onChange={(e) => setDocType(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                      className="w-full bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                     >
                       <option value="tech_sheet">Ficha Técnica</option>
                       <option value="manual">Manual Técnico</option>
@@ -1474,14 +1475,14 @@ export const AssetsPage: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Ficheiro (20MB max) *</label>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1 uppercase">Ficheiro (20MB max) *</label>
                     <input
                       type="file"
                       ref={fileInputRef}
                       required
                       accept=".pdf,.png,.jpeg,.jpg,.webp"
                       onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                      className="w-full text-xs text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-slate-800 file:text-slate-200 file:cursor-pointer"
+                      className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-slate-200 file:text-slate-700 file:cursor-pointer"
                     />
                   </div>
                 </div>
@@ -1489,7 +1490,7 @@ export const AssetsPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isUploadingDoc || !selectedFile}
-                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  className="w-full py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium rounded-md flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shadow-none"
                 >
                   {isUploadingDoc ? (
                     <>
@@ -1507,16 +1508,16 @@ export const AssetsPage: React.FC = () => {
 
               {/* Lista de Documentos Atuais */}
               <div className="space-y-3">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
                   Documentação Arquivada ({documents.length})
                 </span>
 
                 {docLoading ? (
                   <div className="text-center py-6">
-                    <Loader2 size={24} className="animate-spin text-slate-500 mx-auto" />
+                    <Loader2 size={24} className="animate-spin text-slate-400 mx-auto" />
                   </div>
                 ) : documents.length === 0 ? (
-                  <div className="text-center py-6 border border-slate-800 border-dashed rounded-xl">
+                  <div className="text-center py-6 border border-slate-200 border-dashed rounded-md bg-slate-50/50">
                     <p className="text-xs text-slate-500">Nenhum documento anexado a este ativo.</p>
                   </div>
                 ) : (
@@ -1524,11 +1525,11 @@ export const AssetsPage: React.FC = () => {
                     {documents.map((doc) => {
                       const url = doc.signed_url || doc.signedUrl || '#';
                       return (
-                        <div key={doc.id} className="p-3 bg-slate-950/30 border border-slate-850 rounded-lg flex items-center justify-between text-xs hover:border-slate-700 transition-colors">
+                        <div key={doc.id} className="p-3 bg-white border border-slate-200 rounded-md flex items-center justify-between text-xs hover:border-slate-300 transition-colors">
                           <div className="flex items-center gap-2 flex-1 truncate mr-4">
-                            <File size={16} className="text-emerald-500 shrink-0" />
+                            <File size={16} className="text-blue-700 shrink-0" />
                             <div className="truncate">
-                              <span className="font-semibold text-slate-200 block truncate" title={doc.title}>
+                              <span className="font-semibold text-slate-800 block truncate" title={doc.title}>
                                 {doc.title}
                               </span>
                               <span className="text-[10px] text-slate-500 block mt-0.5">
@@ -1542,7 +1543,7 @@ export const AssetsPage: React.FC = () => {
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-750 text-slate-300 hover:text-white rounded-md text-[10px] font-semibold flex items-center gap-1 shrink-0"
+                            className="px-2.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md text-[10px] font-medium flex items-center gap-1 shrink-0"
                           >
                             <Eye size={12} />
                             <span>Abrir</span>
@@ -1563,21 +1564,21 @@ export const AssetsPage: React.FC = () => {
           MODAL: VISUALIZAÇÃO E IMPRESSÃO DE QR CODE
           ========================================== */}
       {isQrModalOpen && selectedQrAsset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in print:bg-white print:text-black">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col print:border-none print:shadow-none print:bg-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in print:bg-white print:text-black">
+          <div className="bg-white border border-slate-200 w-full max-w-sm rounded-md shadow-xl overflow-hidden flex flex-col print:border-none print:shadow-none print:bg-white">
             
             {/* Header (Escondido na impressão) */}
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/20 print:hidden">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 print:hidden">
               <div className="flex items-center gap-2">
-                <QrCode className="text-emerald-500" size={18} />
-                <h2 className="text-base font-bold text-white">Etiqueta QR Code</h2>
+                <QrCode className="text-blue-700" size={18} />
+                <h2 className="text-base font-bold text-slate-900">Etiqueta QR Code</h2>
               </div>
               <button
                 onClick={() => {
                   setIsQrModalOpen(false);
                   setSelectedQrAsset(null);
                 }}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -1587,14 +1588,14 @@ export const AssetsPage: React.FC = () => {
             <div className="p-6 flex flex-col items-center justify-center text-center space-y-4 print:p-0 print:text-black">
               
               {/* Cartão de Etiqueta com Borda Refinada */}
-              <div className="bg-white p-5 rounded-xl border border-slate-100 flex flex-col items-center shadow-lg w-full max-w-[260px] print:shadow-none print:border-2 print:border-black">
+              <div className="bg-white p-5 rounded-md border border-slate-200 flex flex-col items-center shadow-sm w-full max-w-[260px] print:shadow-none print:border-2 print:border-black">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 print:text-black">AVEXAS CMMS</span>
                 
                 {/* Canvas do QR Code */}
                 <canvas ref={qrCanvasRef} className="mx-auto" />
                 
                 <div className="mt-3 text-slate-900 print:text-black">
-                  <span className="font-mono font-bold text-sm tracking-wide block uppercase">
+                  <span className="font-mono font-bold text-sm tracking-wide block uppercase text-slate-900">
                     {selectedQrAsset.code_tag || selectedQrAsset.codeTag}
                   </span>
                   <span className="text-xs font-semibold block text-slate-700 truncate max-w-[200px] mt-0.5">
@@ -1607,17 +1608,17 @@ export const AssetsPage: React.FC = () => {
               </div>
 
               {/* Botões de Ação (Escondidos na impressão) */}
-              <div className="flex gap-2 w-full pt-4 border-t border-slate-800 print:hidden">
+              <div className="flex gap-2 w-full pt-4 border-t border-slate-200 print:hidden">
                 <button
                   onClick={handleDownloadQrCode}
-                  className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  className="flex-1 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
                   <Download size={14} />
                   <span>PNG</span>
                 </button>
                 <button
                   onClick={handlePrintLabel}
-                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  className="flex-1 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-none"
                 >
                   <Printer size={14} />
                   <span>Imprimir</span>
@@ -1633,15 +1634,15 @@ export const AssetsPage: React.FC = () => {
           MODAL: CONFIRMAÇÃO DE ARQUIVAMENTO (DELETE)
           ========================================== */}
       {isDeleteModalOpen && deletingAsset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl shadow-2xl p-6 space-y-4">
-            <div className="w-12 h-12 bg-red-950/40 text-red-500 border border-red-800/30 rounded-xl flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-sm rounded-md shadow-xl p-6 space-y-4">
+            <div className="w-12 h-12 bg-red-50 text-red-600 border border-red-200 rounded-md flex items-center justify-center">
               <AlertTriangle size={24} />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Arquivar Ativo de Manutenção</h3>
-              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                Tem a certeza que deseja arquivar o ativo <span className="font-bold text-white font-mono">{deletingAsset.code_tag || deletingAsset.codeTag}</span>? 
+              <h3 className="text-base font-bold text-slate-900">Arquivar Ativo de Manutenção</h3>
+              <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                Tem a certeza que deseja arquivar o ativo <span className="font-bold text-slate-900 font-mono">{deletingAsset.code_tag || deletingAsset.codeTag}</span>? 
                 Esta ação moverá o equipamento para o histórico e o impedirá de abrir novas ordens de serviço.
               </p>
             </div>
@@ -1651,13 +1652,13 @@ export const AssetsPage: React.FC = () => {
                   setIsDeleteModalOpen(false);
                   setDeletingAsset(null);
                 }}
-                className="px-4 py-2 bg-slate-850 hover:bg-slate-800 text-slate-400 text-xs font-semibold rounded-lg transition-all"
+                className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-medium rounded-md transition-all"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleDeleteAsset}
-                className="px-4 py-2 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white text-xs font-semibold rounded-lg transition-all"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-medium rounded-md transition-all shadow-none"
               >
                 Confirmar Arquivamento
               </button>
@@ -1778,43 +1779,42 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
     <div className="space-y-6 max-w-2xl mx-auto pb-10">
       
       {/* CARD BOAS-VINDAS */}
-      <div className="bg-gradient-to-r from-slate-900 to-slate-800 border border-slate-800 rounded-2xl p-6 relative overflow-hidden shadow-xl animate-fade-in">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-3xl pointer-events-none"></div>
+      <div className="bg-white border border-slate-200 rounded-md p-6 relative overflow-hidden shadow-sm animate-fade-in">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 rounded-xl flex items-center justify-center font-bold text-xl uppercase shrink-0">
+          <div className="w-12 h-12 bg-blue-50 text-blue-700 border border-blue-200 rounded-md flex items-center justify-center font-bold text-xl uppercase shrink-0">
             {user?.fullName.substring(0, 2).toUpperCase() || 'OP'}
           </div>
           <div>
-            <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider block">CMMS Moçambique · Portal do Condutor</span>
-            <h1 className="text-lg font-bold text-white mt-0.5">Olá, {user?.fullName}!</h1>
-            <p className="text-slate-400 text-xs">Efetue vistorias de segurança e reporte avarias de campo rapidamente.</p>
+            <span className="text-[10px] text-blue-700 font-bold uppercase tracking-wider block">CMMS Moçambique · Portal do Condutor</span>
+            <h1 className="text-lg font-bold text-slate-900 mt-0.5">Olá, {user?.fullName}!</h1>
+            <p className="text-slate-600 text-xs">Efetue vistorias de segurança e reporte avarias de campo rapidamente.</p>
           </div>
         </div>
       </div>
 
       {loading ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center">
-          <RefreshCw className="animate-spin text-emerald-500 mx-auto" size={24} />
-          <p className="text-xs text-slate-400 mt-2 font-semibold">A carregar viaturas corporativas...</p>
+        <div className="bg-white border border-slate-200 rounded-md p-12 text-center">
+          <RefreshCw className="animate-spin text-blue-700 mx-auto" size={24} />
+          <p className="text-xs text-slate-500 mt-2 font-medium">A carregar viaturas corporativas...</p>
         </div>
       ) : vehicles.length === 0 ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-500 shadow-lg">
+        <div className="bg-white border border-slate-200 rounded-md p-8 text-center text-slate-500 shadow-sm">
           <AlertTriangle className="text-amber-500 mx-auto mb-2" size={24} />
-          <p className="text-xs font-semibold">Nenhuma viatura disponível para o seu utilizador.</p>
-          <p className="text-[10px] text-slate-600 mt-1">Contacte o supervisor ou gestor para associar viaturas ao seu escopo.</p>
+          <p className="text-xs font-semibold text-slate-800">Nenhuma viatura disponível para o seu utilizador.</p>
+          <p className="text-[11px] text-slate-500 mt-1">Contacte o supervisor ou gestor para associar viaturas ao seu escopo.</p>
         </div>
       ) : (
         <div className="space-y-6">
           
           {/* SELETOR DE VIATURA */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-md">
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide">
+          <div className="bg-white border border-slate-200 rounded-md p-5 space-y-3 shadow-sm">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
               Selecione a Viatura em Serviço:
             </label>
             <select
               value={selectedAssetId}
               onChange={(e) => handleSelectAsset(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-xl px-4 py-3 text-xs text-white focus:outline-none"
+              className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2.5 text-xs text-slate-900 focus:outline-none"
             >
               {vehicles.map(v => (
                 <option key={v.id} value={v.id}>
@@ -1824,22 +1824,22 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
             </select>
 
             {selectedVehicle && (
-              <div className="mt-3 bg-slate-950/40 rounded-xl p-4 border border-slate-850 grid grid-cols-2 gap-4 text-xs">
+              <div className="mt-3 bg-slate-50 rounded-md p-4 border border-slate-200 grid grid-cols-2 gap-4 text-xs">
                 <div>
                   <span className="text-slate-500 block">Marca/Modelo:</span>
-                  <span className="text-slate-200 font-semibold block mt-0.5">{selectedVehicle.brand} {selectedVehicle.model}</span>
+                  <span className="text-slate-800 font-semibold block mt-0.5">{selectedVehicle.brand} {selectedVehicle.model}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 block">Matrícula:</span>
-                  <span className="text-slate-200 font-mono font-semibold block mt-0.5">{selectedVehicle.license_plate || selectedVehicle.licensePlate || 'N/D'}</span>
+                  <span className="text-slate-900 font-mono font-semibold block mt-0.5">{selectedVehicle.license_plate || selectedVehicle.licensePlate || 'N/D'}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 block">Contador Atual:</span>
-                  <span className="text-slate-200 font-semibold block mt-0.5">{selectedVehicle.current_meter ?? selectedVehicle.currentMeter ?? 0} km</span>
+                  <span className="text-slate-800 font-semibold block mt-0.5">{selectedVehicle.current_meter ?? selectedVehicle.currentMeter ?? 0} km</span>
                 </div>
                 <div>
                   <span className="text-slate-500 block">Estado Operacional:</span>
-                  <span className="inline-flex mt-1 items-center px-2 py-0.5 text-[10px] font-bold bg-emerald-950/50 text-emerald-400 border border-emerald-500/10 rounded">
+                  <span className="inline-flex mt-1 items-center px-2 py-0.5 text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">
                     {selectedVehicle.status === 'operational' ? 'Operacional' : selectedVehicle.status === 'breakdown' ? 'Avariado' : 'Em Oficina'}
                   </span>
                 </div>
@@ -1848,91 +1848,91 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
           </div>
 
           {/* CHECKLIST DIÁRIA DE SEGURANÇA */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-md relative">
+          <div className="bg-white border border-slate-200 rounded-md p-5 space-y-4 shadow-sm relative">
             <div>
-              <h2 className="text-xs font-bold text-white flex items-center gap-2">
-                <CheckCircle2 className="text-emerald-500 shrink-0" size={16} />
+              <h2 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                <CheckCircle2 className="text-blue-700 shrink-0" size={16} />
                 Inspeção Diária de Segurança (Checklist)
               </h2>
-              <p className="text-[10px] text-slate-500 mt-0.5">Marque todos os pontos regulamentares antes de iniciar o serviço.</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Marque todos os pontos regulamentares antes de iniciar o serviço.</p>
             </div>
 
             {checklistSuccess ? (
-              <div className="bg-emerald-950/40 border border-emerald-500/20 rounded-xl p-4 text-emerald-400 text-xs text-center flex items-center justify-center gap-2 animate-fade-in shadow">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-md p-4 text-emerald-700 text-xs text-center flex items-center justify-center gap-2 animate-fade-in">
                 <CheckCircle2 size={16} />
                 <span className="font-bold">Checklist guardado com sucesso! Boa viagem com segurança.</span>
               </div>
             ) : (
               <form onSubmit={handleChecklistSubmit} className="space-y-3 pt-2">
-                <label className="flex items-center gap-3 bg-slate-950/40 border border-slate-850 rounded-xl p-3.5 hover:bg-slate-950/80 transition-colors cursor-pointer group">
+                <label className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-md p-3.5 hover:bg-slate-100 transition-colors cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={fluids}
                     onChange={(e) => setFluids(e.target.checked)}
-                    className="accent-emerald-500 bg-slate-950 border border-slate-850 rounded w-4 h-4 cursor-pointer"
+                    className="accent-blue-700 bg-white border border-slate-300 rounded w-4 h-4 cursor-pointer"
                   />
                   <div className="flex-1 text-xs">
-                    <span className="font-semibold text-slate-200 group-hover:text-white">Fluidos & Óleos</span>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Níveis de óleo de motor e água de refrigeração estão corretos e sem fugas visíveis.</p>
+                    <span className="font-semibold text-slate-800 group-hover:text-slate-900">Fluidos & Óleos</span>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Níveis de óleo de motor e água de refrigeração estão corretos e sem fugas visíveis.</p>
                   </div>
                 </label>
 
-                <label className="flex items-center gap-3 bg-slate-950/40 border border-slate-850 rounded-xl p-3.5 hover:bg-slate-950/80 transition-colors cursor-pointer group">
+                <label className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-md p-3.5 hover:bg-slate-100 transition-colors cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={brakes}
                     onChange={(e) => setBrakes(e.target.checked)}
-                    className="accent-emerald-500 bg-slate-950 border border-slate-850 rounded w-4 h-4 cursor-pointer"
+                    className="accent-blue-700 bg-white border border-slate-300 rounded w-4 h-4 cursor-pointer"
                   />
                   <div className="flex-1 text-xs">
-                    <span className="font-semibold text-slate-200 group-hover:text-white">Travões / Sistema de Travagem</span>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Travão de pé e travão de estacionamento (mão) operam perfeitamente.</p>
+                    <span className="font-semibold text-slate-800 group-hover:text-slate-900">Travões / Sistema de Travagem</span>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Travão de pé e travão de estacionamento (mão) operam perfeitamente.</p>
                   </div>
                 </label>
 
-                <label className="flex items-center gap-3 bg-slate-950/40 border border-slate-850 rounded-xl p-3.5 hover:bg-slate-950/80 transition-colors cursor-pointer group">
+                <label className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-md p-3.5 hover:bg-slate-100 transition-colors cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={lights}
                     onChange={(e) => setLights(e.target.checked)}
-                    className="accent-emerald-500 bg-slate-950 border border-slate-850 rounded w-4 h-4 cursor-pointer"
+                    className="accent-blue-700 bg-white border border-slate-300 rounded w-4 h-4 cursor-pointer"
                   />
                   <div className="flex-1 text-xs">
-                    <span className="font-semibold text-slate-200 group-hover:text-white">Iluminação & Sinalização</span>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Faróis médios/máximos, piscas direcionais, stops e luzes de emergência limpos e funcionais.</p>
+                    <span className="font-semibold text-slate-800 group-hover:text-slate-900">Iluminação & Sinalização</span>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Faróis médios/máximos, piscas direcionais, stops e luzes de emergência limpos e funcionais.</p>
                   </div>
                 </label>
 
-                <label className="flex items-center gap-3 bg-slate-950/40 border border-slate-850 rounded-xl p-3.5 hover:bg-slate-950/80 transition-colors cursor-pointer group">
+                <label className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-md p-3.5 hover:bg-slate-100 transition-colors cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={tires}
                     onChange={(e) => setTires(e.target.checked)}
-                    className="accent-emerald-500 bg-slate-950 border border-slate-850 rounded w-4 h-4 cursor-pointer"
+                    className="accent-blue-700 bg-white border border-slate-300 rounded w-4 h-4 cursor-pointer"
                   />
                   <div className="flex-1 text-xs">
-                    <span className="font-semibold text-slate-200 group-hover:text-white">Pneus & Jantes</span>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Rastos em condições regulamentares, pressão correta e pneu suplente disponível.</p>
+                    <span className="font-semibold text-slate-800 group-hover:text-slate-900">Pneus & Jantes</span>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Rastos em condições regulamentares, pressão correta e pneu suplente disponível.</p>
                   </div>
                 </label>
 
-                <label className="flex items-center gap-3 bg-slate-950/40 border border-slate-850 rounded-xl p-3.5 hover:bg-slate-950/80 transition-colors cursor-pointer group">
+                <label className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-md p-3.5 hover:bg-slate-100 transition-colors cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={safety}
                     onChange={(e) => setSafety(e.target.checked)}
-                    className="accent-emerald-500 bg-slate-950 border border-slate-850 rounded w-4 h-4 cursor-pointer"
+                    className="accent-blue-700 bg-white border border-slate-300 rounded w-4 h-4 cursor-pointer"
                   />
                   <div className="flex-1 text-xs">
-                    <span className="font-semibold text-slate-200 group-hover:text-white">Equipamentos de Proteção</span>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Cintos de segurança operacionais, triângulo, colete refletor e extintor de incêndio carregado.</p>
+                    <span className="font-semibold text-slate-800 group-hover:text-slate-900">Equipamentos de Proteção</span>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Cintos de segurança operacionais, triângulo, colete refletor e extintor de incêndio carregado.</p>
                   </div>
                 </label>
 
                 <button
                   type="submit"
                   disabled={!fluids || !brakes || !lights || !tires || !safety}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold py-3 px-4 rounded-xl transition-all shadow-md mt-4 cursor-pointer"
+                  className="w-full bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-3 px-4 rounded-md transition-all shadow-none mt-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Validar Vistoria de Segurança
                 </button>
@@ -1941,20 +1941,20 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
           </div>
 
           {/* BOTÃO DE ANOMALIA / AVARIA */}
-          <div className="bg-red-950/15 border border-red-900/30 rounded-2xl p-5 space-y-3 shadow-md">
+          <div className="bg-red-50 border border-red-200 rounded-md p-5 space-y-3 shadow-sm">
             <div>
-              <h2 className="text-xs font-bold text-red-400 flex items-center gap-2">
-                <AlertTriangle className="text-red-500" size={16} />
+              <h2 className="text-xs font-bold text-red-700 flex items-center gap-2">
+                <AlertTriangle className="text-red-600" size={16} />
                 Reportar Avaria ou Anomalia Mecânica
               </h2>
-              <p className="text-[10px] text-slate-400 mt-0.5">
+              <p className="text-[11px] text-slate-600 mt-0.5">
                 Detetou algum problema durante a condução? Abra imediatamente uma ocorrência para os técnicos.
               </p>
             </div>
 
             <button
               onClick={() => setIsAnomalyModalOpen(true)}
-              className="w-full bg-red-600/10 hover:bg-red-600/20 active:bg-red-600/30 border border-red-500/20 text-red-400 text-xs font-bold py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
+              className="w-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-medium py-2.5 rounded-md transition-all cursor-pointer flex items-center justify-center gap-2 shadow-none"
             >
               <AlertTriangle size={15} />
               <span>Reportar Anomalia Técnica</span>
@@ -1966,18 +1966,17 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
 
       {/* MODAL DE SUBMETER ANOMALIA */}
       {isAnomalyModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col relative">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl pointer-events-none"></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-md rounded-md shadow-xl overflow-hidden flex flex-col relative">
 
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-              <h3 className="text-xs font-bold text-white flex items-center gap-2 text-red-400">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <h3 className="text-xs font-bold text-red-700 flex items-center gap-2">
                 <AlertTriangle size={16} />
                 Reportar Ocorrência em Campo
               </h3>
               <button
                 onClick={() => setIsAnomalyModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -1985,25 +1984,25 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
 
             {anomalySuccess ? (
               <div className="p-8 text-center space-y-4">
-                <div className="w-12 h-12 bg-emerald-950/40 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-800/20 mx-auto">
+                <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-md flex items-center justify-center border border-emerald-200 mx-auto">
                   <CheckCircle2 size={24} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-white">Ocorrência Registada!</h4>
-                  <p className="text-xs text-slate-400 mt-1">A equipa de manutenção foi notificada e uma OS Corretiva foi aberta.</p>
+                  <h4 className="text-sm font-bold text-slate-900">Ocorrência Registada!</h4>
+                  <p className="text-xs text-slate-600 mt-1">A equipa de manutenção foi notificada e uma OS Corretiva foi aberta.</p>
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleAnomalySubmit} className="p-5 space-y-4 text-xs">
+              <form onSubmit={handleAnomalySubmit} className="p-6 space-y-4 text-xs">
                 <div>
-                  <span className="text-slate-400 font-semibold block">Viatura Selecionada:</span>
-                  <span className="text-white font-bold font-mono mt-1 block">
+                  <span className="text-slate-500 font-semibold block">Viatura Selecionada:</span>
+                  <span className="text-slate-900 font-bold font-mono mt-1 block">
                     {selectedVehicle?.code_tag || selectedVehicle?.codeTag} - {selectedVehicle?.name}
                   </span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                     Título / Resumo da Avaria *
                   </label>
                   <input
@@ -2012,12 +2011,12 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
                     value={anomalyTitle}
                     onChange={(e) => setAnomalyTitle(e.target.value)}
                     placeholder="ex: Fuga de óleo sob o radiador"
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-red-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-red-500/20 font-mono"
+                    className="w-full bg-white border border-slate-300 focus:border-red-600 focus:ring-1 focus:ring-red-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                     Descrição Detalhada do Problema *
                   </label>
                   <textarea
@@ -2026,13 +2025,13 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
                     onChange={(e) => setAnomalyDesc(e.target.value)}
                     rows={3}
                     placeholder="Descreva o comportamento do veículo, barulhos suspeitos ou luzes do painel acesas..."
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-red-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-red-500/20 leading-relaxed font-sans"
+                    className="w-full bg-white border border-slate-300 focus:border-red-600 focus:ring-1 focus:ring-red-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none leading-relaxed font-sans"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                       Quilometragem Atual *
                     </label>
                     <input
@@ -2041,17 +2040,17 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
                       value={currentOdometer}
                       onChange={(e) => setCurrentOdometer(e.target.value === '' ? '' : Number(e.target.value))}
                       placeholder="km atual"
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-red-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                       Gravidade Indicada
                     </label>
                     <select
                       value={anomalyPriority}
                       onChange={(e) => setAnomalyPriority(e.target.value as any)}
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-red-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                     >
                       <option value="low">Baixa (Pode circular)</option>
                       <option value="medium">Média (Requer atenção)</option>
@@ -2061,18 +2060,18 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                   <button
                     type="button"
                     onClick={() => setIsAnomalyModalOpen(false)}
-                    className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-semibold border border-slate-800 transition-colors cursor-pointer"
+                    className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium transition-colors cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={submittingAnomaly}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-md flex items-center gap-1.5 cursor-pointer"
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-md text-xs font-medium transition-colors shadow-none flex items-center gap-1.5 cursor-pointer"
                   >
                     {submittingAnomaly ? (
                       <>
