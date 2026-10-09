@@ -85,7 +85,10 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
   const [meterSuccess, setMeterSuccess] = useState(false);
   
   const [reportIssue, setReportIssue] = useState(false);
+  const [issueTitle, setIssueTitle] = useState('');
   const [issueDescription, setReportIssueDescription] = useState('');
+  const [issuePriority, setIssuePriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
+  const [issueMeterAtService, setIssueMeterAtService] = useState<number | ''>('');
   const [submittingIssue, setSubmittingIssue] = useState(false);
   const [issueSuccess, setIssueSuccess] = useState(false);
 
@@ -103,7 +106,10 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
     setMeterValue('');
     setMeterSuccess(false);
     setReportIssue(false);
+    setIssueTitle('');
     setReportIssueDescription('');
+    setIssuePriority('medium');
+    setIssueMeterAtService('');
     setIssueSuccess(false);
 
     // Pequeno atraso para garantir que o contêiner DOM esteja montado
@@ -188,6 +194,9 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
 
       setActiveAsset(asset);
       setMeterValue(asset.current_meter ?? asset.currentMeter ?? 0);
+      setIssueMeterAtService(asset.current_meter ?? asset.currentMeter ?? 0);
+      setIssuePriority('medium');
+      setIssueTitle('');
       
       // Carrega os documentos desse ativo
       loadAssetDocs(asset.id);
@@ -262,24 +271,26 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
   // Reportar Avaria (Criar Ordem de Serviço Corretiva)
   const handleReportIssueSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeAsset || !issueDescription.trim()) return;
+    if (!activeAsset || !issueTitle.trim() || !issueDescription.trim() || issueMeterAtService === '') return;
 
     setSubmittingIssue(true);
     try {
-      const code = activeAsset.code_tag || activeAsset.codeTag || activeAsset.id;
       const payload = {
         assetId: activeAsset.id,
         asset_id: activeAsset.id,
-        title: `Avaria Reportada via QR Scanner: ${activeAsset.name}`,
-        description: `Sinalizado anomalia em campo por scanner de câmara.\nDescrição do operador:\n${issueDescription}`,
+        title: issueTitle,
+        description: issueDescription,
         orderType: 'corrective',
         order_type: 'corrective',
-        priority: 'high',
+        priority: issuePriority,
+        meterAtService: Number(issueMeterAtService),
+        meter_at_service: Number(issueMeterAtService),
         status: 'open'
       };
 
       await api.post('/work-orders', payload);
       setIssueSuccess(true);
+      setIssueTitle('');
       setReportIssueDescription('');
       
       setTimeout(() => {
@@ -555,33 +566,76 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
                 {!reportIssue ? (
                   <button
                     onClick={() => setReportIssue(true)}
-                    className="w-full py-2 bg-red-950/40 hover:bg-red-950/70 border border-red-900/30 text-red-400 hover:text-red-300 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    className="w-full py-2.5 bg-red-950/40 hover:bg-red-950/70 border border-red-900/30 text-red-400 hover:text-red-300 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                   >
                     <Activity size={14} />
                     <span>Reportar Anomalia / Avaria na Viatura</span>
                   </button>
                 ) : (
                   <form onSubmit={handleReportIssueSubmit} className="space-y-3 animate-fade-in">
-                    <span className="text-xs font-bold text-red-400 uppercase tracking-wider block">
-                      Descrever Anomalia Operacional
+                    <span className="text-xs font-bold text-red-400 uppercase tracking-wider block border-b border-slate-850 pb-1.5 mb-2">
+                      Nova Ordem de Serviço (Avaria Corretiva)
                     </span>
-                    <textarea
-                      required
-                      rows={2}
-                      value={issueDescription}
-                      onChange={(e) => setReportIssueDescription(e.target.value)}
-                      placeholder="Descreva o problema encontrado (ex: vazamento de óleo, ruído na caixa de câmbio...)"
-                      className="w-full bg-slate-950 border border-slate-850 focus:border-red-500/50 rounded-lg p-2.5 text-xs text-white"
-                    />
+                    
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Título da Avaria / Intervenção *</label>
+                      <input
+                        type="text"
+                        required
+                        value={issueTitle}
+                        onChange={(e) => setIssueTitle(e.target.value)}
+                        placeholder="ex: Fuga de óleo no retentor ou motor com ruído"
+                        className="w-full bg-slate-950 border border-slate-850 focus:border-red-500/50 rounded-lg px-3 py-1.5 text-xs text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Descrição detalhada do problema *</label>
+                      <textarea
+                        required
+                        rows={2}
+                        value={issueDescription}
+                        onChange={(e) => setReportIssueDescription(e.target.value)}
+                        placeholder="Descreva minuciosamente o problema técnico encontrado..."
+                        className="w-full bg-slate-950 border border-slate-850 focus:border-red-500/50 rounded-lg p-2.5 text-xs text-white"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Contador no Momento ({isVehicle ? 'km' : 'horas'}) *</label>
+                        <input
+                          type="number"
+                          required
+                          min={activeAsset.current_meter ?? activeAsset.currentMeter ?? 0}
+                          value={issueMeterAtService}
+                          onChange={(e) => setIssueMeterAtService(e.target.value !== '' ? Number(e.target.value) : '')}
+                          className="w-full bg-slate-950 border border-slate-850 focus:border-red-500/50 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Prioridade Sugerida *</label>
+                        <select
+                          value={issuePriority}
+                          onChange={(e) => setIssuePriority(e.target.value as any)}
+                          className="w-full bg-slate-950 border border-slate-850 focus:border-red-500/50 rounded-lg px-2 py-1.5 text-xs text-white"
+                        >
+                          <option value="low">Baixa</option>
+                          <option value="medium">Média</option>
+                          <option value="high">Alta</option>
+                          <option value="urgent">Urgente</option>
+                        </select>
+                      </div>
+                    </div>
                     
                     {issueSuccess && (
-                      <div className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                      <div className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 py-1">
                         <CheckCircle2 size={12} />
                         <span>Ordem de Manutenção Corretiva Aberta!</span>
                       </div>
                     )}
 
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-2 pt-1 border-t border-slate-850">
                       <button
                         type="button"
                         onClick={() => setReportIssue(false)}
@@ -591,7 +645,7 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose 
                       </button>
                       <button
                         type="submit"
-                        disabled={submittingIssue || !issueDescription.trim()}
+                        disabled={submittingIssue || !issueTitle.trim() || !issueDescription.trim() || issueMeterAtService === ''}
                         className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1 cursor-pointer disabled:opacity-50"
                       >
                         {submittingIssue ? (
