@@ -20,7 +20,14 @@ import {
   Activity,
   Edit2,
   Eye,
-  Settings
+  Settings,
+  Play,
+  Pause,
+  ArrowRight,
+  TrendingUp,
+  GitCommit,
+  Phone,
+  UserCheck
 } from 'lucide-react';
 
 interface Asset {
@@ -32,6 +39,27 @@ interface Asset {
   currentMeter?: number;
   meter_kind?: string;
   meterKind?: string;
+}
+
+interface Technician {
+  id: string;
+  name: string;
+  specialty?: string;
+  phone?: string;
+  cost_per_hour?: number;
+  costPerHour?: number;
+}
+
+interface TimelineEvent {
+  id: string;
+  eventType: 'start' | 'pause' | 'resume' | 'complete' | string;
+  event_type?: string;
+  reason?: string;
+  justification?: string;
+  performed_by?: string;
+  performedBy?: string;
+  created_at: string;
+  createdAt?: string;
 }
 
 interface WorkOrder {
@@ -50,7 +78,7 @@ interface WorkOrder {
   order_type?: 'corrective' | 'preventive' | string;
   orderType?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent' | string;
-  status: 'open' | 'in_progress' | 'waiting_parts' | 'completed' | string;
+  status: 'open' | 'in_progress' | 'waiting_parts' | 'paused' | 'blocked' | 'completed' | string;
   total_cost_mzn?: number;
   totalCostMzn?: number;
   parts_cost_mzn?: number;
@@ -65,6 +93,8 @@ interface WorkOrder {
   openedAt?: string;
   assigned_to?: string;
   assignedTo?: string;
+  technician_id?: string;
+  technicianId?: string;
   meter_at_service?: number;
   meterAtService?: number;
 }
@@ -72,7 +102,10 @@ interface WorkOrder {
 export const WorkOrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
+  
   const [loading, setLoading] = useState(true);
+  const [loadingTechs, setLoadingTechs] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Estados de pesquisa e filtragem
@@ -80,7 +113,7 @@ export const WorkOrdersPage: React.FC = () => {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  // Toasts / Mensagens de feedback
+  // Toasts / Feedback
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Modais de Controle
@@ -88,29 +121,48 @@ export const WorkOrdersPage: React.FC = () => {
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [editingOrderId, setEditingEditingOrderId] = useState<string | null>(null);
 
-  const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
+  // Modal Novo Técnico
+  const [isTechModalOpen, setIsTechModalOpen] = useState(false);
+  const [techName, setTechName] = useState('');
+  const [techSpecialty, setTechSpecialty] = useState('');
+  const [techPhone, setTechPhone] = useState('');
+  const [techCostPerHour, setTechCostPerHour] = useState<number | ''>('');
+  const [submittingTech, setSubmittingTech] = useState(false);
+
+  // Drawer de Detalhes da OS (Cockpit de Campo)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedDrawerOrder, setSelectedDrawerOrder] = useState<WorkOrder | null>(null);
+  const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
+  const [loadingTimeline, setLoadingTimeline] = useState(false);
+
+  // Modal de Pausa / Interrupção Obrigatório
+  const [isPauseModalOpen, setIsPauseModalOpen] = useState(false);
+  const [pauseReason, setPauseReason] = useState('Aguardando Peças no Armazém');
+  const [pauseJustification, setPauseJustification] = useState('');
+  const [submittingPause, setSubmittingPause] = useState(false);
+
+  // Modal de Conclusão / Fecho
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
+  const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
+  const [partsCostMzn, setPartsCostMzn] = useState<number | ''>('');
+  const [laborCostMzn, setLaborCostMzn] = useState<number | ''>('');
+  const [downtimeHours, setDowntimeHours] = useState<number | ''>('');
+  const [resolutionNotes, setResolutionNotes] = useState('');
+  const [submittingClose, setSubmittingClose] = useState(false);
 
   // Submissões de Formulários
   const [submittingForm, setSubmittingForm] = useState(false);
-  const [submittingClose, setSubmittingClose] = useState(false);
 
-  // Campos de Criação / Edição
+  // Campos de Criação / Edição de OS
   const [formAssetId, setFormAssetId] = useState('');
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formOrderType, setFormOrderType] = useState<'corrective' | 'preventive'>('corrective');
   const [formPriority, setFormPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
   const [formMeterAtService, setFormMeterAtService] = useState<number | ''>('');
-  const [formAssignedTo, setFormAssignedTo] = useState('');
+  const [formTechnicianId, setFormTechnicianId] = useState('');
 
-  // Campos de Fecho (Conclusão)
-  const [partsCostMzn, setPartsCostMzn] = useState<number | ''>('');
-  const [laborCostMzn, setLaborCostMzn] = useState<number | ''>('');
-  const [downtimeHours, setDowntimeHours] = useState<number | ''>('');
-  const [resolutionNotes, setResolutionNotes] = useState('');
-
-  // Carrega Ordens de Serviço Reais
+  // Carrega Ordens de Serviço
   const fetchWorkOrders = async () => {
     setLoading(true);
     setError(null);
@@ -132,7 +184,7 @@ export const WorkOrdersPage: React.FC = () => {
     }
   };
 
-  // Carrega lista de ativos para os dropdowns
+  // Carrega lista de ativos
   const fetchAssetsForDropdown = async () => {
     try {
       const response = await api.get('/assets');
@@ -145,10 +197,55 @@ export const WorkOrdersPage: React.FC = () => {
     }
   };
 
+  // Carrega técnicos cadastrados
+  const fetchTechnicians = async () => {
+    setLoadingTechs(true);
+    try {
+      const response = await api.get('/technicians');
+      const data = Array.isArray(response.data)
+        ? response.data
+        : response.data?.technicians || response.data?.data || [];
+      setTechnicians(data);
+    } catch (err) {
+      console.error('Erro ao buscar técnicos:', err);
+    } finally {
+      setLoadingTechs(false);
+    }
+  };
+
+  // Carrega linha do tempo de uma OS específica
+  const fetchTimeline = async (orderId: string) => {
+    setLoadingTimeline(true);
+    try {
+      const response = await api.get(`/work-orders/${orderId}/timeline`);
+      const data = Array.isArray(response.data)
+        ? response.data
+        : response.data?.timeline || response.data?.data || [];
+      setTimeline(data);
+    } catch (err) {
+      console.error('Erro ao carregar linha do tempo:', err);
+      // Fallback amigável se a rota de linha do tempo não tiver registros ou falhar
+      setTimeline([]);
+    } finally {
+      setLoadingTimeline(false);
+    }
+  };
+
   useEffect(() => {
     fetchWorkOrders();
     fetchAssetsForDropdown();
+    fetchTechnicians();
   }, []);
+
+  // Sincroniza dados da OS no Drawer se a lista de ordens for recarregada
+  useEffect(() => {
+    if (selectedDrawerOrder) {
+      const updated = orders.find(o => o.id === selectedDrawerOrder.id);
+      if (updated) {
+        setSelectedDrawerOrder(updated);
+      }
+    }
+  }, [orders]);
 
   // Formatação de Moeda Metical Moçambicano (MZN)
   const formatMZN = (val?: number) => {
@@ -156,6 +253,7 @@ export const WorkOrdersPage: React.FC = () => {
     return `${value.toLocaleString('pt-MZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MZN`;
   };
 
+  // Abre criação de OS
   const handleOpenCreateModal = () => {
     setFormMode('create');
     setEditingEditingOrderId(null);
@@ -164,7 +262,7 @@ export const WorkOrdersPage: React.FC = () => {
     setFormOrderType('corrective');
     setFormPriority('medium');
     setFormMeterAtService('');
-    setFormAssignedTo('');
+    setFormTechnicianId('');
     if (assets.length > 0) {
       setFormAssetId(assets[0].id);
       setFormMeterAtService(assets[0].current_meter ?? assets[0].currentMeter ?? 0);
@@ -174,7 +272,11 @@ export const WorkOrdersPage: React.FC = () => {
     setIsFormModalOpen(true);
   };
 
-  const handleOpenEditModal = (order: WorkOrder) => {
+  // Abre edição de OS
+  const handleOpenEditModal = (order: WorkOrder, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation(); // impede abrir o drawer ao clicar no botão editar
+    }
     setFormMode('edit');
     setEditingEditingOrderId(order.id);
     setFormAssetId(order.asset_id || order.assetId || '');
@@ -183,11 +285,11 @@ export const WorkOrdersPage: React.FC = () => {
     setFormOrderType((order.order_type || order.orderType || 'corrective') as any);
     setFormPriority((order.priority || 'medium') as any);
     setFormMeterAtService(order.meter_at_service ?? order.meterAtService ?? '');
-    setFormAssignedTo(order.assigned_to || order.assignedTo || '');
+    setFormTechnicianId(order.technician_id || order.technicianId || '');
     setIsFormModalOpen(true);
   };
 
-  // Escuta seletor de ativo para preencher odómetro/horímetro sugerido
+  // Trata troca de ativo para herdar o odómetro/horímetro sugerido
   const handleAssetChange = (assetId: string) => {
     setFormAssetId(assetId);
     const selected = assets.find(a => a.id === assetId);
@@ -196,7 +298,53 @@ export const WorkOrdersPage: React.FC = () => {
     }
   };
 
-  // Submeter Criação ou Edição
+  // Cadastro de novo técnico rápido
+  const handleCreateTechnicianSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!techName.trim() || !techSpecialty.trim()) {
+      alert('Nome e Especialidade são campos obrigatórios.');
+      return;
+    }
+
+    setSubmittingTech(true);
+    const payload = {
+      name: techName,
+      specialty: techSpecialty,
+      phone: techPhone || undefined,
+      costPerHour: techCostPerHour !== '' ? Number(techCostPerHour) : undefined,
+      cost_per_hour: techCostPerHour !== '' ? Number(techCostPerHour) : undefined
+    };
+
+    try {
+      const res = await api.post('/technicians', payload);
+      const newTech = res.data?.technician || res.data?.data || res.data;
+      
+      // Feedback e recarga de técnicos
+      setSuccessMessage(`Técnico "${techName}" cadastrado com sucesso!`);
+      await fetchTechnicians();
+
+      // Seleciona automaticamente o técnico criado no formulário de OS
+      if (newTech && newTech.id) {
+        setFormTechnicianId(newTech.id);
+      }
+
+      // Fecha modal rápido e limpa
+      setIsTechModalOpen(false);
+      setTechName('');
+      setTechSpecialty('');
+      setTechPhone('');
+      setTechCostPerHour('');
+      
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      console.error('Erro ao cadastrar técnico:', err);
+      alert(err.response?.data?.message || err.message || 'Não foi possível cadastrar o técnico.');
+    } finally {
+      setSubmittingTech(false);
+    }
+  };
+
+  // Submeter OS
   const handleSaveOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formAssetId || !formTitle.trim() || !formDescription.trim()) {
@@ -216,8 +364,8 @@ export const WorkOrdersPage: React.FC = () => {
       priority: formPriority,
       meterAtService: formMeterAtService !== '' ? Number(formMeterAtService) : undefined,
       meter_at_service: formMeterAtService !== '' ? Number(formMeterAtService) : undefined,
-      assignedTo: formAssignedTo || undefined,
-      assigned_to: formAssignedTo || undefined,
+      technicianId: formTechnicianId || undefined,
+      technician_id: formTechnicianId || undefined,
       status: formMode === 'create' ? 'open' : undefined
     };
 
@@ -241,7 +389,96 @@ export const WorkOrdersPage: React.FC = () => {
     }
   };
 
-  // Submeter Fecho (Conclusão) da Ordem de Serviço
+  // Iniciar Serviço (Transição 'start')
+  const handleStartService = async (order: WorkOrder) => {
+    try {
+      // Tenta submeter na rota de transições, com fallback para PATCH direto de status
+      try {
+        await api.post(`/work-orders/${order.id}/transitions`, { eventType: 'start' });
+      } catch (err) {
+        await api.patch(`/work-orders/${order.id}`, { status: 'in_progress' });
+      }
+
+      if (navigator.vibrate) navigator.vibrate(100);
+      setSuccessMessage('Serviço iniciado! Status alterado para "Em Curso".');
+      await fetchWorkOrders();
+      fetchTimeline(order.id);
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      console.error('Erro ao iniciar serviço:', err);
+      alert(err.response?.data?.message || err.message || 'Não foi possível iniciar o serviço.');
+    }
+  };
+
+  // Abrir Modal de Pausa / Interrupção
+  const handleOpenPauseModal = (order: WorkOrder) => {
+    setSelectedDrawerOrder(order);
+    setPauseReason('Aguardando Peças no Armazém');
+    setPauseJustification('');
+    setIsPauseModalOpen(true);
+  };
+
+  // Submeter Pausa / Interrupção (Transição 'pause' / 'waiting_parts')
+  const handlePauseServiceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDrawerOrder || !pauseJustification.trim()) {
+      alert('A justificação detalhada é estritamente obrigatória.');
+      return;
+    }
+
+    setSubmittingPause(true);
+    const targetStatus = pauseReason === 'Aguardando Peças no Armazém' ? 'waiting_parts' : 'paused';
+
+    try {
+      try {
+        await api.post(`/work-orders/${selectedDrawerOrder.id}/transitions`, {
+          eventType: 'pause',
+          reason: pauseReason,
+          justification: pauseJustification
+        });
+      } catch (err) {
+        // Fallback robusto para PATCH direto de status e descrição
+        await api.patch(`/work-orders/${selectedDrawerOrder.id}`, {
+          status: targetStatus,
+          description: `${selectedDrawerOrder.description}\n\n[Pausa - ${pauseReason}]: ${pauseJustification}`
+        });
+      }
+
+      if (navigator.vibrate) navigator.vibrate(100);
+      setSuccessMessage(`Serviço interrompido! Motivo: ${pauseReason}`);
+      setIsPauseModalOpen(false);
+      await fetchWorkOrders();
+      fetchTimeline(selectedDrawerOrder.id);
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      console.error('Erro ao pausar serviço:', err);
+      alert(err.response?.data?.message || err.message || 'Não foi possível registrar a pausa.');
+    } finally {
+      setSubmittingPause(false);
+    }
+  };
+
+  // Retomar Serviço (Transição 'resume')
+  const handleResumeService = async (order: WorkOrder) => {
+    try {
+      try {
+        await api.post(`/work-orders/${order.id}/transitions`, { eventType: 'resume' });
+      } catch (err) {
+        await api.patch(`/work-orders/${order.id}`, { status: 'in_progress' });
+      }
+
+      if (navigator.vibrate) navigator.vibrate(100);
+      setSuccessMessage('Serviço retomado com sucesso!');
+      await fetchWorkOrders();
+      fetchTimeline(order.id);
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      console.error('Erro ao retomar serviço:', err);
+      alert(err.response?.data?.message || err.message || 'Não foi possível retomar o serviço.');
+    }
+  };
+
+  // Concluir Serviço (Ação Rápida de Fecho)
   const handleCloseOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOrder) return;
@@ -255,40 +492,65 @@ export const WorkOrdersPage: React.FC = () => {
       labor_cost_mzn: laborCostMzn !== '' ? Number(laborCostMzn) : 0,
       downtimeHours: downtimeHours !== '' ? Number(downtimeHours) : 0,
       downtime_hours: downtimeHours !== '' ? Number(downtimeHours) : 0,
-      resolutionNotes: resolutionNotes || undefined,
-      resolution_notes: resolutionNotes || undefined,
+      resolutionNotes: resolutionNotes,
+      resolution_notes: resolutionNotes,
       status: 'completed'
     };
 
     try {
-      // Tenta fechar usando a rota específica do backend ou via PUT genérico
+      // Registra transição de fechamento se suportado, depois faz PATCH/PUT
+      try {
+        await api.post(`/work-orders/${selectedOrder.id}/transitions`, {
+          eventType: 'complete',
+          justification: resolutionNotes
+        });
+      } catch (err) {
+        // Ignoramos se rota de transição não existir para fechamento
+      }
+
       try {
         await api.patch(`/work-orders/${selectedOrder.id}/close`, payload);
       } catch (patchErr) {
-        // Fallback para PUT geral de encerramento
-        await api.put(`/work-orders/${selectedOrder.id}`, payload);
+        await api.patch(`/work-orders/${selectedOrder.id}`, payload);
       }
       
-      setSuccessMessage(`OS ${selectedOrder.wo_number || selectedOrder.woNumber} concluída com sucesso!`);
+      if (navigator.vibrate) navigator.vibrate(120);
+      setSuccessMessage(`OS ${selectedOrder.wo_number || selectedOrder.woNumber} encerrada com sucesso!`);
       setIsCloseModalOpen(false);
       setSelectedOrder(null);
 
-      // Limpa os custos e notas
+      // Limpa formulário
       setPartsCostMzn('');
       setLaborCostMzn('');
       setDowntimeHours('');
       setResolutionNotes('');
 
-      // Recarrega a tabela
+      // Recarrega
       await fetchWorkOrders();
 
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       console.error('Erro ao fechar ordem de serviço:', err);
-      alert(err.response?.data?.message || err.message || 'Erro ao encerrar a ordem de serviço.');
+      alert(err.response?.data?.message || err.message || 'Erro ao fechar a ordem de serviço.');
     } finally {
       setSubmittingClose(false);
     }
+  };
+
+  // Detetar se a ordem de serviço está em atraso (Aberta ou Em Curso e com mais de 3 dias de criação)
+  const isDelayed = (order: WorkOrder) => {
+    if (order.status === 'completed') return false;
+    const openedDate = new Date(order.opened_at || order.openedAt || '');
+    const diffTime = Math.abs(new Date().getTime() - openedDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 3;
+  };
+
+  // Abre Drawer do Técnico
+  const handleOpenDrawer = (order: WorkOrder) => {
+    setSelectedDrawerOrder(order);
+    setIsDrawerOpen(true);
+    fetchTimeline(order.id);
   };
 
   // Renderização das badges de prioridade
@@ -296,32 +558,32 @@ export const WorkOrdersPage: React.FC = () => {
     switch (prio) {
       case 'low':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-blue-950/40 text-blue-400 border border-blue-500/20">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-950/40 text-blue-400 border border-blue-500/20">
             Baixa
           </span>
         );
       case 'medium':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-amber-950/40 text-amber-400 border border-amber-500/20">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950/40 text-amber-400 border border-amber-500/20">
             Média
           </span>
         );
       case 'high':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-red-950/40 text-red-400 border border-red-500/20">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-red-950/40 text-red-400 border border-red-500/20">
             Alta
           </span>
         );
       case 'urgent':
       case 'critical':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-red-950/60 text-red-300 border border-red-500/40 animate-pulse">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-red-950/70 text-red-350 border border-red-500/40 animate-pulse">
             ⚠️ Urgente
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-450 border border-slate-700">
             {prio}
           </span>
         );
@@ -333,44 +595,47 @@ export const WorkOrdersPage: React.FC = () => {
     switch (status) {
       case 'open':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-sky-950/40 text-sky-400 border border-sky-500/20">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-sky-950/40 text-sky-400 border border-sky-500/20">
             Aberta
           </span>
         );
       case 'in_progress':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-amber-950/40 text-amber-400 border border-amber-500/20">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-amber-950/40 text-amber-400 border border-amber-500/20">
             Em Curso
           </span>
         );
       case 'waiting_parts':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-purple-950/40 text-purple-450 border border-purple-500/20">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-purple-950/40 text-purple-400 border border-purple-500/20">
             Aguardar Peças
+          </span>
+        );
+      case 'paused':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-yellow-950/40 text-yellow-450 border border-yellow-500/20">
+            Pausada
+          </span>
+        );
+      case 'blocked':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-red-950/40 text-red-400 border border-red-500/20">
+            Bloqueada
           </span>
         );
       case 'completed':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-950/40 text-emerald-400 border border-emerald-500/20">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-950/40 text-emerald-400 border border-emerald-500/20">
             Concluída
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
             {status}
           </span>
         );
     }
-  };
-
-  // Detetar se a ordem de serviço está em atraso (Aberta ou Em Curso e com mais de 3 dias de criação)
-  const isDelayed = (order: WorkOrder) => {
-    if (order.status === 'completed') return false;
-    const openedDate = new Date(order.opened_at || order.openedAt || '');
-    const diffTime = Math.abs(new Date().getTime() - openedDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 3;
   };
 
   // Filtragem local inteligente baseada nos critérios de pesquisa
@@ -408,21 +673,21 @@ export const WorkOrdersPage: React.FC = () => {
         <div className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl shadow-2xl max-w-md flex gap-3 items-start animate-bounce">
           <CheckCircle2 className="text-emerald-500 shrink-0 mt-0.5" size={18} />
           <div>
-            <span className="font-bold block text-sm text-white">Gestão de Ordens de Serviço</span>
+            <span className="font-bold block text-sm text-white">Cockpit de Manutenção</span>
             <span className="text-xs text-slate-300">{successMessage}</span>
           </div>
         </div>
       )}
 
-      {/* Título e Botão de Ação */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Cabeçalho */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-in">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
             <span>Ordens de Serviço</span>
             {loading && <Loader2 size={18} className="animate-spin text-slate-500" />}
           </h1>
           <p className="text-slate-400 text-xs mt-1">
-            Gestão operacional e planeamento com verificação de conformidade INATRO/INNOQ e controle de downtime.
+            Cockpit móvel para acompanhamento de tarefas, transição de estados e linha do tempo de auditoria.
           </p>
         </div>
         <div className="flex gap-2">
@@ -446,18 +711,12 @@ export const WorkOrdersPage: React.FC = () => {
 
       {/* Erros da API */}
       {error && (
-        <div className="p-4 bg-red-950/30 border border-red-500/20 text-red-400 text-xs rounded-xl flex gap-3 items-start">
+        <div className="p-4 bg-red-950/30 border border-red-500/20 text-red-400 text-xs rounded-xl flex gap-3 items-start animate-fade-in">
           <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
           <div className="flex-1">
-            <span className="font-bold block text-red-300 mb-0.5">Erro no Módulo de OS</span>
+            <span className="font-bold block text-red-300 mb-0.5">Erro de Ligação</span>
             <span className="leading-relaxed block text-slate-300">{error}</span>
           </div>
-          <button 
-            onClick={fetchWorkOrders}
-            className="text-[11px] font-bold bg-red-900/30 hover:bg-red-900/50 px-2.5 py-1 rounded border border-red-800/40 transition-colors"
-          >
-            Tentar Novamente
-          </button>
         </div>
       )}
 
@@ -467,7 +726,7 @@ export const WorkOrdersPage: React.FC = () => {
           <Search size={14} className="absolute left-3.5 top-3.5 text-slate-500" />
           <input
             type="text"
-            placeholder="Pesquisar por nº OS, título, técnico, matrícula ou tag do ativo..."
+            placeholder="Pesquisar por número, atividade, técnico, matrícula ou tag do ativo..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none"
@@ -493,253 +752,129 @@ export const WorkOrdersPage: React.FC = () => {
             <option value="all">Todos os Estados</option>
             <option value="open">Abertas</option>
             <option value="in_progress">Em Curso</option>
-            <option value="waiting_parts">Aguardar Peças</option>
+            <option value="waiting_parts">Aguardando Peças</option>
+            <option value="paused">Pausadas / Interrompidas</option>
             <option value="completed">Concluídas</option>
           </select>
         </div>
       </div>
 
-      {/* Listagem / Cartões de OS com Layout Responsivo */}
+      {/* Grid de Ordens de Serviço (Tabelas/Cartões Reais) */}
       {loading ? (
-        /* SKELETON */
-        <div className="p-8 bg-slate-900 border border-slate-800 rounded-xl space-y-4">
-          <div className="h-4 bg-slate-800 rounded w-1/4 animate-pulse"></div>
-          {[1, 2, 3].map((n) => (
-            <div key={n} className="flex gap-4 items-center py-3 border-b border-slate-800/45">
-              <div className="h-6 bg-slate-800 rounded w-12 animate-pulse"></div>
-              <div className="h-6 bg-slate-800 rounded flex-1 animate-pulse"></div>
-              <div className="h-6 bg-slate-800 rounded w-24 animate-pulse"></div>
-            </div>
-          ))}
+        <div className="p-12 text-center bg-slate-900 border border-slate-800 rounded-xl">
+          <Loader2 className="animate-spin text-emerald-500 mx-auto" size={32} />
+          <p className="text-xs text-slate-400 mt-3 font-semibold">A carregar registos de ordens de serviço do CMMS...</p>
         </div>
       ) : filteredOrders.length === 0 ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl text-center py-16 px-4">
-          <div className="w-12 h-12 bg-slate-800 text-slate-500 border border-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Briefcase size={20} />
-          </div>
-          <h3 className="text-sm font-semibold text-slate-200">Nenhuma Ordem de Serviço Encontrada</h3>
-          <p className="text-slate-500 text-xs mt-1">Nenhum registo de OS encontrado para os filtros selecionados.</p>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl text-center py-20 px-4">
+          <Briefcase size={36} className="text-slate-600 mx-auto mb-4" />
+          <h3 className="text-slate-250 font-bold text-sm">Nenhuma Ordem de Serviço Ativa</h3>
+          <p className="text-slate-500 text-xs mt-1">Crie uma nova OS ou redefina os filtros aplicados.</p>
         </div>
       ) : (
-        /* CARDS / TABLE VIEW RESPONSIVE */
-        <div className="grid grid-cols-1 gap-4 lg:hidden">
-          {/* Visualização de Cartões para Mobile */}
-          {filteredOrders.map((order) => {
-            const matchingAsset = assets.find(a => a.id === order.asset_id || a.id === order.assetId);
-            const assetDisplay = matchingAsset 
-              ? `${matchingAsset.code_tag || matchingAsset.codeTag} • ${matchingAsset.name}`
-              : order.asset_name || 'Equipamento Geral';
+        <div className="space-y-4">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest block">
+            Ordens Filtradas ({filteredOrders.length}) · Clique para abrir o cockpit de campo
+          </span>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredOrders.map((order) => {
+              const matchingAsset = assets.find(a => a.id === order.asset_id || a.id === order.assetId);
+              const assetDisplay = matchingAsset 
+                ? `${matchingAsset.code_tag || matchingAsset.codeTag} • ${matchingAsset.name}`
+                : order.asset_name || order.asset?.name || 'Equipamento Geral';
 
-            const priority = order.priority || 'medium';
-            const isUrgent = priority === 'urgent' || priority === 'critical';
-            const delayed = isDelayed(order);
+              const priority = order.priority || 'medium';
+              const isUrgent = priority === 'urgent' || priority === 'critical';
+              const delayed = isDelayed(order);
+              
+              const matchingTech = technicians.find(t => t.id === order.technician_id || t.id === order.technicianId);
+              const techDisplay = matchingTech ? matchingTech.name : (order.assigned_to || order.assignedTo || 'Pendente de Atribuição');
 
-            return (
-              <div 
-                key={order.id} 
-                className={`bg-slate-900 border rounded-xl p-4 space-y-3 transition-all ${
-                  isUrgent 
-                    ? 'border-red-500/40 shadow-md shadow-red-950/20' 
-                    : delayed 
-                    ? 'border-amber-600/30' 
-                    : 'border-slate-800'
-                }`}
-              >
-                <div className="flex justify-between items-start gap-2">
-                  <span className="font-mono font-bold text-xs text-emerald-400 bg-slate-950/40 px-2 py-0.5 rounded border border-slate-800">
-                    {order.wo_number || order.woNumber || `OS-${order.id.substring(0, 4)}`}
-                  </span>
-                  <div className="flex gap-1">
-                    {delayed && (
-                      <span className="bg-amber-950/40 text-amber-500 text-[10px] font-bold px-1.5 py-0.5 border border-amber-800/30 rounded animate-pulse">
-                        Em Atraso
-                      </span>
-                    )}
-                    {renderStatusBadge(order.status)}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <h4 className="text-white font-bold text-sm leading-snug">{order.title}</h4>
-                  <p className="text-slate-400 text-xs line-clamp-2">{order.description}</p>
-                </div>
-
-                <div className="pt-2 border-t border-slate-850 flex flex-col gap-1.5 text-[11px] text-slate-400">
-                  <div>
-                    <span className="text-slate-500 uppercase text-[9px] font-bold block">Ativo Beneficiário</span>
-                    <span className="font-mono font-semibold text-slate-200">{assetDisplay}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-1">
-                    <div>
-                      <span className="text-slate-500 uppercase text-[9px] font-bold block">Técnico Atribuído</span>
-                      <span className="text-slate-300 font-medium">{order.assigned_to || order.assignedTo || 'Pendente'}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 uppercase text-[9px] font-bold block">Urgência</span>
-                      <div className="mt-0.5">{renderPriorityBadge(priority)}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-slate-850 flex justify-end gap-2">
-                  {/* Editar */}
-                  {order.status !== 'completed' && (
-                    <button
-                      onClick={() => handleOpenEditModal(order)}
-                      className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
-                      title="Editar Ordem"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                  )}
-                  {/* Fechar OS */}
-                  {order.status !== 'completed' ? (
-                    <button
-                      onClick={() => {
-                        setSelectedOrder(order);
-                        setIsCloseModalOpen(true);
-                      }}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-                    >
-                      Concluir OS
-                    </button>
-                  ) : (
-                    <div className="text-right text-xs text-slate-500 font-semibold flex flex-col">
-                      <span>Custo de Fecho:</span>
-                      <span className="font-mono">{formatMZN(order.total_cost_mzn ?? order.totalCostMzn)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Visualização de Tabela para Desktop */}
-      {!loading && filteredOrders.length > 0 && (
-        <div className="hidden lg:block bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400 text-xs uppercase tracking-wider bg-slate-950/40">
-                  <th className="py-3.5 px-4 font-semibold">Nº Ordem</th>
-                  <th className="py-3.5 px-4 font-semibold">Serviço / Atividade</th>
-                  <th className="py-3.5 px-4 font-semibold">Ativo Associado</th>
-                  <th className="py-3.5 px-4 font-semibold">Prioridade</th>
-                  <th className="py-3.5 px-4 font-semibold">Técnico</th>
-                  <th className="py-3.5 px-4 font-semibold">Abertura</th>
-                  <th className="py-3.5 px-4 font-semibold text-right">Custo Total</th>
-                  <th className="py-3.5 px-4 font-semibold text-center">Estado</th>
-                  <th className="py-3.5 px-4 font-semibold text-center">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/65">
-                {filteredOrders.map((order) => {
-                  const matchingAsset = assets.find(a => a.id === order.asset_id || a.id === order.assetId);
-                  const assetDisplay = matchingAsset 
-                    ? `${matchingAsset.code_tag || matchingAsset.codeTag} • ${matchingAsset.name}`
-                    : order.asset_name || 'Equipamento Geral';
-
-                  const priority = order.priority || 'medium';
-                  const isUrgent = priority === 'urgent' || priority === 'critical';
-                  const delayed = isDelayed(order);
-                  const openedDate = order.opened_at || order.openedAt;
-
-                  return (
-                    <tr 
-                      key={order.id} 
-                      className={`hover:bg-slate-800/10 transition-colors duration-150 ${
-                        isUrgent ? 'bg-red-950/5 border-l-4 border-l-red-500' : ''
-                      }`}
-                    >
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-300">
+              return (
+                <div
+                  key={order.id}
+                  onClick={() => handleOpenDrawer(order)}
+                  className={`bg-slate-900 border rounded-2xl p-4 space-y-3 cursor-pointer hover:bg-slate-850 transition-all shadow-sm flex flex-col justify-between ${
+                    isUrgent 
+                      ? 'border-red-500/40 hover:border-red-500/70 shadow-md shadow-red-950/10' 
+                      : delayed 
+                      ? 'border-amber-500/30 hover:border-amber-500/60' 
+                      : 'border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="font-mono font-bold text-[11px] text-emerald-400 bg-slate-950/50 px-2 py-0.5 rounded border border-slate-800">
                         {order.wo_number || order.woNumber || `OS-${order.id.substring(0, 4)}`}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex flex-col">
-                          <span className="text-white font-medium text-sm leading-5 flex items-center gap-1.5">
-                            {order.title}
-                            {delayed && (
-                              <span className="bg-amber-950/40 text-amber-500 text-[10px] font-extrabold px-1.5 py-0.5 border border-amber-800/30 rounded animate-pulse">
-                                Em Atraso
-                              </span>
-                            )}
+                      </span>
+                      <div className="flex gap-1.5 items-center">
+                        {delayed && (
+                          <span className="bg-amber-950/40 text-amber-500 text-[9px] font-extrabold px-1.5 py-0.5 border border-amber-800/30 rounded animate-pulse">
+                            Atraso
                           </span>
-                          {order.description && (
-                            <span className="text-xs text-slate-500 leading-4 mt-0.5 truncate max-w-xs">
-                              {order.description}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-mono text-emerald-400 text-xs font-bold leading-5">
-                          {assetDisplay}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        {renderPriorityBadge(priority)}
-                      </td>
-                      <td className="py-3.5 px-4 text-xs font-medium text-slate-300">
-                        {order.assigned_to || order.assignedTo || 'Sem Técnico'}
-                      </td>
-                      <td className="py-3.5 px-4 text-xs text-slate-400 font-mono">
-                        {openedDate ? new Date(openedDate).toLocaleDateString('pt-MZ') : '---'}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono text-xs text-slate-300 font-bold">
-                        {formatMZN(order.total_cost_mzn ?? order.totalCostMzn)}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
+                        )}
                         {renderStatusBadge(order.status)}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {order.status !== 'completed' && (
-                            <button
-                              onClick={() => handleOpenEditModal(order)}
-                              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
-                              title="Editar OS"
-                            >
-                              <Edit2 size={14} />
-                            </button>
-                          )}
-                          {order.status !== 'completed' ? (
-                            <button
-                              onClick={() => {
-                                setSelectedOrder(order);
-                                setIsCloseModalOpen(true);
-                              }}
-                              className="text-[11px] bg-emerald-950/60 hover:bg-emerald-600 hover:text-white border border-emerald-500/20 text-emerald-400 font-bold px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
-                            >
-                              Fechar OS
-                            </button>
-                          ) : (
-                            <span className="text-xs text-slate-500 font-medium">Concluída</span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <h3 className="text-white font-bold text-sm leading-snug truncate" title={order.title}>
+                        {order.title}
+                      </h3>
+                      <p className="text-slate-400 text-xs line-clamp-2 leading-relaxed">
+                        {order.description || 'Sem descrição detalhada.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-850/80 space-y-2.5 mt-2">
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wide">Equipamento Beneficiário</span>
+                      <span className="font-mono text-slate-200 font-bold text-xs truncate mt-0.5" title={assetDisplay}>
+                        {assetDisplay}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wide">Técnico Encarregue</span>
+                        <span className="text-slate-300 text-xs font-semibold block truncate max-w-[150px]">
+                          {techDisplay}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {renderPriorityBadge(priority)}
+                        <button
+                          onClick={(e) => handleOpenEditModal(order, e)}
+                          className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-all cursor-pointer"
+                          title="Editar Ficha"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
       {/* ==========================================
-          MODAL: CRIAR OU EDITAR ORDEM DE SERVIÇO
+          MODAL: CRIAR OU EDITAR OS (COM TÉCNICOS INTEGRADOS)
           ========================================== */}
       {isFormModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
             
             <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
               <div className="flex items-center gap-2">
                 <Wrench className="text-emerald-500" size={18} />
                 <h2 className="text-base font-bold text-white">
-                  {formMode === 'create' ? 'Criar Ordem de Serviço' : 'Editar Ordem de Serviço'}
+                  {formMode === 'create' ? 'Abrir Ordem de Serviço' : 'Editar Ficha da OS'}
                 </h2>
               </div>
               <button
@@ -750,7 +885,7 @@ export const WorkOrdersPage: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSaveOrder} className="p-6 space-y-4">
+            <form onSubmit={handleSaveOrder} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto scrollbar-thin">
               
               <div>
                 <label htmlFor="formAsset" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
@@ -759,10 +894,10 @@ export const WorkOrdersPage: React.FC = () => {
                 <select
                   id="formAsset"
                   required
-                  disabled={formMode === 'edit'} // Ativo fixo na edição
+                  disabled={formMode === 'edit'}
                   value={formAssetId}
                   onChange={(e) => handleAssetChange(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white"
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:outline-none"
                 >
                   <option value="">Selecione o Ativo...</option>
                   {assets.map((asset) => (
@@ -784,7 +919,7 @@ export const WorkOrdersPage: React.FC = () => {
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
                   placeholder="ex: Fuga de óleo no pistão hidráulico ou ruído mecânico"
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white"
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                 />
               </div>
 
@@ -799,7 +934,7 @@ export const WorkOrdersPage: React.FC = () => {
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                   placeholder="Descreva detalhadamente o serviço técnico ou anomalia operacional..."
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white"
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                 />
               </div>
 
@@ -812,7 +947,7 @@ export const WorkOrdersPage: React.FC = () => {
                     id="formType"
                     value={formOrderType}
                     onChange={(e) => setFormOrderType(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white"
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:outline-none"
                   >
                     <option value="corrective">Corretiva (Avaria/Paragem)</option>
                     <option value="preventive">Preventiva (Revisão/Plano)</option>
@@ -826,7 +961,7 @@ export const WorkOrdersPage: React.FC = () => {
                     id="formPriority"
                     value={formPriority}
                     onChange={(e) => setFormPriority(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white"
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:outline-none"
                   >
                     <option value="low">Baixa</option>
                     <option value="medium">Média</option>
@@ -847,21 +982,37 @@ export const WorkOrdersPage: React.FC = () => {
                     min={0}
                     value={formMeterAtService}
                     onChange={(e) => setFormMeterAtService(e.target.value !== '' ? Number(e.target.value) : '')}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white font-mono"
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none"
                   />
                 </div>
+                
+                {/* Atribuição de Técnicos com Atalho */}
                 <div>
-                  <label htmlFor="formAssigned" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-                    Técnico / Mecânico Atribuído
-                  </label>
-                  <input
-                    id="formAssigned"
-                    type="text"
-                    value={formAssignedTo}
-                    onChange={(e) => setFormAssignedTo(e.target.value)}
-                    placeholder="ex: Armando Sitoe"
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white"
-                  />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label htmlFor="formTech" className="block text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                      Técnico Atribuído
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsTechModalOpen(true)}
+                      className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold hover:underline"
+                    >
+                      + Novo Técnico
+                    </button>
+                  </div>
+                  <select
+                    id="formTech"
+                    value={formTechnicianId}
+                    onChange={(e) => setFormTechnicianId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white cursor-pointer focus:outline-none"
+                  >
+                    <option value="">Selecione o Técnico...</option>
+                    {technicians.map((tech) => (
+                      <option key={tech.id} value={tech.id}>
+                        {tech.name} [{tech.specialty || 'Técnico'}]
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -880,10 +1031,7 @@ export const WorkOrdersPage: React.FC = () => {
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {submittingForm ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>A guardar...</span>
-                    </>
+                    <Loader2 size={14} className="animate-spin" />
                   ) : (
                     <span>Guardar Ordem</span>
                   )}
@@ -895,10 +1043,373 @@ export const WorkOrdersPage: React.FC = () => {
       )}
 
       {/* ==========================================
-          MODAL: CONCLUIR / FECHAR ORDEM DE SERVIÇO (Ação Rápida de Fecho)
+          MODAL DE CADASTRO RÁPIDO: NOVO TÉCNICO
+          ========================================== */}
+      {isTechModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 border border-slate-850 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+            
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
+              <div className="flex items-center gap-2">
+                <UserCheck className="text-emerald-500" size={18} />
+                <span className="font-bold text-sm text-white">Cadastrar Novo Técnico</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTechModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-850 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTechnicianSubmit} className="p-5 space-y-4">
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Nome Completo *</label>
+                <input
+                  type="text"
+                  required
+                  value={techName}
+                  onChange={(e) => setTechName(e.target.value)}
+                  placeholder="ex: Armando Sitoe"
+                  className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Especialidade / Ofício *</label>
+                <input
+                  type="text"
+                  required
+                  value={techSpecialty}
+                  onChange={(e) => setTechSpecialty(e.target.value)}
+                  placeholder="ex: Mecânico Diesel, Hidráulico, Eletricista"
+                  className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Telefone</label>
+                  <input
+                    type="text"
+                    value={techPhone}
+                    onChange={(e) => setTechPhone(e.target.value)}
+                    placeholder="ex: +258 84 123 4567"
+                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Custo / Hora (MZN)</label>
+                  <input
+                    type="number"
+                    value={techCostPerHour}
+                    onChange={(e) => setTechCostPerHour(e.target.value !== '' ? Number(e.target.value) : '')}
+                    placeholder="ex: 1500"
+                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsTechModalOpen(false)}
+                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-450 text-xs font-semibold rounded-lg"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingTech}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                >
+                  {submittingTech ? <Loader2 size={13} className="animate-spin" /> : <span>Guardar Técnico</span>}
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          DRAWER / BOTTOM SHEET: COCKPIT DE EXECUÇÃO DE CAMPO
+          ========================================== */}
+      {isDrawerOpen && selectedDrawerOrder && (
+        <div className="fixed inset-0 z-40 flex justify-end bg-black/70 backdrop-blur-sm animate-fade-in">
+          <div 
+            className="absolute inset-0" 
+            onClick={() => {
+              setIsDrawerOpen(false);
+              setSelectedDrawerOrder(null);
+            }} 
+          />
+          
+          <div className="relative w-full max-w-lg bg-slate-900 border-l border-slate-800 h-full shadow-2xl flex flex-col z-10 animate-slide-up">
+            
+            {/* Header do Drawer */}
+            <div className="p-5 border-b border-slate-850 flex items-center justify-between bg-slate-950/20 shrink-0">
+              <div className="space-y-1">
+                <span className="font-mono font-bold text-xs text-emerald-400 bg-slate-950/40 px-2 py-0.5 rounded border border-slate-800">
+                  {selectedDrawerOrder.wo_number || selectedDrawerOrder.woNumber || 'ORDEM'}
+                </span>
+                <h2 className="text-base font-bold text-white leading-tight mt-1">{selectedDrawerOrder.title}</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setIsDrawerOpen(false);
+                  setSelectedDrawerOrder(null);
+                }}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-850 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Corpo do Drawer (Rolagem) */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5 scrollbar-thin">
+              
+              {/* Informações Básicas */}
+              <div className="p-4 bg-slate-950/40 border border-slate-850 rounded-xl space-y-3">
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-500 uppercase text-[9px] font-bold block">Ativo Vinculado</span>
+                    <span className="text-slate-200 font-mono font-bold block truncate">
+                      {assets.find(a => a.id === selectedDrawerOrder.asset_id || a.id === selectedDrawerOrder.assetId)?.name || selectedDrawerOrder.asset_name || 'Equipamento Geral'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 uppercase text-[9px] font-bold block">Urgência da Manutenção</span>
+                    <div className="mt-0.5">{renderPriorityBadge(selectedDrawerOrder.priority)}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 uppercase text-[9px] font-bold block">Técnico Atribuído</span>
+                    <span className="text-slate-200 font-semibold">
+                      {technicians.find(t => t.id === selectedDrawerOrder.technician_id || t.id === selectedDrawerOrder.technicianId)?.name || selectedDrawerOrder.assigned_to || selectedDrawerOrder.assignedTo || 'Pendente'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 uppercase text-[9px] font-bold block">Estado Técnico Atual</span>
+                    <div className="mt-0.5">{renderStatusBadge(selectedDrawerOrder.status)}</div>
+                  </div>
+                </div>
+
+                {selectedDrawerOrder.description && (
+                  <div className="pt-2.5 border-t border-slate-850">
+                    <span className="text-slate-500 uppercase text-[9px] font-bold block mb-1">Descrição Técnico-Operacional</span>
+                    <p className="text-slate-300 text-xs leading-relaxed whitespace-pre-line">{selectedDrawerOrder.description}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* COCKPIT DE EXECUÇÃO DE CAMPO EM TEMPO REAL */}
+              {selectedDrawerOrder.status !== 'completed' && (
+                <div className="p-4 bg-slate-900 border border-slate-850 rounded-xl space-y-3">
+                  <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest block flex items-center gap-1.5">
+                    <Activity size={14} />
+                    <span>Cockpit de Execução de Campo</span>
+                  </span>
+
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {/* SE STATUS = 'open' */}
+                    {selectedDrawerOrder.status === 'open' && (
+                      <button
+                        onClick={() => handleStartService(selectedDrawerOrder)}
+                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shadow-emerald-950/20 cursor-pointer"
+                      >
+                        <Play size={16} />
+                        <span>Iniciar Serviço</span>
+                      </button>
+                    )}
+
+                    {/* SE STATUS = 'in_progress' */}
+                    {selectedDrawerOrder.status === 'in_progress' && (
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPauseModal(selectedDrawerOrder)}
+                          className="py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                        >
+                          <Pause size={15} />
+                          <span>Pausar Trabalho</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedOrder(selectedDrawerOrder);
+                            setIsCloseModalOpen(true);
+                          }}
+                          className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-inner cursor-pointer"
+                        >
+                          <CheckCircle2 size={15} />
+                          <span>Concluir Serviço</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* SE STATUS = 'waiting_parts' ou 'paused' ou 'blocked' */}
+                    {(selectedDrawerOrder.status === 'waiting_parts' || selectedDrawerOrder.status === 'paused' || selectedDrawerOrder.status === 'blocked') && (
+                      <button
+                        onClick={() => handleResumeService(selectedDrawerOrder)}
+                        className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shadow-blue-950/20 cursor-pointer"
+                      >
+                        <Play size={16} />
+                        <span>Retomar Trabalho (Resume)</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* LINHA DO TEMPO DE AUDITORIA */}
+              <div className="p-4 bg-slate-900 border border-slate-850 rounded-xl space-y-4">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block border-b border-slate-850 pb-1.5">
+                  Linha do Tempo de Auditoria (Timeline)
+                </span>
+
+                {loadingTimeline ? (
+                  <div className="text-center py-4">
+                    <Loader2 size={18} className="animate-spin text-slate-500 mx-auto" />
+                  </div>
+                ) : timeline.length === 0 ? (
+                  <div className="text-center py-3">
+                    <p className="text-[11px] text-slate-500 italic">Nenhum evento registrado nesta OS ainda.</p>
+                  </div>
+                ) : (
+                  <div className="relative pl-6 border-l-2 border-slate-800 space-y-4">
+                    {timeline.map((event) => {
+                      const date = event.created_at || event.createdAt;
+                      const type = event.eventType || event.event_type;
+                      
+                      let iconColor = 'bg-slate-800 text-slate-400';
+                      if (type === 'start' || type === 'resume') iconColor = 'bg-emerald-950 text-emerald-400 border border-emerald-800/40';
+                      if (type === 'pause') iconColor = 'bg-amber-950 text-amber-400 border border-amber-800/40';
+                      if (type === 'complete') iconColor = 'bg-blue-950 text-blue-400 border border-blue-800/40';
+
+                      return (
+                        <div key={event.id} className="relative">
+                          {/* Dot / Icon */}
+                          <div className={`absolute -left-[35px] top-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] ${iconColor}`}>
+                            {type === 'start' || type === 'resume' ? <Play size={10} /> : type === 'pause' ? <Pause size={10} /> : <CheckCircle2 size={10} />}
+                          </div>
+
+                          <div className="space-y-0.5 text-xs">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-white capitalize">
+                                {type === 'start' ? 'Serviço Iniciado' : type === 'pause' ? 'Serviço Pausado' : type === 'resume' ? 'Serviço Retomado' : 'Serviço Concluído'}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                {date ? new Date(date).toLocaleString('pt-MZ') : '---'}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-400">
+                              <span>Executado por: </span>
+                              <span className="font-semibold text-slate-300">{event.performed_by || event.performedBy || 'Técnico de Campo'}</span>
+                            </div>
+                            {event.reason && (
+                              <div className="text-[11px] font-bold text-amber-400/90 mt-0.5">
+                                Motivo: {event.reason}
+                              </div>
+                            )}
+                            {event.justification && (
+                              <p className="text-[11px] text-slate-500 leading-relaxed italic bg-slate-950/20 p-1.5 rounded border border-slate-850/40 mt-1">
+                                "{event.justification}"
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL OBRIGATÓRIO: PAUSA / INTERRUPÇÃO
+          ========================================== */}
+      {isPauseModalOpen && selectedDrawerOrder && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+            
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
+              <div className="flex items-center gap-2 text-amber-500">
+                <Pause size={18} />
+                <span className="font-bold text-sm text-white">Justificar Pausa de Serviço</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPauseModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handlePauseServiceSubmit} className="p-5 space-y-4">
+              <div>
+                <label htmlFor="pauseSelect" className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Motivo Padronizado *</label>
+                <select
+                  id="pauseSelect"
+                  value={pauseReason}
+                  onChange={(e) => setPauseReason(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-850 rounded-lg px-2.5 py-1.5 text-xs text-white cursor-pointer focus:outline-none"
+                >
+                  <option value="Aguardando Peças no Armazém">Aguardando Peças no Armazém</option>
+                  <option value="Corte de Energia / Gerador">Corte de Energia / Gerador</option>
+                  <option value="Fim de Turno">Fim de Turno</option>
+                  <option value="Prioridade Operacional / Emergência">Prioridade Operacional / Emergência</option>
+                  <option value="Falta de Ferramenta Especial">Falta de Ferramenta Especial</option>
+                  <option value="Outro">Outro</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="pauseJust" className="block text-[10px] font-semibold text-slate-500 mb-1.5 uppercase">Justificação Técnica Detalhada *</label>
+                <textarea
+                  id="pauseJust"
+                  required
+                  rows={3}
+                  value={pauseJustification}
+                  onChange={(e) => setPauseJustification(e.target.value)}
+                  placeholder="Por favor, explique circunstancialmente o motivo da interrupção do trabalho..."
+                  className="w-full bg-slate-950 border border-slate-850 focus:border-red-500/50 rounded-lg p-2.5 text-xs text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsPauseModalOpen(false)}
+                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-450 text-xs font-semibold rounded-lg"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingPause || !pauseJustification.trim()}
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                >
+                  {submittingPause ? <Loader2 size={13} className="animate-spin" /> : <span>Confirmar Pausa</span>}
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL: CONCLUIR / FECHAR ORDEM DE SERVIÇO
           ========================================== */}
       {isCloseModalOpen && selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
             
             <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
@@ -907,17 +1418,18 @@ export const WorkOrdersPage: React.FC = () => {
                 <h2 className="text-base font-bold text-white">Concluir Ordem de Serviço</h2>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setIsCloseModalOpen(false);
                   setSelectedOrder(null);
                 }}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-850 transition-colors"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleCloseOrderSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleCloseOrderSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto scrollbar-thin">
               
               <div className="bg-slate-950/40 border border-slate-850 p-3 rounded-lg text-xs space-y-1.5 text-slate-400">
                 <div><span className="font-semibold text-slate-350">Nº da OS:</span> <span className="font-mono text-white font-bold">{selectedOrder.wo_number || selectedOrder.woNumber}</span></div>
@@ -996,7 +1508,6 @@ export const WorkOrdersPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Botões do Modal de Encerramento */}
               <div className="flex justify-end gap-3 border-t border-slate-800 pt-5 mt-2">
                 <button
                   type="button"
@@ -1015,10 +1526,7 @@ export const WorkOrdersPage: React.FC = () => {
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {submittingClose ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>A fechar...</span>
-                    </>
+                    <Loader2 size={14} className="animate-spin" />
                   ) : (
                     <span>Concluir Ordem</span>
                   )}
