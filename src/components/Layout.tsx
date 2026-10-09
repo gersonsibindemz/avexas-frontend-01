@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { QRScannerModal } from './QRScannerModal';
 import {
   Building2,
   Truck,
@@ -15,7 +16,8 @@ import {
   User,
   Settings,
   Shield,
-  Briefcase
+  Briefcase,
+  QrCode
 } from 'lucide-react';
 
 export const Layout: React.FC = () => {
@@ -31,6 +33,9 @@ export const Layout: React.FC = () => {
 
   // Estado para controlar o menu hambúrguer em dispositivos móveis
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  // Estado para controlar a abertura do Scanner QR Code Global
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('cmms_sidebar_collapsed', JSON.stringify(isCollapsed));
@@ -388,6 +393,16 @@ export const Layout: React.FC = () => {
               <span>Online · Maputo</span>
             </div>
 
+            {/* Botão de Scan QR Code Global (Header) */}
+            <button
+              onClick={() => setIsScannerOpen(true)}
+              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-all border border-transparent hover:border-slate-700/50 cursor-pointer flex items-center gap-1.5 text-xs font-semibold text-emerald-400"
+              title="Escanear Equipamento (Código QR)"
+            >
+              <QrCode size={18} className="animate-pulse" />
+              <span className="hidden sm:inline">Escanear</span>
+            </button>
+
             {/* Ícone de Notificações */}
             <button 
               className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-all relative border border-transparent hover:border-slate-700/50 cursor-pointer"
@@ -435,10 +450,75 @@ export const Layout: React.FC = () => {
         {/* ÁREA DE OUTLET COM ROLAGEM INDEPENDENTE */}
         <main className="flex-1 overflow-y-auto bg-slate-950 relative scrollbar-thin scrollbar-thumb-slate-900 scrollbar-track-transparent">
           {/* Animação suave ou container padrão */}
-          <div className="min-h-full p-4 md:p-8 max-w-7xl mx-auto w-full">
+          <div className="min-h-full p-4 md:p-8 max-w-7xl mx-auto w-full pb-20 md:pb-8">
             <Outlet />
           </div>
         </main>
+
+        {/* BARRA DE NAVEGAÇÃO INFERIOR MÓVEL */}
+        {user.role !== 'super_admin' && (
+          <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-slate-900 border-t border-slate-800 flex items-center justify-around px-2 z-30 shadow-2xl">
+            <NavLink
+              to="/app/assets"
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center flex-1 h-full text-[10px] font-medium transition-colors ${
+                  isActive ? 'text-emerald-400' : 'text-slate-500 hover:text-slate-300'
+                }`
+              }
+            >
+              <Truck size={18} />
+              <span className="mt-1">Ativos</span>
+            </NavLink>
+            
+            <NavLink
+              to="/app/work-orders"
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center flex-1 h-full text-[10px] font-medium transition-colors ${
+                  isActive ? 'text-emerald-400' : 'text-slate-500 hover:text-slate-300'
+                }`
+              }
+            >
+              <ClipboardList size={18} />
+              <span className="mt-1">Ordens</span>
+            </NavLink>
+
+            {/* Botão Central de Scan Flutuante */}
+            <button
+              onClick={() => setIsScannerOpen(true)}
+              className="flex flex-col items-center justify-center -mt-6 bg-emerald-600 hover:bg-emerald-500 text-white w-14 h-14 rounded-full shadow-lg shadow-emerald-500/20 active:scale-95 transition-all border-4 border-slate-950 shrink-0 cursor-pointer"
+              aria-label="Escanear QR Code de Campo"
+            >
+              <QrCode size={22} className="animate-pulse" />
+            </button>
+
+            <NavLink
+              to="/app/fuel"
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center flex-1 h-full text-[10px] font-medium transition-colors ${
+                  isActive ? 'text-emerald-400' : 'text-slate-500 hover:text-slate-300'
+                }`
+              }
+            >
+              <Fuel size={18} />
+              <span className="mt-1">Combustível</span>
+            </NavLink>
+
+            <NavLink
+              to="/app/profile"
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center flex-1 h-full text-[10px] font-medium transition-colors ${
+                  isActive ? 'text-emerald-400' : 'text-slate-500 hover:text-slate-300'
+                }`
+              }
+            >
+              <User size={18} />
+              <span className="mt-1">Perfil</span>
+            </NavLink>
+          </nav>
+        )}
+
+        {/* MODAL DE LEITOR QR CODE GLOBAL */}
+        <QRScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} />
       </div>
     </div>
   );
