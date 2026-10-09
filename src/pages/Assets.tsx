@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import QRCode from 'qrcode';
 import {
   Plus,
@@ -95,6 +96,7 @@ interface Asset {
 }
 
 export const AssetsPage: React.FC = () => {
+  const { user, isTechnician, isDriverOperator, isFleet, isPlant, currentScope } = useAuth();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -637,8 +639,26 @@ export const AssetsPage: React.FC = () => {
     const matchesSearch = code.includes(query) || assetName.includes(query) || assetModel.includes(query);
     const matchesCategory = categoryFilter === 'all' || asset.category === categoryFilter;
 
-    return matchesSearch && matchesCategory;
+    // Filtro baseado no escopo ativo ('fleet' ou 'plant')
+    const isAssetPlantType = asset.category === 'generator' || asset.category === 'machinery';
+    const isAssetFleetType = asset.category === 'vehicle_light' || asset.category === 'vehicle_heavy';
+    
+    let matchesScope = true;
+    if (currentScope === 'plant') {
+      matchesScope = isAssetPlantType;
+    } else if (currentScope === 'fleet') {
+      matchesScope = isAssetFleetType;
+    }
+
+    return matchesSearch && matchesCategory && matchesScope;
   });
+
+  // Se for driver_operator, redireciona para a interface simplificada tátil
+  if (isDriverOperator) {
+    return (
+      <DriverOperatorPortal assets={assets} fetchAssets={fetchAssets} loading={loading} />
+    );
+  }
 
   return (
     <div className="space-y-6 print:hidden">
@@ -673,17 +693,19 @@ export const AssetsPage: React.FC = () => {
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
-          <button
-            onClick={() => {
-              resetWizardForm();
-              setModalOpenMode('create');
-              setIsModalOpen(true);
-            }}
-            className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold py-2.5 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <Plus size={16} />
-            <span>Cadastrar Ativo</span>
-          </button>
+          {!isTechnician && !isDriverOperator && (
+            <button
+              onClick={() => {
+                resetWizardForm();
+                setModalOpenMode('create');
+                setIsModalOpen(true);
+              }}
+              className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold py-2.5 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Plus size={16} />
+              <span>Cadastrar Ativo</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -816,25 +838,29 @@ export const AssetsPage: React.FC = () => {
                           </button>
 
                           {/* Editar */}
-                          <button
-                            onClick={() => handleOpenEditModal(asset)}
-                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
-                            title="Editar Ativo"
-                          >
-                            <Edit2 size={15} />
-                          </button>
+                          {!isTechnician && !isDriverOperator && (
+                            <button
+                              onClick={() => handleOpenEditModal(asset)}
+                              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                              title="Editar Ativo"
+                            >
+                              <Edit2 size={15} />
+                            </button>
+                          )}
 
                           {/* Arquivar / Delete */}
-                          <button
-                            onClick={() => {
-                              setDeletingAsset(asset);
-                              setIsDeleteModalOpen(true);
-                            }}
-                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-slate-800 rounded-lg transition-all"
-                            title="Arquivar Ativo"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                          {!isTechnician && !isDriverOperator && (
+                            <button
+                              onClick={() => {
+                                setDeletingAsset(asset);
+                                setIsDeleteModalOpen(true);
+                              }}
+                              className="p-1.5 text-red-400 hover:text-red-300 hover:bg-slate-800 rounded-lg transition-all"
+                              title="Arquivar Ativo"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1636,6 +1662,430 @@ export const AssetsPage: React.FC = () => {
                 Confirmar Arquivamento
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};
+
+// ==========================================
+// PORTAL DO MOTORISTA / CONDUTOR / OPERADOR
+// ==========================================
+interface DriverOperatorPortalProps {
+  assets: Asset[];
+  fetchAssets: () => Promise<void>;
+  loading: boolean;
+}
+
+const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fetchAssets, loading }) => {
+  const { user } = useAuth();
+  const [selectedAssetId, setSelectedAssetId] = useState<string>('');
+  
+  // Checklist State
+  const [fluids, setFluids] = useState(false);
+  const [brakes, setBrakes] = useState(false);
+  const [lights, setLights] = useState(false);
+  const [tires, setTires] = useState(false);
+  const [safety, setSafety] = useState(false);
+  const [checklistSuccess, setChecklistSuccess] = useState(false);
+
+  // Anomaly State
+  const [isAnomalyModalOpen, setIsAnomalyModalOpen] = useState(false);
+  const [anomalyTitle, setAnomalyTitle] = useState('');
+  const [anomalyDesc, setAnomalyDesc] = useState('');
+  const [anomalyPriority, setAnomalyPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
+  const [currentOdometer, setCurrentOdometer] = useState<number | ''>('');
+  const [submittingAnomaly, setSubmittingAnomaly] = useState(false);
+  const [anomalySuccess, setAnomalySuccess] = useState(false);
+
+  // Filter out non-vehicles for drivers
+  const vehicles = assets.filter(a => a.category === 'vehicle_light' || a.category === 'vehicle_heavy' || a.category?.startsWith('vehicle'));
+
+  useEffect(() => {
+    if (vehicles.length > 0 && !selectedAssetId) {
+      setSelectedAssetId(vehicles[0].id);
+      const m = vehicles[0].current_meter ?? vehicles[0].currentMeter ?? '';
+      setCurrentOdometer(m);
+    }
+  }, [vehicles]);
+
+  const handleSelectAsset = (id: string) => {
+    setSelectedAssetId(id);
+    const selected = vehicles.find(v => v.id === id);
+    if (selected) {
+      const m = selected.current_meter ?? selected.currentMeter ?? '';
+      setCurrentOdometer(m);
+    }
+    // reset checklist
+    setFluids(false);
+    setBrakes(false);
+    setLights(false);
+    setTires(false);
+    setSafety(false);
+    setChecklistSuccess(false);
+  };
+
+  const handleChecklistSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAssetId) return;
+    setChecklistSuccess(true);
+    setTimeout(() => setChecklistSuccess(false), 5000);
+  };
+
+  const handleAnomalySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAssetId || !anomalyTitle.trim() || !anomalyDesc.trim()) {
+      alert('Por favor, preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    setSubmittingAnomaly(true);
+    const payload = {
+      assetId: selectedAssetId,
+      asset_id: selectedAssetId,
+      title: anomalyTitle,
+      description: anomalyDesc,
+      orderType: 'corrective',
+      order_type: 'corrective',
+      priority: anomalyPriority,
+      meterAtService: currentOdometer !== '' ? Number(currentOdometer) : undefined,
+      meter_at_service: currentOdometer !== '' ? Number(currentOdometer) : undefined,
+      status: 'open'
+    };
+
+    try {
+      await api.post('/work-orders', payload);
+      setAnomalySuccess(true);
+      setAnomalyTitle('');
+      setAnomalyDesc('');
+      setTimeout(() => {
+        setAnomalySuccess(false);
+        setIsAnomalyModalOpen(false);
+      }, 2500);
+    } catch (err: any) {
+      console.error('Erro ao submeter anomalia:', err);
+      alert(err.response?.data?.message || err.message || 'Erro ao submeter anomalia.');
+    } finally {
+      setSubmittingAnomaly(false);
+    }
+  };
+
+  const selectedVehicle = vehicles.find(v => v.id === selectedAssetId);
+
+  return (
+    <div className="space-y-6 max-w-2xl mx-auto pb-10">
+      
+      {/* CARD BOAS-VINDAS */}
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 border border-slate-800 rounded-2xl p-6 relative overflow-hidden shadow-xl animate-fade-in">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-3xl pointer-events-none"></div>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 rounded-xl flex items-center justify-center font-bold text-xl uppercase shrink-0">
+            {user?.fullName.substring(0, 2).toUpperCase() || 'OP'}
+          </div>
+          <div>
+            <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider block">CMMS Moçambique · Portal do Condutor</span>
+            <h1 className="text-lg font-bold text-white mt-0.5">Olá, {user?.fullName}!</h1>
+            <p className="text-slate-400 text-xs">Efetue vistorias de segurança e reporte avarias de campo rapidamente.</p>
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center">
+          <RefreshCw className="animate-spin text-emerald-500 mx-auto" size={24} />
+          <p className="text-xs text-slate-400 mt-2 font-semibold">A carregar viaturas corporativas...</p>
+        </div>
+      ) : vehicles.length === 0 ? (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-500 shadow-lg">
+          <AlertTriangle className="text-amber-500 mx-auto mb-2" size={24} />
+          <p className="text-xs font-semibold">Nenhuma viatura disponível para o seu utilizador.</p>
+          <p className="text-[10px] text-slate-600 mt-1">Contacte o supervisor ou gestor para associar viaturas ao seu escopo.</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          
+          {/* SELETOR DE VIATURA */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-md">
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide">
+              Selecione a Viatura em Serviço:
+            </label>
+            <select
+              value={selectedAssetId}
+              onChange={(e) => handleSelectAsset(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-xl px-4 py-3 text-xs text-white focus:outline-none"
+            >
+              {vehicles.map(v => (
+                <option key={v.id} value={v.id}>
+                  {v.code_tag || v.codeTag} - {v.name} ({v.license_plate || v.licensePlate || 'Sem Matrícula'})
+                </option>
+              ))}
+            </select>
+
+            {selectedVehicle && (
+              <div className="mt-3 bg-slate-950/40 rounded-xl p-4 border border-slate-850 grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="text-slate-500 block">Marca/Modelo:</span>
+                  <span className="text-slate-200 font-semibold block mt-0.5">{selectedVehicle.brand} {selectedVehicle.model}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Matrícula:</span>
+                  <span className="text-slate-200 font-mono font-semibold block mt-0.5">{selectedVehicle.license_plate || selectedVehicle.licensePlate || 'N/D'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Contador Atual:</span>
+                  <span className="text-slate-200 font-semibold block mt-0.5">{selectedVehicle.current_meter ?? selectedVehicle.currentMeter ?? 0} km</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Estado Operacional:</span>
+                  <span className="inline-flex mt-1 items-center px-2 py-0.5 text-[10px] font-bold bg-emerald-950/50 text-emerald-400 border border-emerald-500/10 rounded">
+                    {selectedVehicle.status === 'operational' ? 'Operacional' : selectedVehicle.status === 'breakdown' ? 'Avariado' : 'Em Oficina'}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* CHECKLIST DIÁRIA DE SEGURANÇA */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-md relative">
+            <div>
+              <h2 className="text-xs font-bold text-white flex items-center gap-2">
+                <CheckCircle2 className="text-emerald-500 shrink-0" size={16} />
+                Inspeção Diária de Segurança (Checklist)
+              </h2>
+              <p className="text-[10px] text-slate-500 mt-0.5">Marque todos os pontos regulamentares antes de iniciar o serviço.</p>
+            </div>
+
+            {checklistSuccess ? (
+              <div className="bg-emerald-950/40 border border-emerald-500/20 rounded-xl p-4 text-emerald-400 text-xs text-center flex items-center justify-center gap-2 animate-fade-in shadow">
+                <CheckCircle2 size={16} />
+                <span className="font-bold">Checklist guardado com sucesso! Boa viagem com segurança.</span>
+              </div>
+            ) : (
+              <form onSubmit={handleChecklistSubmit} className="space-y-3 pt-2">
+                <label className="flex items-center gap-3 bg-slate-950/40 border border-slate-850 rounded-xl p-3.5 hover:bg-slate-950/80 transition-colors cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={fluids}
+                    onChange={(e) => setFluids(e.target.checked)}
+                    className="accent-emerald-500 bg-slate-950 border border-slate-850 rounded w-4 h-4 cursor-pointer"
+                  />
+                  <div className="flex-1 text-xs">
+                    <span className="font-semibold text-slate-200 group-hover:text-white">Fluidos & Óleos</span>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Níveis de óleo de motor e água de refrigeração estão corretos e sem fugas visíveis.</p>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 bg-slate-950/40 border border-slate-850 rounded-xl p-3.5 hover:bg-slate-950/80 transition-colors cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={brakes}
+                    onChange={(e) => setBrakes(e.target.checked)}
+                    className="accent-emerald-500 bg-slate-950 border border-slate-850 rounded w-4 h-4 cursor-pointer"
+                  />
+                  <div className="flex-1 text-xs">
+                    <span className="font-semibold text-slate-200 group-hover:text-white">Travões / Sistema de Travagem</span>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Travão de pé e travão de estacionamento (mão) operam perfeitamente.</p>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 bg-slate-950/40 border border-slate-850 rounded-xl p-3.5 hover:bg-slate-950/80 transition-colors cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={lights}
+                    onChange={(e) => setLights(e.target.checked)}
+                    className="accent-emerald-500 bg-slate-950 border border-slate-850 rounded w-4 h-4 cursor-pointer"
+                  />
+                  <div className="flex-1 text-xs">
+                    <span className="font-semibold text-slate-200 group-hover:text-white">Iluminação & Sinalização</span>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Faróis médios/máximos, piscas direcionais, stops e luzes de emergência limpos e funcionais.</p>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 bg-slate-950/40 border border-slate-850 rounded-xl p-3.5 hover:bg-slate-950/80 transition-colors cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={tires}
+                    onChange={(e) => setTires(e.target.checked)}
+                    className="accent-emerald-500 bg-slate-950 border border-slate-850 rounded w-4 h-4 cursor-pointer"
+                  />
+                  <div className="flex-1 text-xs">
+                    <span className="font-semibold text-slate-200 group-hover:text-white">Pneus & Jantes</span>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Rastos em condições regulamentares, pressão correta e pneu suplente disponível.</p>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 bg-slate-950/40 border border-slate-850 rounded-xl p-3.5 hover:bg-slate-950/80 transition-colors cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={safety}
+                    onChange={(e) => setSafety(e.target.checked)}
+                    className="accent-emerald-500 bg-slate-950 border border-slate-850 rounded w-4 h-4 cursor-pointer"
+                  />
+                  <div className="flex-1 text-xs">
+                    <span className="font-semibold text-slate-200 group-hover:text-white">Equipamentos de Proteção</span>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Cintos de segurança operacionais, triângulo, colete refletor e extintor de incêndio carregado.</p>
+                  </div>
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={!fluids || !brakes || !lights || !tires || !safety}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold py-3 px-4 rounded-xl transition-all shadow-md mt-4 cursor-pointer"
+                >
+                  Validar Vistoria de Segurança
+                </button>
+              </form>
+            )}
+          </div>
+
+          {/* BOTÃO DE ANOMALIA / AVARIA */}
+          <div className="bg-red-950/15 border border-red-900/30 rounded-2xl p-5 space-y-3 shadow-md">
+            <div>
+              <h2 className="text-xs font-bold text-red-400 flex items-center gap-2">
+                <AlertTriangle className="text-red-500" size={16} />
+                Reportar Avaria ou Anomalia Mecânica
+              </h2>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Detetou algum problema durante a condução? Abra imediatamente uma ocorrência para os técnicos.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsAnomalyModalOpen(true)}
+              className="w-full bg-red-600/10 hover:bg-red-600/20 active:bg-red-600/30 border border-red-500/20 text-red-400 text-xs font-bold py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <AlertTriangle size={15} />
+              <span>Reportar Anomalia Técnica</span>
+            </button>
+          </div>
+
+        </div>
+      )}
+
+      {/* MODAL DE SUBMETER ANOMALIA */}
+      {isAnomalyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col relative">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl pointer-events-none"></div>
+
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+              <h3 className="text-xs font-bold text-white flex items-center gap-2 text-red-400">
+                <AlertTriangle size={16} />
+                Reportar Ocorrência em Campo
+              </h3>
+              <button
+                onClick={() => setIsAnomalyModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {anomalySuccess ? (
+              <div className="p-8 text-center space-y-4">
+                <div className="w-12 h-12 bg-emerald-950/40 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-800/20 mx-auto">
+                  <CheckCircle2 size={24} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">Ocorrência Registada!</h4>
+                  <p className="text-xs text-slate-400 mt-1">A equipa de manutenção foi notificada e uma OS Corretiva foi aberta.</p>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleAnomalySubmit} className="p-5 space-y-4 text-xs">
+                <div>
+                  <span className="text-slate-400 font-semibold block">Viatura Selecionada:</span>
+                  <span className="text-white font-bold font-mono mt-1 block">
+                    {selectedVehicle?.code_tag || selectedVehicle?.codeTag} - {selectedVehicle?.name}
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                    Título / Resumo da Avaria *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={anomalyTitle}
+                    onChange={(e) => setAnomalyTitle(e.target.value)}
+                    placeholder="ex: Fuga de óleo sob o radiador"
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-red-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-red-500/20 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                    Descrição Detalhada do Problema *
+                  </label>
+                  <textarea
+                    required
+                    value={anomalyDesc}
+                    onChange={(e) => setAnomalyDesc(e.target.value)}
+                    rows={3}
+                    placeholder="Descreva o comportamento do veículo, barulhos suspeitos ou luzes do painel acesas..."
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-red-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-red-500/20 leading-relaxed font-sans"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                      Quilometragem Atual *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={currentOdometer}
+                      onChange={(e) => setCurrentOdometer(e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder="km atual"
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-red-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+                      Gravidade Indicada
+                    </label>
+                    <select
+                      value={anomalyPriority}
+                      onChange={(e) => setAnomalyPriority(e.target.value as any)}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-red-500/50 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                    >
+                      <option value="low">Baixa (Pode circular)</option>
+                      <option value="medium">Média (Requer atenção)</option>
+                      <option value="high">Alta (Intervenção urgente)</option>
+                      <option value="urgent">Crítica (Imobilizar viatura)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setIsAnomalyModalOpen(false)}
+                    className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-semibold border border-slate-800 transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingAnomaly}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-md flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {submittingAnomaly ? (
+                      <>
+                        <RefreshCw className="animate-spin" size={13} />
+                        <span>A reportar...</span>
+                      </>
+                    ) : (
+                      <span>Submeter Ocorrência</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

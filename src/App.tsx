@@ -7,6 +7,7 @@ import AssetsPage from './pages/Assets';
 import WorkOrdersPage from './pages/WorkOrders';
 import FuelPage from './pages/Fuel';
 import SuperAdminPage from './pages/SuperAdmin';
+import UsersPage from './pages/Users';
 import {
   Building2,
   Truck,
@@ -199,6 +200,7 @@ export default function App() {
             <Route path="assets" element={<AssetsPage />} />
             <Route path="work-orders" element={<WorkOrdersPage />} />
             <Route path="fuel" element={<FuelPage />} />
+            <Route path="users" element={<UsersPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

@@ -17,11 +17,25 @@ import {
   Settings,
   Shield,
   Briefcase,
-  QrCode
+  QrCode,
+  Users
 } from 'lucide-react';
 
 export const Layout: React.FC = () => {
-  const { user, logout, loading } = useAuth();
+  const {
+    user,
+    logout,
+    loading,
+    currentScope,
+    setCurrentScope,
+    isTenantAdmin,
+    isSuperAdmin,
+    isSupervisor,
+    isTechnician,
+    isDriverOperator,
+    isFleet,
+    isPlant
+  } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -87,14 +101,16 @@ export const Layout: React.FC = () => {
     switch (role) {
       case 'super_admin':
         return 'Administrador Geral';
-      case 'admin':
-        return 'Gestor de Frota / Ativos';
+      case 'tenant_admin':
+        return 'Gestor do Contrato (Admin)';
       case 'supervisor':
-        return 'Supervisor Técnico';
-      case 'mechanic':
-        return 'Mecânico Residente';
+        return 'Supervisor Operacional';
+      case 'technician':
+        return 'Técnico de Campo';
+      case 'driver_operator':
+        return 'Motorista / Operador';
       default:
-        return 'Utilizador Técnico';
+        return 'Colaborador';
     }
   };
 
@@ -108,35 +124,60 @@ export const Layout: React.FC = () => {
   };
 
   // Definição dos links de navegação com base na role
-  const navigationItems = user.role === 'super_admin'
-    ? [
+  const getNavigationItems = () => {
+    if (user.role === 'super_admin') {
+      return [
         {
-          name: 'Gestão de Empresas',
+          name: 'Empresas & Contratos',
           path: '/super-admin',
           icon: Building2,
-          description: 'Controlo de tenants e sub-empresas'
-        }
-      ]
-    : [
-        {
-          name: 'Ativos e Frotas',
-          path: '/app/assets',
-          icon: Truck,
-          description: 'Registo e monitorização de frotas'
-        },
-        {
-          name: 'Ordens de Serviço',
-          path: '/app/work-orders',
-          icon: ClipboardList,
-          description: 'Manutenção corretiva e preventiva'
-        },
-        {
-          name: 'Combustível',
-          path: '/app/fuel',
-          icon: Fuel,
-          description: 'Consumos e eficiência de combustível'
+          description: 'Controlo de contratos e tenants'
         }
       ];
+    }
+
+    const items = [];
+
+    // Todos os escopos têm acesso aos Ativos
+    items.push({
+      name: 'Ativos e Frotas',
+      path: '/app/assets',
+      icon: Truck,
+      description: isPlant ? 'Equipamentos industriais' : 'Registo e frotas de viaturas'
+    });
+
+    // Ordens de Serviço
+    items.push({
+      name: 'Ordens de Serviço',
+      path: '/app/work-orders',
+      icon: ClipboardList,
+      description: user.role === 'technician' ? 'Minhas tarefas de manutenção' : 'Manutenção corretiva e preventiva'
+    });
+
+    // Combustível disponível para tenant_admin e supervisor
+    if (user.role === 'tenant_admin' || user.role === 'supervisor') {
+      items.push({
+        name: 'Combustível',
+        path: '/app/fuel',
+        icon: Fuel,
+        description: 'Consumos e eficiência de combustível'
+      });
+    }
+
+    // Gestão de Utilizadores apenas para tenant_admin
+    if (user.role === 'tenant_admin') {
+      items.push({
+        name: 'Gestão de Utilizadores',
+        path: '/app/users',
+        icon: Users,
+        description: 'Gestão de contas e permissões'
+      });
+    }
+
+    return items;
+  };
+
+  const navigationItems = getNavigationItems();
 
   // Identificação da página atual para exibição de breadcrumbs
   const getActivePageName = () => {
@@ -387,6 +428,32 @@ export const Layout: React.FC = () => {
           {/* Lado direito: Notificações, Perfil, Info de Localização Moçambique */}
           <div className="flex items-center gap-3">
             
+            {/* Alternador de Escopo de Negócio ('both') */}
+            {(user.operational_scope === 'both' || user.tenant?.operational_scope === 'both' || user.tenant?.operationalScope === 'both') && (
+              <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
+                <button
+                  onClick={() => setCurrentScope('fleet')}
+                  className={`px-3 py-1 rounded text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                    currentScope === 'fleet'
+                      ? 'bg-emerald-600 text-white shadow'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Frota
+                </button>
+                <button
+                  onClick={() => setCurrentScope('plant')}
+                  className={`px-3 py-1 rounded text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                    currentScope === 'plant'
+                      ? 'bg-emerald-600 text-white shadow'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Fábrica
+                </button>
+              </div>
+            )}
+
             {/* Indicador de Status do Sistema / Sincronização Local */}
             <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-950/40 border border-emerald-500/20 rounded-full text-[11px] text-emerald-400 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -491,17 +558,20 @@ export const Layout: React.FC = () => {
               <QrCode size={22} className="animate-pulse" />
             </button>
 
-            <NavLink
-              to="/app/fuel"
-              className={({ isActive }) =>
-                `flex flex-col items-center justify-center flex-1 h-full text-[10px] font-medium transition-colors ${
-                  isActive ? 'text-emerald-400' : 'text-slate-500 hover:text-slate-300'
-                }`
-              }
-            >
-              <Fuel size={18} />
-              <span className="mt-1">Combustível</span>
-            </NavLink>
+            {/* Botão de Combustível condicional */}
+            {(user.role === 'tenant_admin' || user.role === 'supervisor') && (
+              <NavLink
+                to="/app/fuel"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center flex-1 h-full text-[10px] font-medium transition-colors ${
+                    isActive ? 'text-emerald-400' : 'text-slate-500 hover:text-slate-300'
+                  }`
+                }
+              >
+                <Fuel size={18} />
+                <span className="mt-1">Combustível</span>
+              </NavLink>
+            )}
 
             <NavLink
               to="/app/profile"

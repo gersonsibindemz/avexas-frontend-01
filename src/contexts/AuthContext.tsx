@@ -1,13 +1,24 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../services/api';
 
+export type UserRole = 'super_admin' | 'tenant_admin' | 'supervisor' | 'technician' | 'driver_operator';
+
 export interface User {
   id: string;
   fullName: string;
   email: string;
-  role: 'super_admin' | 'admin' | 'supervisor' | 'mechanic';
+  role: UserRole;
   tenantName: string;
   tenantId: string;
+  operational_scope?: 'fleet' | 'plant' | 'both';
+  tenant?: {
+    id: string;
+    name: string;
+    max_users?: number;
+    maxUsers?: number;
+    operational_scope?: 'fleet' | 'plant' | 'both';
+    operationalScope?: 'fleet' | 'plant' | 'both';
+  };
 }
 
 interface AuthContextType {
@@ -16,6 +27,15 @@ interface AuthContextType {
   logout: () => Promise<void>;
   login: (email: string, password: string) => Promise<User>;
   setUser: React.Dispatch<React.SetStateAction<User | null>>;
+  isSuperAdmin: boolean;
+  isTenantAdmin: boolean;
+  isSupervisor: boolean;
+  isTechnician: boolean;
+  isDriverOperator: boolean;
+  isFleet: boolean;
+  isPlant: boolean;
+  currentScope: 'fleet' | 'plant';
+  setCurrentScope: React.Dispatch<React.SetStateAction<'fleet' | 'plant'>>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,6 +43,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentScope, setCurrentScope] = useState<'fleet' | 'plant'>('fleet');
 
   const checkAuth = async () => {
     try {
@@ -30,6 +51,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userData = response.data?.user || response.data;
       if (userData && userData.id && userData.role) {
         setUser(userData);
+        // Inicializar o escopo padrão do utilizador
+        const scope = userData.operational_scope || userData.tenant?.operational_scope || userData.tenant?.operationalScope;
+        if (scope === 'plant') {
+          setCurrentScope('plant');
+        } else {
+          setCurrentScope('fleet');
+        }
       } else {
         setUser(null);
       }
@@ -44,6 +72,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      const scope = user.operational_scope || user.tenant?.operational_scope || user.tenant?.operationalScope;
+      if (scope === 'plant') {
+        setCurrentScope('plant');
+      } else if (scope === 'fleet') {
+        setCurrentScope('fleet');
+      }
+    }
+  }, [user]);
+
   const login = async (email: string, password: string): Promise<User> => {
     try {
       const response = await api.post('/auth/login', { email, password });
@@ -54,6 +93,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       setUser(userData);
+      const scope = userData.operational_scope || userData.tenant?.operational_scope || userData.tenant?.operationalScope;
+      if (scope === 'plant') {
+        setCurrentScope('plant');
+      } else {
+        setCurrentScope('fleet');
+      }
       return userData;
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Erro ao efetuar login.';
@@ -73,8 +118,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const isSuperAdmin = user?.role === 'super_admin';
+  const isTenantAdmin = user?.role === 'tenant_admin';
+  const isSupervisor = user?.role === 'supervisor';
+  const isTechnician = user?.role === 'technician';
+  const isDriverOperator = user?.role === 'driver_operator';
+
+  const isFleet = currentScope === 'fleet';
+  const isPlant = currentScope === 'plant';
+
   return (
-    <AuthContext.Provider value={{ user, loading, logout, login, setUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        logout,
+        login,
+        setUser,
+        isSuperAdmin,
+        isTenantAdmin,
+        isSupervisor,
+        isTechnician,
+        isDriverOperator,
+        isFleet,
+        isPlant,
+        currentScope,
+        setCurrentScope
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
