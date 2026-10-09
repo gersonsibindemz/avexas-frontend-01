@@ -284,8 +284,8 @@ export const InventoryPage: React.FC = () => {
 
   // Cálculos de Indicadores Rápidos
   const totalItems = parts.length;
-  const lowStockItems = parts.filter(p => (p.current_stock ?? p.currentStock ?? 0) <= (p.min_stock ?? p.minStock ?? 0)).length;
-  const totalValue = parts.reduce((acc, p) => acc + ((p.current_stock ?? p.currentStock ?? 0) * (p.unit_cost ?? p.unitCost ?? 0)), 0);
+  const lowStockItems = parts.filter(p => Number(p.current_stock ?? p.currentStock ?? 0) <= Number(p.min_stock ?? p.minStock ?? 0)).length;
+  const totalValue = parts.reduce((acc, p) => acc + (Number(p.current_stock ?? p.currentStock ?? 0) * Number(p.unit_cost ?? p.unitCost ?? 0)), 0);
 
   // Filtragem
   const filteredParts = parts.filter(p => {
@@ -299,11 +299,11 @@ export const InventoryPage: React.FC = () => {
     
     let matchesStatus = true;
     if (stockStatusFilter === 'low') {
-      matchesStatus = (p.current_stock ?? p.currentStock ?? 0) <= (p.min_stock ?? p.minStock ?? 0);
+      matchesStatus = Number(p.current_stock ?? p.currentStock ?? 0) <= Number(p.min_stock ?? p.minStock ?? 0);
     } else if (stockStatusFilter === 'available') {
-      matchesStatus = (p.current_stock ?? p.currentStock ?? 0) > 0;
+      matchesStatus = Number(p.current_stock ?? p.currentStock ?? 0) > 0;
     } else if (stockStatusFilter === 'out_of_stock') {
-      matchesStatus = (p.current_stock ?? p.currentStock ?? 0) === 0;
+      matchesStatus = Number(p.current_stock ?? p.currentStock ?? 0) === 0;
     }
 
     return matchesSearch && matchesCategory && matchesStatus;
@@ -496,9 +496,9 @@ export const InventoryPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-800/50">
                 {filteredParts.map((part) => {
-                  const currentStock = part.current_stock ?? part.currentStock ?? 0;
-                  const minStock = part.min_stock ?? part.minStock ?? 0;
-                  const isLow = currentStock <= minStock;
+                  const currentStock = Number(part.current_stock ?? part.currentStock ?? 0);
+                  const minStock = Number(part.min_stock ?? part.minStock ?? 0);
+                  const isLowStock = currentStock <= minStock;
                   
                   return (
                     <tr key={part.id} className="hover:bg-slate-850/30 transition-colors">
@@ -518,7 +518,7 @@ export const InventoryPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        {isLow ? (
+                        {isLowStock ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-950/50 text-red-400 border border-red-500/25">
                             <AlertTriangle size={10} className="animate-pulse" />
                             <span>{currentStock} un (Min: {minStock})</span>

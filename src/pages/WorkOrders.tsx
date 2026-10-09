@@ -149,6 +149,7 @@ export const WorkOrdersPage: React.FC = () => {
   const [usedParts, setUsedParts] = useState<any[]>([]);
   const [loadingUsedParts, setLoadingUsedParts] = useState(false);
   const [inventoryParts, setInventoryParts] = useState<any[]>([]);
+  const [availableParts, setAvailableParts] = useState<any[]>([]);
   const [isAddPartModalOpen, setIsAddPartModalOpen] = useState(false);
   const [selectedPartId, setSelectedPartId] = useState('');
   const [partQtyToUse, setPartQtyToUse] = useState<number | ''>('');
@@ -541,6 +542,13 @@ export const WorkOrdersPage: React.FC = () => {
     fetchWorkOrders();
     fetchAssetsForDropdown();
     fetchTechnicians();
+
+    api.get('/parts')
+      .then(res => {
+        const list = Array.isArray(res.data) ? res.data : (res.data.parts || []);
+        setAvailableParts(list);
+      })
+      .catch(err => console.error('Erro ao carregar peças para a OS:', err));
   }, []);
 
   // Sincroniza dados da OS no Drawer se a lista de ordens for recarregada
@@ -561,16 +569,18 @@ export const WorkOrdersPage: React.FC = () => {
 
   // Helper para adicionar peças provisórias à OS no próprio Modal (Requisito 5.2)
   const handleAddPartToModalList = () => {
-    if (!modalSelectedPartId) {
+    if (!selectedPartId) {
       alert('Por favor, selecione uma peça.');
       return;
     }
-    const part = inventoryParts.find(p => p.id === modalSelectedPartId);
+    const part = availableParts.find(p => p.id === selectedPartId);
     if (!part) return;
 
-    const availableStock = part.current_stock ?? part.currentStock ?? 0;
+    const availableStock = Number(part.current_stock ?? part.currentStock ?? 0);
     if (modalPartQty > availableStock) {
-      alert(`Quantidade superior ao stock disponível! Apenas ${availableStock} un de "${part.name}" disponíveis.`);
+      setSuccessMessage('Stock insuficiente no armazém');
+      setTimeout(() => setSuccessMessage(null), 4000);
+      alert('Stock insuficiente no armazém');
       return;
     }
 
@@ -584,7 +594,9 @@ export const WorkOrdersPage: React.FC = () => {
     if (alreadySelected) {
       const newQty = alreadySelected.quantity + modalPartQty;
       if (newQty > availableStock) {
-        alert(`A quantidade acumulada (${newQty}) excede o stock disponível (${availableStock}).`);
+        setSuccessMessage('Stock insuficiente no armazém');
+        setTimeout(() => setSuccessMessage(null), 4000);
+        alert('Stock insuficiente no armazém');
         return;
       }
       setSelectedPartsList(selectedPartsList.map(p => p.id === part.id ? { ...p, quantity: newQty } : p));
@@ -598,6 +610,7 @@ export const WorkOrdersPage: React.FC = () => {
       }]);
     }
 
+    setSelectedPartId('');
     setModalSelectedPartId('');
     setModalPartQty(1);
     setSuccessMessage('Peça adicionada à lista provisória!');
@@ -627,6 +640,7 @@ export const WorkOrdersPage: React.FC = () => {
     });
     setSelectedPartsList([]);
     setModalSelectedPartId('');
+    setSelectedPartId('');
     setModalPartQty(1);
     setIsFormModalOpen(true);
   };
@@ -669,6 +683,7 @@ export const WorkOrdersPage: React.FC = () => {
     })));
 
     setModalSelectedPartId('');
+    setSelectedPartId('');
     setModalPartQty(1);
     setIsFormModalOpen(true);
   };
@@ -1637,20 +1652,16 @@ export const WorkOrdersPage: React.FC = () => {
                     <div className="sm:col-span-7">
                       <label className="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Selecione a Peça</label>
                       <select
-                        value={modalSelectedPartId}
-                        onChange={(e) => setModalSelectedPartId(e.target.value)}
+                        value={selectedPartId}
+                        onChange={(e) => setSelectedPartId(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/50 rounded-lg px-2.5 py-2 text-xs text-white cursor-pointer focus:outline-none"
                       >
                         <option value="">Selecione a Peça do Armazém...</option>
-                        {inventoryParts.map((p) => {
-                          const partNumberDisplay = p.oem_reference || p.oemReference || p.part_number || p.partNumber || 'S/N';
-                          const stockCount = p.current_stock ?? p.currentStock ?? 0;
-                          return (
-                            <option key={p.id} value={p.id}>
-                              {partNumberDisplay} - {p.name} (Stock: {stockCount})
-                            </option>
-                          );
-                        })}
+                        {availableParts.map((p) => (
+                          <option key={p.id} value={p.id} disabled={Number(p.current_stock) <= 0}>
+                            {p.name} {p.part_number ? `(${p.part_number})` : ''} — Stock: {p.current_stock} {p.unit_of_measure || 'un'} — {Number(p.unit_cost).toLocaleString()} MZN
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div className="sm:col-span-2">
