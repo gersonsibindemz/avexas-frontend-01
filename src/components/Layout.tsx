@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { api } from '../services/api';
 import { QRScannerModal } from './QRScannerModal';
 import {
   Building2,
@@ -23,6 +24,42 @@ import {
   Layers,
   AlertTriangle
 } from 'lucide-react';
+
+interface NotificationItem {
+  id: string | number;
+  title?: string;
+  titulo?: string;
+  message?: string;
+  mensagem?: string;
+  created_at?: string;
+  createdAt?: string;
+  is_read?: boolean;
+  read?: boolean;
+  isRead?: boolean;
+  link?: string;
+  targetUrl?: string;
+  target_url?: string;
+  url?: string;
+}
+
+const formatTimeAgo = (dateStr?: string) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr;
+  
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (diffInSeconds < 60) return 'Agora mesmo';
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) return `Há ${diffInMinutes} min`;
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `Há ${diffInHours}h`;
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 7) return `Há ${diffInDays}d`;
+  
+  return date.toLocaleDateString('pt-MZ', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
 
 export const Layout: React.FC = () => {
   const {
@@ -56,6 +93,109 @@ export const Layout: React.FC = () => {
 
   // Estado para controlar a abertura do Scanner QR Code Global
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+
+  // Gestão de Notificações
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
+
+  // Busca notificações na API (GET /notifications)
+  const fetchNotifications = async () => {
+    try {
+      const response = await api.get('/notifications');
+      const data = response.data;
+      let list: NotificationItem[] = [];
+      let count = 0;
+
+      if (Array.isArray(data)) {
+        list = data;
+        count = list.filter(n => !(n.is_read ?? n.read ?? n.isRead)).length;
+      } else if (data && typeof data === 'object') {
+        const possibleList = data.notifications || data.data || data.items || [];
+        if (Array.isArray(possibleList)) {
+          list = possibleList;
+        }
+        if (typeof data.unreadCount === 'number') {
+          count = data.unreadCount;
+        } else if (typeof data.unread_count === 'number') {
+          count = data.unread_count;
+        } else {
+          count = list.filter(n => !(n.is_read ?? n.read ?? n.isRead)).length;
+        }
+      }
+
+      setNotifications(list);
+      setUnreadCount(count);
+    } catch (err) {
+      console.warn('Não foi possível obter as notificações:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  // Fechar dropdown de notificações ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setIsNotificationOpen(false);
+      }
+    };
+    if (isNotificationOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isNotificationOpen]);
+
+  // Marcar uma notificação como lida (PATCH /notifications/:id/read)
+  const handleMarkAsRead = async (item: NotificationItem) => {
+    const isRead = Boolean(item.is_read ?? item.read ?? item.isRead);
+    const itemLink = item.link || item.targetUrl || item.target_url || item.url;
+
+    if (!isRead) {
+      try {
+        await api.patch(`/notifications/${item.id}/read`);
+      } catch (err) {
+        console.warn(`Erro ao marcar notificação ${item.id} como lida:`, err);
+      } finally {
+        setNotifications(prev =>
+          prev.map(n => (n.id === item.id ? { ...n, is_read: true, read: true, isRead: true } : n))
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    }
+
+    if (itemLink) {
+      setIsNotificationOpen(false);
+      if (itemLink.startsWith('http://') || itemLink.startsWith('https://')) {
+        window.open(itemLink, '_blank');
+      } else {
+        navigate(itemLink);
+      }
+    }
+  };
+
+  // Marcar todas as notificações como lidas (PATCH /notifications/read-all)
+  const handleMarkAllAsRead = async () => {
+    try {
+      await api.patch('/notifications/read-all');
+    } catch (err) {
+      console.warn('Erro ao marcar todas as notificações como lidas:', err);
+    } finally {
+      setNotifications(prev =>
+        prev.map(n => ({ ...n, is_read: true, read: true, isRead: true }))
+      );
+      setUnreadCount(0);
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('cmms_sidebar_collapsed', JSON.stringify(isCollapsed));
@@ -433,14 +573,96 @@ export const Layout: React.FC = () => {
               <span>Escanear</span>
             </button>
 
-            {/* Ícone de Notificações */}
-            <button 
-              className="p-2 text-slate-500 hover:text-slate-800 rounded-md hover:bg-slate-100 transition-all relative border border-transparent hover:border-slate-200 cursor-pointer"
-              aria-label="Visualizar notificações"
-            >
-              <Bell size={18} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-600"></span>
-            </button>
+            {/* Ícone de Notificações com Dropdown Popover */}
+            <div className="relative" ref={notificationRef}>
+              <button 
+                onClick={() => setIsNotificationOpen(prev => !prev)}
+                className="p-2 text-slate-500 hover:text-slate-800 rounded-md hover:bg-slate-100 transition-all relative border border-transparent hover:border-slate-200 cursor-pointer flex items-center justify-center"
+                aria-label="Visualizar notificações"
+              >
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full flex items-center justify-center min-w-[18px] h-[18px] leading-none shadow-xs">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Popover Dropdown (Design Material Flat Corporativo) */}
+              {isNotificationOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white border border-slate-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                  {/* Cabeçalho do Popover */}
+                  <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-900">Notificações</span>
+                      {unreadCount > 0 && (
+                        <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200">
+                          {unreadCount} {unreadCount === 1 ? 'nova' : 'novas'}
+                        </span>
+                      )}
+                    </div>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={handleMarkAllAsRead}
+                        className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors cursor-pointer"
+                      >
+                        Marcar todas como lidas
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Lista de Notificações */}
+                  <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                    {notifications.length === 0 ? (
+                      <div className="py-8 px-4 text-center flex flex-col items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mb-2 border border-slate-200">
+                          <Bell size={18} />
+                        </div>
+                        <p className="text-xs text-slate-500 font-medium">Sem notificações pendentes.</p>
+                      </div>
+                    ) : (
+                      notifications.map((item) => {
+                        const isRead = Boolean(item.is_read ?? item.read ?? item.isRead);
+                        const title = item.title || item.titulo || 'Notificação';
+                        const message = item.message || item.mensagem || '';
+                        const createdAt = item.created_at || item.createdAt;
+
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => handleMarkAsRead(item)}
+                            className={`p-3.5 transition-colors flex items-start gap-3 cursor-pointer ${
+                              isRead ? 'bg-white hover:bg-slate-50' : 'bg-blue-50/40 hover:bg-blue-50/70'
+                            }`}
+                          >
+                            {!isRead ? (
+                              <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0 mt-1.5" />
+                            ) : (
+                              <span className="w-2 h-2 rounded-full bg-transparent shrink-0 mt-1.5" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <h4 className={`text-xs ${isRead ? 'font-medium text-slate-800' : 'font-semibold text-slate-900'}`}>
+                                {title}
+                              </h4>
+                              {message && (
+                                <p className="text-xs text-slate-600 line-clamp-2 mt-0.5 leading-relaxed">
+                                  {message}
+                                </p>
+                              )}
+                              {createdAt && (
+                                <span className="block text-[10px] text-slate-400 mt-1">
+                                  {formatTimeAgo(createdAt)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Separador vertical */}
             <span className="w-px h-6 bg-slate-200 hidden md:inline"></span>

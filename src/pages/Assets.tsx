@@ -25,7 +25,8 @@ import {
   ChevronLeft,
   File,
   Eye,
-  Trash
+  Trash,
+  FileSpreadsheet
 } from 'lucide-react';
 
 interface Document {
@@ -132,6 +133,17 @@ export const AssetsPage: React.FC = () => {
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   // Referência para o input de ficheiro de documentos adicionais
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // ==========================================
+  // ESTADOS PARA IMPORTAÇÃO EM LOTE (BATCH CSV)
+  // ==========================================
+  const [isBatchImportModalOpen, setIsBatchImportModalOpen] = useState(false);
+  const [batchFile, setBatchFile] = useState<File | null>(null);
+  const [batchDragActive, setBatchDragActive] = useState(false);
+  const [parsedBatchData, setParsedBatchData] = useState<any[]>([]);
+  const [batchError, setBatchError] = useState<string | null>(null);
+  const [batchSubmitting, setBatchSubmitting] = useState(false);
+  const batchFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // ==========================================
   // ESTADOS DO FORMULÁRIO MULTI-STEP (4 ETAPAS)
@@ -579,6 +591,217 @@ export const AssetsPage: React.FC = () => {
   };
 
   // ==========================================
+  // FUNÇÕES DE IMPORTAÇÃO EM LOTE (CSV)
+  // ==========================================
+  const handleDownloadCsvTemplate = () => {
+    let csvContent = '';
+    if (currentScope === 'plant') {
+      const plantCat1 = categories.length > 0 ? categories[0].value : 'generator';
+      const plantCat2 = categories.length > 1 ? categories[1].value : 'machinery';
+      csvContent = `Nome,Categoria,Tag,Fabricante,Modelo,Ano,SetorFabril,Potencia,Voltagem,HorimetroInicial\n` +
+        `Gerador de Emergência 250kVA,${plantCat1},G-001,Caterpillar,CAT-250,2022,Subestação Principal,250,380V,1200\n` +
+        `Compressor de Ar Comprimido,${plantCat2},C-002,Atlas Copco,GA37,2021,Linha de Produção 1,45,400V,3400`;
+    } else {
+      const fleetCat1 = categories.length > 0 ? categories[0].value : 'vehicle_light';
+      const fleetCat2 = categories.length > 1 ? categories[1].value : 'vehicle_heavy';
+      csvContent = `Nome,Categoria,Tag,Marca,Modelo,Ano,Matricula,Chassis,OdometroInicial\n` +
+        `Camionete Hilux 2.8 4x4,${fleetCat1},V-001,Toyota,Hilux,2022,ABC-123-MC,CH123456789,15000\n` +
+        `Camião Basculante 15T,${fleetCat2},V-002,Volvo,FMX 440,2020,AFG-890-MC,CH987654321,85000`;
+    }
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `modelo_importacao_ativos_${currentScope || 'general'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const parseCsvFile = (file: File) => {
+    setBatchError(null);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      if (!text) {
+        setBatchError('O ficheiro CSV selecionado está vazio.');
+        setParsedBatchData([]);
+        return;
+      }
+
+      const lines = text.split(/\r\n|\n/).filter((line) => line.trim().length > 0);
+      if (lines.length < 2) {
+        setBatchError('O ficheiro CSV deve conter a linha de cabeçalho e pelo menos um registo de ativo.');
+        setParsedBatchData([]);
+        return;
+      }
+
+      const firstLine = lines[0];
+      const delimiter = firstLine.includes(';') ? ';' : ',';
+      const headers = firstLine.split(delimiter).map((h) => h.trim().replace(/^"|"$/g, ''));
+
+      const rows: any[] = [];
+      let hasEmptyName = false;
+
+      for (let i = 1; i < lines.length; i++) {
+        const currentLine = lines[i].trim();
+        if (!currentLine) continue;
+
+        const values = currentLine.split(delimiter).map((v) => v.trim().replace(/^"|"$/g, ''));
+        const rowObj: Record<string, string> = {};
+
+        headers.forEach((header, index) => {
+          rowObj[header] = values[index] || '';
+        });
+
+        const nomeValue = rowObj['Nome'] || rowObj['nome'] || rowObj['NOME'];
+        if (!nomeValue || !nomeValue.trim()) {
+          hasEmptyName = true;
+        }
+
+        rows.push(rowObj);
+      }
+
+      if (hasEmptyName) {
+        setBatchError('Validação de Dados: Foram encontradas linhas sem o campo "Nome" preenchido. O campo Nome é obrigatório para todos os ativos.');
+      }
+
+      setParsedBatchData(rows);
+    };
+
+    reader.onerror = () => {
+      setBatchError('Falha ao efetuar a leitura do ficheiro CSV.');
+    };
+
+    reader.readAsText(file);
+  };
+
+  const handleBatchFileSelect = (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.csv') && file.type !== 'text/csv' && file.type !== 'application/vnd.ms-excel') {
+      setBatchError('Formato inválido. Por favor, carregue um ficheiro no formato CSV (.csv).');
+      return;
+    }
+    setBatchFile(file);
+    parseCsvFile(file);
+  };
+
+  const handleBatchDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setBatchDragActive(true);
+  };
+
+  const handleBatchDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setBatchDragActive(false);
+  };
+
+  const handleBatchDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setBatchDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleBatchFileSelect(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleBatchSubmit = async () => {
+    if (parsedBatchData.length === 0) {
+      setBatchError('Nenhum registo válido encontrado no ficheiro CSV para importar.');
+      return;
+    }
+
+    const invalidIndex = parsedBatchData.findIndex(
+      row => !(row.Nome || row.nome || row.NOME)?.trim()
+    );
+
+    if (invalidIndex !== -1) {
+      setBatchError(`A linha ${invalidIndex + 1} possui o campo "Nome" em branco. Corrija o ficheiro antes de importar.`);
+      return;
+    }
+
+    setBatchSubmitting(true);
+    setBatchError(null);
+
+    const assetsToImport = parsedBatchData.map((row) => {
+      const isVehicle = currentScope === 'fleet' || row.Categoria === 'vehicle_light' || row.Categoria === 'vehicle_heavy' || row.categoria === 'vehicle_light' || row.categoria === 'vehicle_heavy';
+      const cat = row.Categoria || row.categoria || (isVehicle ? 'vehicle_light' : 'generator');
+      const meterKind = isVehicle ? 'odometer_km' : 'hourmeter_hours';
+
+      return {
+        name: (row.Nome || row.nome || '').trim(),
+        category: cat,
+        codeTag: (row.Tag || row.tag || row.codeTag || row.code_tag || '').trim() || undefined,
+        code_tag: (row.Tag || row.tag || row.codeTag || row.code_tag || '').trim() || undefined,
+        brand: (row.Marca || row.marca || row.Fabricante || row.fabricante || '').trim() || undefined,
+        model: (row.Modelo || row.modelo || '').trim() || '',
+        manufactureYear: row.Ano ? Number(row.Ano) : new Date().getFullYear(),
+        manufacture_year: row.Ano ? Number(row.Ano) : new Date().getFullYear(),
+        costCenter: 'Sede / Geral',
+        cost_center: 'Sede / Geral',
+        meterKind,
+        meter_kind: meterKind,
+        currentMeter: Number(row.OdometroInicial || row.HorimetroInicial || row.odometroinicial || row.horimetroinicial || row.currentMeter || row.current_meter || 0),
+        current_meter: Number(row.OdometroInicial || row.HorimetroInicial || row.odometroinicial || row.horimetroinicial || row.currentMeter || row.current_meter || 0),
+        licensePlate: (row.Matricula || row.matricula || '').trim() || undefined,
+        license_plate: (row.Matricula || row.matricula || '').trim() || undefined,
+        chassisVin: (row.Chassis || row.chassis || '').trim() || undefined,
+        chassis_vin: (row.Chassis || row.chassis || '').trim() || undefined,
+        plantSector: (row.SetorFabril || row.setorfabril || '').trim() || undefined,
+        plant_sector: (row.SetorFabril || row.setorfabril || '').trim() || undefined,
+        powerKwKva: row.Potencia || row.potencia ? Number(row.Potencia || row.potencia) : undefined,
+        power_kw_kva: row.Potencia || row.potencia ? Number(row.Potencia || row.potencia) : undefined,
+        voltageSpecs: (row.Voltagem || row.voltagem || '').trim() || undefined,
+        voltage_specs: (row.Voltagem || row.voltagem || '').trim() || undefined,
+        status: 'operational'
+      };
+    });
+
+    try {
+      let response;
+      try {
+        response = await api.post('/assets/batch', { assets: assetsToImport });
+      } catch (firstErr: any) {
+        if (firstErr.response?.status === 404) {
+          try {
+            response = await api.post('/assets/import', { assets: assetsToImport });
+          } catch (secondErr: any) {
+            if (secondErr.response?.status === 404) {
+              for (const assetPayload of assetsToImport) {
+                await api.post('/assets', assetPayload);
+              }
+              response = { data: { success: true } };
+            } else {
+              throw secondErr;
+            }
+          }
+        } else {
+          throw firstErr;
+        }
+      }
+
+      const count = assetsToImport.length;
+      setSuccessMessage(`${count} ${count === 1 ? 'ativo importado' : 'ativos importados'} em lote com sucesso!`);
+      
+      setIsBatchImportModalOpen(false);
+      setBatchFile(null);
+      setParsedBatchData([]);
+      setBatchError(null);
+
+      await fetchAssets();
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      console.error('Erro ao importar ativos em lote:', err);
+      const errorDetail = err.response?.data?.message || err.response?.data?.error || err.message || 'Falha ao processar a importação em lote dos ativos na API.';
+      setBatchError(errorDetail);
+    } finally {
+      setBatchSubmitting(false);
+    }
+  };
+
+  // ==========================================
   // AUXILIARES DE RENDERIZAÇÃO
   // ==========================================
   const formatCategory = (cat: string) => {
@@ -702,17 +925,31 @@ export const AssetsPage: React.FC = () => {
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
           {!isTechnician && !isDriverOperator && (
-            <button
-              onClick={() => {
-                resetWizardForm();
-                setModalOpenMode('create');
-                setIsModalOpen(true);
-              }}
-              className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
-            >
-              <Plus size={16} />
-              <span>Cadastrar Ativo</span>
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  setBatchFile(null);
+                  setParsedBatchData([]);
+                  setBatchError(null);
+                  setIsBatchImportModalOpen(true);
+                }}
+                className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+              >
+                <FileSpreadsheet size={16} className="text-slate-500" />
+                <span>Importar em Lote</span>
+              </button>
+              <button
+                onClick={() => {
+                  resetWizardForm();
+                  setModalOpenMode('create');
+                  setIsModalOpen(true);
+                }}
+                className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+              >
+                <Plus size={16} />
+                <span>Cadastrar Ativo</span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -1677,6 +1914,180 @@ export const AssetsPage: React.FC = () => {
                 Confirmar Arquivamento
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL: IMPORTAÇÃO EM LOTE (CSV BATCH IMPORT)
+          ========================================== */}
+      {isBatchImportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-2xl rounded-md shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            
+            {/* Cabeçalho do Modal */}
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="text-blue-700" size={18} />
+                <h3 className="text-sm font-bold text-slate-900">Importação de Ativos em Lote (CSV)</h3>
+              </div>
+              <button
+                onClick={() => setIsBatchImportModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Conteúdo do Modal (Rolável) */}
+            <div className="p-6 space-y-5 overflow-y-auto text-xs">
+              
+              {/* Seção 1: Instruções e Modelo */}
+              <div className="bg-slate-50 border border-slate-200 rounded-md p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <span className="font-semibold text-slate-800 block">Modelo de Ficheiro CSV para {currentScope === 'plant' ? 'Equipamentos Fabris' : 'Frota Rodoviária'}</span>
+                  <p className="text-slate-500 text-[11px] mt-0.5">
+                    {currentScope === 'plant'
+                      ? 'O modelo contém colunas para Nome, Categoria (generator/machinery), Tag, Fabricante, Modelo, Ano, Setor, Potência, Voltagem e Horímetro.'
+                      : 'O modelo contém colunas para Nome, Categoria (vehicle_light/vehicle_heavy), Tag, Marca, Modelo, Ano, Matrícula, Chassis e Odómetro.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadCsvTemplate}
+                  className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-medium py-2 px-3 rounded-md flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                >
+                  <Download size={14} className="text-slate-600" />
+                  <span>Descarregar Modelo CSV</span>
+                </button>
+              </div>
+
+              {/* Seção 2: Área Drag & Drop / Input de Ficheiro */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">
+                  Carregar Ficheiro CSV *
+                </label>
+                <input
+                  type="file"
+                  accept=".csv,text/csv,application/vnd.ms-excel"
+                  ref={batchFileInputRef}
+                  onChange={(e) => e.target.files && e.target.files[0] && handleBatchFileSelect(e.target.files[0])}
+                  className="hidden"
+                />
+                <div
+                  onDragOver={handleBatchDragOver}
+                  onDragLeave={handleBatchDragLeave}
+                  onDrop={handleBatchDrop}
+                  onClick={() => batchFileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition-colors flex flex-col items-center justify-center gap-2 ${
+                    batchDragActive
+                      ? 'border-blue-600 bg-blue-50/50'
+                      : batchFile
+                      ? 'border-emerald-300 bg-emerald-50/30'
+                      : 'border-slate-300 hover:border-blue-500 bg-slate-50/50'
+                  }`}
+                >
+                  <UploadCloud size={28} className={batchFile ? "text-emerald-600" : "text-slate-400"} />
+                  {batchFile ? (
+                    <div>
+                      <p className="font-semibold text-slate-900">{batchFile.name}</p>
+                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">{(batchFile.size / 1024).toFixed(1)} KB · Clique para alterar</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="font-semibold text-slate-700">Arraste e solte o seu ficheiro CSV aqui ou <span className="text-blue-700 underline">procure no computador</span></p>
+                      <p className="text-[11px] text-slate-400 mt-1">Apenas ficheiros .csv com codificação UTF-8</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Exibição de Mensagem de Erro do Backend / Validação sem fechar o modal */}
+              {batchError && (
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-md flex gap-2.5 items-start animate-fade-in">
+                  <AlertTriangle size={16} className="text-red-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="font-bold block text-red-900">Erro na Validação / Importação</span>
+                    <span className="text-[11px] leading-relaxed block text-red-700 mt-0.5">{batchError}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Seção 3: Pré-Visualização das Primeiras Linhas */}
+              {parsedBatchData.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 uppercase tracking-wide text-[11px]">
+                      Pré-Visualização dos Dados ({Math.min(5, parsedBatchData.length)} de {parsedBatchData.length} registos)
+                    </span>
+                    <span className="text-emerald-700 font-semibold text-[11px] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      {parsedBatchData.length} {parsedBatchData.length === 1 ? 'ativo pronto' : 'ativos prontos'}
+                    </span>
+                  </div>
+
+                  <div className="border border-slate-200 rounded-md overflow-x-auto max-h-48">
+                    <table className="w-full text-left text-[11px] text-slate-700">
+                      <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 border-r border-slate-200">#</th>
+                          {Object.keys(parsedBatchData[0] || {}).map((col) => (
+                            <th key={col} className="px-3 py-2 border-r border-slate-200 whitespace-nowrap">{col}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {parsedBatchData.slice(0, 5).map((row, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50 font-mono">
+                            <td className="px-3 py-1.5 border-r border-slate-200 font-bold text-slate-500">{idx + 1}</td>
+                            {Object.keys(parsedBatchData[0] || {}).map((col) => (
+                              <td key={col} className="px-3 py-1.5 border-r border-slate-200 whitespace-nowrap truncate max-w-[150px]">
+                                {row[col] || <span className="text-slate-300 italic">-</span>}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Rodapé com Botões de Ação */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBatchImportModalOpen(false);
+                  setBatchFile(null);
+                  setParsedBatchData([]);
+                  setBatchError(null);
+                }}
+                className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-xs font-medium transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleBatchSubmit}
+                disabled={batchSubmitting || parsedBatchData.length === 0}
+                className="px-5 py-2 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md text-xs font-medium transition-colors shadow-none flex items-center gap-2 cursor-pointer"
+              >
+                {batchSubmitting ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>A Importar...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet size={14} />
+                    <span>Importar {parsedBatchData.length > 0 ? `${parsedBatchData.length} Ativos` : 'Ativos'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+
           </div>
         </div>
       )}
