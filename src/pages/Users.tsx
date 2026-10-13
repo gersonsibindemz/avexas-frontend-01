@@ -119,7 +119,7 @@ export const UsersPage: React.FC = () => {
     setEmail('');
     setPassword('');
     setRole('technician');
-    setOperationalScope('both');
+    setOperationalScope('fleet');
     setIsModalOpen(true);
   };
 
@@ -246,13 +246,11 @@ export const UsersPage: React.FC = () => {
   const formatScopeName = (scope: string) => {
     switch (scope) {
       case 'fleet':
-        return 'Gestão de Frotas (Frota)';
+        return 'Frota Rodoviária';
       case 'plant':
-        return 'Chão de Fábrica (Fábrica)';
-      case 'both':
-        return 'Ambos (Frota e Fábrica)';
+        return 'Instalação Fabril';
       default:
-        return scope;
+        return 'Frota Rodoviária';
     }
   };
 
@@ -491,16 +489,16 @@ export const UsersPage: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                    Escopo Operacional
+                    Âmbito Operacional *
                   </label>
                   <select
-                    value={operationalScope}
+                    required
+                    value={operationalScope === 'both' ? 'fleet' : operationalScope}
                     onChange={(e) => setOperationalScope(e.target.value as any)}
                     className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
                   >
-                    <option value="fleet">Gestão de Frotas (Frota)</option>
-                    <option value="plant">Chão de Fábrica (Fábrica)</option>
-                    <option value="both">Ambos os Negócios (Ambos)</option>
+                    <option value="fleet">Frota Rodoviária (fleet)</option>
+                    <option value="plant">Instalação Fabril (plant)</option>
                   </select>
                 </div>
               </div>

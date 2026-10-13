@@ -137,14 +137,16 @@ export const Layout: React.FC = () => {
       ];
     }
 
-    const items = [];
+    const items: any[] = [];
+    const scope = user.operational_scope || user.tenant?.operational_scope || user.tenant?.operationalScope;
+    const isPlantUser = scope === 'plant';
 
     // Todos os escopos têm acesso aos Ativos
     items.push({
-      name: 'Ativos e Frotas',
+      name: isPlantUser ? 'Equipamentos Fabris' : 'Ativos e Frotas',
       path: '/app/assets',
       icon: Truck,
-      description: isPlant ? 'Equipamentos industriais' : 'Registo e frotas de viaturas'
+      description: isPlantUser ? 'Equipamentos industriais' : 'Registo e frotas de viaturas'
     });
 
     // Ordens de Serviço
@@ -255,12 +257,7 @@ export const Layout: React.FC = () => {
                 />
                 
                 {!isCollapsed && (
-                  <div className="flex flex-col truncate">
-                    <span className="leading-5">{item.name}</span>
-                    <span className="text-[10px] font-normal text-slate-500 truncate group-hover:text-slate-600">
-                      {item.description}
-                    </span>
-                  </div>
+                  <span className="truncate">{item.name}</span>
                 )}
 
                 {/* Tooltip quando colapsado */}
@@ -275,38 +272,16 @@ export const Layout: React.FC = () => {
         </nav>
 
         {/* Rodapé da Sidebar */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50/70 space-y-3">
-          <div className="flex items-center gap-3 overflow-hidden">
-            {/* Avatar */}
-            <div className="w-9 h-9 bg-blue-50 text-blue-700 border border-blue-200 rounded-md flex items-center justify-center shrink-0 font-bold text-xs tracking-wider uppercase">
-              {user.fullName.substring(0, 2)}
-            </div>
-
-            {!isCollapsed && (
-              <div className="flex flex-col truncate flex-1">
-                <span className="text-sm font-semibold text-slate-900 truncate" title={user.fullName}>
-                  {user.fullName}
-                </span>
-                <span className="text-[11px] font-medium text-blue-700 truncate">
-                  {formatRole(user.role)}
-                </span>
-                <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider truncate" title={user.tenantName || 'Avexas Global'}>
-                  {user.tenantName || 'Avexas Global'}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Botão Logout */}
+        <div className="p-3 border-t border-slate-200 bg-white">
           <button
             onClick={handleLogout}
-            className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-slate-700 hover:text-red-700 hover:bg-red-50 active:bg-red-100 border border-slate-300 hover:border-red-200 transition-all cursor-pointer ${
-              isCollapsed ? 'p-1' : ''
+            className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-md text-xs font-medium text-slate-700 hover:text-red-700 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-all cursor-pointer ${
+              isCollapsed ? 'p-2' : ''
             }`}
             title="Terminar Sessão"
           >
-            <LogOut size={14} className="shrink-0" />
-            {!isCollapsed && <span className="whitespace-nowrap tracking-wide">Terminar Sessão</span>}
+            <LogOut size={16} className="shrink-0" />
+            {!isCollapsed && <span className="whitespace-nowrap font-medium">Terminar Sessão</span>}
           </button>
         </div>
       </aside>
@@ -363,40 +338,19 @@ export const Layout: React.FC = () => {
                 }
               >
                 <Icon size={18} className="shrink-0" />
-                <div className="flex flex-col">
-                  <span>{item.name}</span>
-                  <span className="text-[10px] font-normal text-slate-500 mt-0.5">
-                    {item.description}
-                  </span>
-                </div>
+                <span className="truncate">{item.name}</span>
               </NavLink>
             );
           })}
         </nav>
 
         {/* Rodapé Mobile */}
-        <div className="p-5 border-t border-slate-200 bg-slate-50/70 space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-50 text-blue-700 border border-blue-200 rounded-md flex items-center justify-center shrink-0 font-bold">
-              {user.fullName.substring(0, 2)}
-            </div>
-            <div className="flex flex-col truncate">
-              <span className="text-sm font-semibold text-slate-900 truncate">
-                {user.fullName}
-              </span>
-              <span className="text-[11px] text-blue-700 font-medium">
-                {formatRole(user.role)}
-              </span>
-              <span className="text-[10px] text-slate-500 font-medium tracking-wider uppercase truncate">
-                {user.tenantName || 'Avexas Global'}
-              </span>
-            </div>
-          </div>
+        <div className="p-4 border-t border-slate-200 bg-white">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-xs font-semibold text-slate-700 hover:text-red-700 hover:bg-red-50 border border-slate-300 hover:border-red-200 transition-all cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-xs font-medium text-slate-700 hover:text-red-700 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-all cursor-pointer"
           >
-            <LogOut size={14} />
+            <LogOut size={16} />
             <span>Terminar Sessão</span>
           </button>
         </div>
@@ -461,20 +415,14 @@ export const Layout: React.FC = () => {
               </div>
             )}
 
-            {/* Indicador de Status do Sistema / Sincronização Local */}
-            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-md text-[11px] text-emerald-700 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-              <span>Online · Maputo</span>
-            </div>
-
-            {/* Botão de Scan QR Code Global (Header) */}
+            {/* Botão de Scan QR Code Global (Header) - EXCLUSIVO PARA MÓVEL */}
             <button
               onClick={() => setIsScannerOpen(true)}
-              className="p-2 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-all border border-blue-200 cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+              className="md:hidden p-2 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-all border border-blue-200 cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
               title="Escanear Equipamento (Código QR)"
             >
               <QrCode size={16} />
-              <span className="hidden sm:inline">Escanear</span>
+              <span>Escanear</span>
             </button>
 
             {/* Ícone de Notificações */}

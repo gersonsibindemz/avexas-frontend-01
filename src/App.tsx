@@ -71,8 +71,18 @@ const ProfilePage: React.FC = () => {
             <span className="text-sm text-slate-900 font-medium block mt-1">{user.tenantName || 'Avexas Global'}</span>
           </div>
           <div>
-            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Código do Tenant</span>
-            <span className="text-sm font-mono text-slate-700 block mt-1">{user.tenantId || 'tenant-001'}</span>
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Âmbito Operacional</span>
+            <div className="mt-1">
+              {(user.operational_scope === 'plant' || user.tenant?.operational_scope === 'plant') ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                  Instalação Fabril
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                  Frota Rodoviária
+                </span>
+              )}
+            </div>
           </div>
           <div>
             <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Nível de Autorização</span>
