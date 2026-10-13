@@ -200,11 +200,15 @@ export const AssetsPage: React.FC = () => {
       setAssets(data);
     } catch (err: any) {
       console.error('Erro ao buscar ativos:', err);
-      setError(
-        err.response?.data?.message ||
-        err.message ||
-        'Falha na comunicação com a API de ativos.'
-      );
+      if (err.response?.status === 403) {
+        setError('Acesso ao módulo não autorizado ou sessão expirada. Por favor, termine a sessão e entre novamente.');
+      } else {
+        setError(
+          err.response?.data?.message ||
+          err.message ||
+          'Falha na comunicação com a API de ativos.'
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -766,7 +770,11 @@ export const AssetsPage: React.FC = () => {
         ) : filteredAssets.length === 0 ? (
           <div className="text-center py-16 px-4">
             <h3 className="text-sm font-semibold text-slate-900">Nenhum Ativo Encontrado</h3>
-            <p className="text-slate-500 text-xs mt-1">Registe frotas para iniciar.</p>
+            <p className="text-slate-500 text-xs mt-1">
+              {(user?.operational_scope || user?.tenant?.operational_scope || domain) === 'plant' 
+                ? 'Registe equipamentos fabris para iniciar.' 
+                : 'Registe viaturas e frotas para iniciar.'}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">

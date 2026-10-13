@@ -1,0 +1,238 @@
+===============================================================================
+RELATÓRIO AUDITORIA COMPLETA DO FRONTEND - CMMS MOÇAMBIQUE
+Data da Auditoria: 13 de Outubro de 2026
+Stack: React 18+, Vite, React Router v6, Tailwind CSS, Lucide Icons, Axios
+===============================================================================
+
+1. GESTÃO DE ESTADO E IDENTIDADE DO UTILIZADOR
+-------------------------------------------------------------------------------
+1.1. Origem do `operational_scope`:
+  - O escopo operacional do utilizador (`operational_scope`) é obtido diretamente
+    da API backend através dos endpoints de autenticação `/auth/me` (na
+    inicialização) e `/auth/login` (no momento da autenticação).
+  - O valor é lido do objeto do utilizador ou do seu tenant (`user.operational_scope`,
+    `user.tenant.operational_scope` ou `user.tenant.operationalScope`).
+  - A autenticação é baseada em Cookies HttpOnly com a opção `withCredentials: true`
+    configurada na instância centralizada do Axios (`src/services/api.ts`).
+
+1.2. Compartilhamento entre Componentes:
+  - O estado do utilizador e seu escopo são geridos e propagados globalmente via
+    Context API através do `AuthContext` em `src/contexts/AuthContext.tsx`.
+  - O hook customizado `useAuth()` disponibiliza `user`, `currentScope`, `isFleet`,
+    e `isPlant` para toda a árvore de componentes.
+  - Para o isolamento e vocabulário corporativo de domínio, o hook `useCurrentDomain()`
+    em `src/config/domainRegistry.ts` consome o `AuthContext` e fornece a configuração
+    centralizada `DOMAIN_REGISTRY['fleet']` ou `DOMAIN_REGISTRY['plant']`.
+
+1.3. Comportamento com `operational_scope` ('plant' vs 'fleet'):
+  - Quando 'plant' (Instalação Fabril):
+    * `currentScope` é definido como 'plant'.
+    * A Sidebar omite completamente a rota de "Combustível" (`/app/fuel`) e exibe o
+      primeiro item de menu como "Equipamentos Fabris" com o ícone `Wrench`.
+    * No Módulo de Ativos (`Assets.tsx`), a lista de categorias filtra apenas
+      "Gerador Industrial" e "Maquinaria de Chão de Fábrica". Desativa campos de
+      viaturas (Matrícula/Chassis/Motor) e exibe "Setor Fabril", "Voltagem" e "Potência".
+    * Os contadores passam a ser rotulados como "Horímetro Acumulado (Horas)" [h].
+    * Documentos de conformidade alteram para Calibração INNOQ e Testes de Pressão de Caldeira.
+    * A mensagem de estado vazio (Empty State) exibe: "Registe equipamentos fabris para iniciar."
+    * No Módulo de Ordens de Serviço (`WorkOrders.tsx`), apenas ativos fabris são listados,
+      dropdown de causas consome avarias industriais, e especialidades de técnicos
+      mudam para Eletromecânica, Automação, Hidráulica e Caldeiras.
+    * No Módulo de Inventário (`Inventory.tsx`), as categorias de peças tornam-se
+      peças industriais (Rolamentos, Sensores, Válvulas Hidráulicas, Graxas).
+
+  - Quando 'fleet' (Frota Rodoviária):
+    * `currentScope` é definido como 'fleet'.
+    * A Sidebar exibe o item de menu "Combustível" (para gestores e supervisores) e
+      define o primeiro item como "Frotas e Viaturas" com o ícone `Truck`.
+    * No Módulo de Ativos (`Assets.tsx`), a lista de categorias exibe "Veículo Ligeiro"
+      e "Veículo Pesado", exige Matrícula, Chassis (VIN) e Depósito de Combustível.
+    * Os contadores passam a ser rotulados como "Quilometragem (KM)" [km].
+    * Documentos de conformidade alteram para Inspeção INATRO e Apólice de Seguro.
+    * A mensagem de estado vazio (Empty State) exibe: "Registe viaturas e frotas para iniciar."
+    * Ordens de Serviço e Inventário adaptam-se para mecânica diesel, pneus e frotas.
+
+
+2. AUDITORIA DE ISOLAMENTO DE DOMÍNIO (FLEET vs PLANT)
+-------------------------------------------------------------------------------
+2.1. Sidebar e Navegação (`src/components/Layout.tsx`):
+  - Rota "Combustível": O item ainda existe na estrutura de navegação, mas sua
+    visibilidade está condicionada por `(user.role === 'tenant_admin' || user.role === 'supervisor') && !isPlantUser`.
+    Portanto, quando `operational_scope === 'plant'`, a rota de combustível é 100% OMITIDA da interface.
+  - Título e Ícones do Primeiro Menu:
+    * Escopo Fabril (`isPlantUser === true`): Título = "Equipamentos Fabris", Ícone = `Wrench`.
+    * Escopo Frota (`isPlantUser === false`): Título = "Frotas e Viaturas", Ícone = `Truck`.
+
+2.2. Módulo de Ativos (`src/pages/Assets.tsx`):
+  - Listas Suspensas: As categorias de ativos e tipos de documentos de conformidade
+    NÃO possuem itens misturados hardcoded. Elas consomem estritamente os arrays
+    `categories` e `complianceDocTypes` retornados por `useCurrentDomain()`.
+
+2.3. Ordens de Serviço (`src/pages/WorkOrders.tsx`):
+  - Contador: Exibido dinamicamente via `{counterLabel}`, eliminando rotulações
+    mistas ("KM/H") e apresentando "Horímetro Acumulado (Horas)" em perfil fabril
+    e "Quilometragem (KM)" em perfil de frota.
+  - Causas de Avaria: O dropdown no modal de criação/edição consome dinamicamente
+    `failureCauses` do domínio ativo.
+
+2.4. Inventário (`src/pages/Inventory.tsx`):
+  - Categorias de Peças: O filtro do topo e a seleção no cadastro/edição de peças
+    consomem estritamente `partCategories` de `useCurrentDomain()`.
+
+2.5. Textos e Mensagens de Interface:
+  - Mensagem de Lista Vazia em Ativos:
+    `{(user?.operational_scope || ...) === 'plant' ? 'Registe equipamentos fabris para iniciar.' : 'Registe viaturas e frotas para iniciar.'}`
+  - Os termos como "matrícula", "chassis" e "INATRO" são visíveis exclusivamente no
+    passo de veículos de frota, enquanto "setor fabril", "voltagem", "potência" e "INNOQ"
+    são visíveis exclusivamente no passo de equipamentos fabris.
+
+
+3. CONTRATO DE COMUNICAÇÃO COM A API
+-------------------------------------------------------------------------------
+3.1. Resumo de Endpoints e Métodos por Ecrã:
+  - Ativos (`src/pages/Assets.tsx`):
+    * `GET /assets` -> Carrega lista de ativos.
+    * `POST /assets` -> Cria novo ativo.
+    * `PATCH /assets/:id` -> Edita dados do ativo.
+    * `DELETE /assets/:id` -> Arquiva/elimina ativo.
+    * `GET /assets/:id/documents` -> Busca anexos documentais.
+    * `POST /assets/:id/documents` -> Anexa documento (Multipart/form-data ou JSON).
+    * Tratamento Erro 403: Capturado em `fetchAssets()` e exibe mensagem amigável:
+      "Acesso ao módulo não autorizado ou sessão expirada. Por favor, termine a sessão e entre novamente."
+
+  - Ordens de Serviço (`src/pages/WorkOrders.tsx`):
+    * `GET /work-orders` -> Lista Ordens de Serviço.
+    * `POST /work-orders` -> Cria nova OS.
+    * `PATCH /work-orders/:id` -> Atualiza OS.
+    * `POST /work-orders/:id/start` -> Inicia atendimento.
+    * `POST /work-orders/:id/pause` -> Pausa OS com motivo/justificação.
+    * `POST /work-orders/:id/resume` -> Retoma OS.
+    * `POST /work-orders/:id/complete` -> Conclui OS com fechamento financeiro e downtime.
+    * `GET /work-orders/:id/timeline` -> Historico de apontamentos.
+    * `GET /work-orders/:id/parts` -> Peças consumidas na OS.
+    * `POST /work-orders/:id/parts` -> Adiciona peça requisitada à OS.
+    * `POST /technicians` -> Cadastro rápido de técnico.
+
+  - Inventário e Armazém (`src/pages/Inventory.tsx`):
+    * `GET /parts` -> Lista peças do inventário.
+    * `POST /parts` -> Regista nova peça sobressalente.
+    * `PATCH /parts/:id` -> Edita cadastro de peça.
+    * `POST /parts/:id/replenish` -> Entrada/Reposição de stock (fallback `PATCH /parts/:id`).
+    * `POST /parts/:id/withdraw` -> Saída/Consumo de stock (fallback `PATCH /parts/:id`).
+    * `DELETE /parts/:id` -> Elimina artigo do armazém (fallback `DELETE /inventory/:id`).
+
+  - Combustível (`src/pages/Fuel.tsx`):
+    * `GET /fuel` -> Lista registros de abastecimento.
+    * `POST /fuel` -> Registra abastecimento.
+
+  - Gestão de Utilizadores (`src/pages/Users.tsx`):
+    * `GET /users` -> Lista utilizadores do tenant.
+    * `POST /users` -> Convida/cria utilizador com `operationalScope`.
+    * `PATCH /users/:id` -> Atualiza permissões ou dados.
+    * `DELETE /users/:id` -> Remove acesso do utilizador.
+
+3.2. Detalhes de Payloads JSON Enviados:
+
+  A) Cadastro de Peça (`Inventory.tsx`):
+     ```json
+     {
+       "oemReference": "FIL-LF16015",
+       "oem_reference": "FIL-LF16015",
+       "name": "Filtro de Óleo Lubrificante Motor Diesel",
+       "category": "Filtros & Lubrificantes",
+       "warehouseLocation": "Prateleira A1, Armazém Central",
+       "warehouse_location": "Prateleira A1, Armazém Central",
+       "currentStock": 15,
+       "current_stock": 15,
+       "minStock": 5,
+       "min_stock": 5,
+       "unitCost": 1250.00,
+       "unit_cost": 1250.00
+     }
+     ```
+
+  B) Saída / Consumo Manual de Stock (`withdraw` em `Inventory.tsx`):
+     ```json
+     {
+       "quantity": 2
+     }
+     ```
+     * Em caso de indisponibilidade da rota customizada, o frontend executa fallback
+       automático enviando a atualização calculada em `PATCH /parts/:id`:
+       `{ "current_stock": 13 }`.
+
+  C) Criação e Edição de OS (`WorkOrders.tsx`):
+     - `assignedTo` é enviado como ID string do técnico selecionado.
+     - O array `parts` de peças requisitadas na abertura da OS é enviado no payload:
+     ```json
+     {
+       "assetId": "df10283b-9a84-4821-bc10-128471204128",
+       "asset_id": "df10283b-9a84-4821-bc10-128471204128",
+       "title": "Sobreaquecimento do Motor",
+       "description": "Perda de líquido de arrefecimento e fuga identificada no radiador",
+       "orderType": "corrective",
+       "order_type": "corrective",
+       "priority": "high",
+       "meterAtService": 142500,
+       "meter_at_service": 142500,
+       "assignedTo": "92184012-4819-4820-9128-418241082401",
+       "technicianId": "92184012-4819-4820-9128-418241082401",
+       "technician_id": "92184012-4819-4820-9128-418241082401",
+       "parts": [
+         {
+           "partId": "e4028401-1284-4198-8421-128410928412",
+           "part_id": "e4028401-1284-4198-8421-128410928412",
+           "id": "e4028401-1284-4198-8421-128410928412",
+           "quantity": 1,
+           "unitCost": 3500.00
+         }
+       ]
+     }
+     ```
+
+  D) Conclusão de OS (fecho com notas, downtime e custos em `WorkOrders.tsx`):
+     ```json
+     {
+       "partsCostMzn": 3500.00,
+       "parts_cost_mzn": 3500.00,
+       "laborCostMzn": 1500.00,
+       "labor_cost_mzn": 1500.00,
+       "downtimeHours": 3.5,
+       "downtime_hours": 3.5,
+       "resolutionNotes": "Substituída a mangueira do radiador, reabastecido líquido de arrefecimento e efetuado teste de pressão.",
+       "resolution_notes": "Substituída a mangueira do radiador, reabastecido líquido de arrefecimento e efetuado teste de pressão."
+     }
+     ```
+
+
+4. DADOS FICTÍCIOS (MOCKS) RESIDUAIS
+-------------------------------------------------------------------------------
+- AUDITORIA CONCLUÍDA: NÃO RESTA NENHUM ARRAY OU OBJETO MOCK HARDCODED NO CÓDIGO.
+- Todos os arrays de suporte legados (`mockAssets`, `mockParts`, `mockTechnicians`)
+  foram completamente removidos.
+- Toda a renderização de tabelas, cartões, resumos financeiros, seletores e modais
+  é alimentada 100% por chamadas HTTP ativas à API backend centralizada (`api`).
+
+
+5. LISTA DE INCONGRUÊNCIAS IDENTIFICADAS
+-------------------------------------------------------------------------------
+5.1. Duplicação Intencional de Chaves no Payload (Dual-Naming Pattern):
+  - Descrição: O frontend envia chaves duplicadas em `camelCase` e `snake_case`
+    no mesmo objeto JSON (ex: `assetId` e `asset_id`, `currentStock` e `current_stock`).
+  - Motivo: Assegurar compatibilidade universal com diferentes convenções de
+    mapeamento do ORM/Backend sem quebrar rotas em transição.
+
+5.2. Mecanismo de Fallback de Endpoint:
+  - Descrição: Em rotas como `/parts/:id/withdraw` ou `/parts/:id/replenish` e
+    removendo ativos/peças (`/parts/:id` vs `/inventory/:id`), o frontend executa
+    uma tentativa na rota customizada e, em caso de erro, recorre transparentemente
+    a requisições `PATCH` ou `DELETE` REST standard.
+
+5.3. Resolução de Escopo em Utilizadores Administradores:
+  - Descrição: Para contas com permissão global de administrador cujo `operational_scope`
+    esteja definido como `'both'`, o `AuthContext` inicializa por padrão o escopo em
+    `'fleet'`, permitindo a visualização limpa do domínio rodoviário por padrão.
+
+===============================================================================
+FIM DO RELATÓRIO DE AUDITORIA
+===============================================================================

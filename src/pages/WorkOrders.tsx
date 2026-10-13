@@ -788,7 +788,13 @@ export const WorkOrdersPage: React.FC = () => {
       assignedTo: formData.assignedTo || undefined,
       assigned_to: formData.assignedTo || undefined,
       status: formMode === 'create' ? 'open' : undefined,
-      parts: selectedPartsList.map(p => ({ partId: p.id, quantity: p.quantity }))
+      parts: selectedPartsList.map((item: any) => ({
+        partId: item.id || item.partId,
+        part_id: item.id || item.partId,
+        id: item.id,
+        quantity: Number(item.quantity),
+        unitCost: Number(item.unit_cost || item.unitCost || 0)
+      }))
     };
 
     try {
@@ -908,19 +914,19 @@ export const WorkOrdersPage: React.FC = () => {
     setSubmittingClose(true);
 
     const payload = {
-      partsCostMzn: partsCostMzn !== '' ? Number(partsCostMzn) : 0,
-      parts_cost_mzn: partsCostMzn !== '' ? Number(partsCostMzn) : 0,
-      laborCostMzn: laborCostMzn !== '' ? Number(laborCostMzn) : 0,
-      labor_cost_mzn: laborCostMzn !== '' ? Number(laborCostMzn) : 0,
-      downtimeHours: downtimeHours !== '' ? Number(downtimeHours) : 0,
-      downtime_hours: downtimeHours !== '' ? Number(downtimeHours) : 0,
+      downtimeHours: Number(downtimeHours || 0),
+      downtime_hours: Number(downtimeHours || 0),
+      partsCostMzn: Number(partsCostMzn || 0),
+      parts_cost_mzn: Number(partsCostMzn || 0),
+      laborCostMzn: Number(laborCostMzn || 0),
+      labor_cost_mzn: Number(laborCostMzn || 0),
       resolutionNotes: resolutionNotes,
       resolution_notes: resolutionNotes,
       status: 'completed'
     };
 
     try {
-      // Registra transição de fechamento se suportado, depois faz PATCH/PUT
+      // Registra transição de fechamento se suportado
       try {
         await api.post(`/work-orders/${selectedOrder.id}/transitions`, {
           eventType: 'complete',
@@ -933,7 +939,11 @@ export const WorkOrdersPage: React.FC = () => {
       try {
         await api.patch(`/work-orders/${selectedOrder.id}/close`, payload);
       } catch (patchErr) {
-        await api.patch(`/work-orders/${selectedOrder.id}`, payload);
+        try {
+          await api.post(`/work-orders/${selectedOrder.id}/complete`, payload);
+        } catch (postErr) {
+          await api.patch(`/work-orders/${selectedOrder.id}`, payload);
+        }
       }
       
       if (navigator.vibrate) navigator.vibrate(120);

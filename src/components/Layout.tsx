@@ -5,6 +5,7 @@ import { QRScannerModal } from './QRScannerModal';
 import {
   Building2,
   Truck,
+  Wrench,
   ClipboardList,
   Fuel,
   LogOut,
@@ -143,9 +144,9 @@ export const Layout: React.FC = () => {
 
     // Todos os escopos têm acesso aos Ativos
     items.push({
-      name: isPlantUser ? 'Equipamentos Fabris' : 'Ativos e Frotas',
+      name: isPlantUser ? 'Equipamentos Fabris' : 'Frotas e Viaturas',
       path: '/app/assets',
-      icon: Truck,
+      icon: isPlantUser ? Wrench : Truck,
       description: isPlantUser ? 'Equipamentos industriais' : 'Registo e frotas de viaturas'
     });
 
@@ -157,14 +158,17 @@ export const Layout: React.FC = () => {
       description: user.role === 'technician' ? 'Minhas tarefas de manutenção' : 'Manutenção corretiva e preventiva'
     });
 
-    // Combustível disponível para tenant_admin e supervisor
-    if (user.role === 'tenant_admin' || user.role === 'supervisor') {
+    // Combustível disponível para tenant_admin e supervisor apenas se NÃO for plant
+    if ((user.role === 'tenant_admin' || user.role === 'supervisor') && !isPlantUser) {
       items.push({
         name: 'Combustível',
         path: '/app/fuel',
         icon: Fuel,
         description: 'Consumos e eficiência de combustível'
       });
+    }
+
+    if (user.role === 'tenant_admin' || user.role === 'supervisor') {
       items.push({
         name: 'Inventário',
         path: '/app/inventory',
