@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrentDomain } from '../config/domainRegistry';
 import {
   Plus,
   Layers,
@@ -40,6 +41,7 @@ interface Part {
 
 export const InventoryPage: React.FC = () => {
   const { user, isTenantAdmin, isSupervisor } = useAuth();
+  const { partCategories } = useCurrentDomain();
   
   // Lista de Peças e Estados de Carregamento
   const [parts, setParts] = useState<Part[]>([]);
@@ -69,7 +71,7 @@ export const InventoryPage: React.FC = () => {
   // Formulário de Nova Peça
   const [formOemReference, setFormOemReference] = useState('');
   const [formName, setFormName] = useState('');
-  const [formCategory, setFormCategory] = useState('mechanical');
+  const [formCategory, setFormCategory] = useState(partCategories[0]?.value || 'mechanical');
   const [formWarehouseLocation, setFormWarehouseLocation] = useState('');
   const [formCurrentStock, setFormCurrentStock] = useState<number | ''>('');
   const [formMinStock, setFormMinStock] = useState<number | ''>('');
@@ -271,15 +273,9 @@ export const InventoryPage: React.FC = () => {
   };
 
   const getCategoryLabel = (cat: string) => {
-    switch (cat) {
-      case 'mechanical': return 'Mecânica';
-      case 'electrical': return 'Elétrica';
-      case 'hydraulic': return 'Hidráulica';
-      case 'pneumatic': return 'Pneumática';
-      case 'lubricants': return 'Lubrificantes & Filtros';
-      case 'tires_wheels': return 'Pneus & Jantes';
-      default: return 'Outros';
-    }
+    const found = partCategories.find(c => c.value === cat);
+    if (found) return found.label;
+    return cat;
   };
 
   // Cálculos de Indicadores Rápidos
@@ -436,16 +432,14 @@ export const InventoryPage: React.FC = () => {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-700 focus:outline-none"
+            className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-700 focus:outline-none cursor-pointer"
           >
             <option value="all">Todas as Categorias</option>
-            <option value="mechanical">Mecânica</option>
-            <option value="electrical">Elétrica</option>
-            <option value="hydraulic">Hidráulica</option>
-            <option value="pneumatic">Pneumática</option>
-            <option value="lubricants">Lubrificantes & Filtros</option>
-            <option value="tires_wheels">Pneus & Jantes</option>
-            <option value="other">Outros</option>
+            {partCategories.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
           </select>
           <select
             value={stockStatusFilter}
@@ -622,13 +616,11 @@ export const InventoryPage: React.FC = () => {
                     onChange={(e) => setFormCategory(e.target.value)}
                     className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-2 py-1.5 text-xs text-slate-900 cursor-pointer focus:outline-none"
                   >
-                    <option value="mechanical">Mecânica</option>
-                    <option value="electrical">Elétrica</option>
-                    <option value="hydraulic">Hidráulica</option>
-                    <option value="pneumatic">Pneumática</option>
-                    <option value="lubricants">Lubrificantes & Filtros</option>
-                    <option value="tires_wheels">Pneus & Jantes</option>
-                    <option value="other">Outros</option>
+                    {partCategories.map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

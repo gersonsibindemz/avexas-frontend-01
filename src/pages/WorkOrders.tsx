@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrentDomain } from '../config/domainRegistry';
 import {
   Plus,
   Wrench,
@@ -104,9 +105,18 @@ interface WorkOrder {
 
 export const WorkOrdersPage: React.FC = () => {
   const { user } = useAuth();
+  const { counterLabel, failureCauses, technicianSpecialties, domain } = useCurrentDomain();
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
+
+  const domainAssets = assets.filter((asset: any) => {
+    const isPlantType = asset.category === 'generator' || asset.category === 'machinery';
+    const isFleetType = asset.category === 'vehicle_light' || asset.category === 'vehicle_heavy';
+    if (domain === 'plant') return isPlantType;
+    if (domain === 'fleet') return isFleetType;
+    return true;
+  });
   
   const [loading, setLoading] = useState(true);
   const [loadingTechs, setLoadingTechs] = useState(false);
@@ -1522,7 +1532,7 @@ export const WorkOrdersPage: React.FC = () => {
                   className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
                 >
                   <option value="">Selecione o Ativo...</option>
-                  {assets.map((asset) => (
+                  {domainAssets.map((asset) => (
                     <option key={asset.id} value={asset.id}>
                       [{asset.code_tag || asset.codeTag}] {asset.name}
                     </option>
@@ -1531,16 +1541,37 @@ export const WorkOrdersPage: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="formTitle" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-                  Título da Avaria / Intervenção *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="formTitle" className="block text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                    Título da Avaria / Intervenção *
+                  </label>
+                </div>
+                <select
+                  id="formCause"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const found = failureCauses.find(fc => fc.value === e.target.value);
+                      if (found) {
+                        setFormData((prev: any) => ({ ...prev, title: found.label }));
+                      }
+                    }
+                  }}
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-1.5 text-xs text-slate-700 cursor-pointer focus:outline-none mb-2"
+                >
+                  <option value="">Selecione a Causa da Avaria / Intervenção...</option>
+                  {failureCauses.map((fc) => (
+                    <option key={fc.value} value={fc.value}>
+                      {fc.label}
+                    </option>
+                  ))}
+                </select>
                 <input
                   id="formTitle"
                   type="text"
                   required
                   value={formData.title || ''}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="ex: Fuga de óleo no pistão hidráulico ou ruído mecânico"
+                  placeholder="ou digite o título da avaria..."
                   className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none placeholder-slate-400"
                 />
               </div>
@@ -1596,7 +1627,7 @@ export const WorkOrdersPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="formMeter" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-                    Contador no Momento (km/h)
+                    {counterLabel}
                   </label>
                   <input
                     id="formMeter"
@@ -1791,14 +1822,19 @@ export const WorkOrdersPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">Especialidade / Ofício *</label>
-                <input
-                  type="text"
+                <select
                   required
                   value={techSpecialty}
                   onChange={(e) => setTechSpecialty(e.target.value)}
-                  placeholder="ex: Mecânico Diesel, Hidráulico, Eletricista"
-                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                />
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 cursor-pointer"
+                >
+                  <option value="">Selecione a Especialidade...</option>
+                  {technicianSpecialties.map((spec) => (
+                    <option key={spec.value} value={spec.value}>
+                      {spec.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

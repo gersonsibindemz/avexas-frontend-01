@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrentDomain } from '../config/domainRegistry';
 import QRCode from 'qrcode';
 import {
   Plus,
@@ -97,6 +98,9 @@ interface Asset {
 
 export const AssetsPage: React.FC = () => {
   const { user, isTechnician, isDriverOperator, isFleet, isPlant, currentScope } = useAuth();
+  const domainConfig = useCurrentDomain();
+  const { categories, complianceDocTypes, counterLabel, counterUnit, searchPlaceholder, domain, assetNamePlural } = domainConfig;
+
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -451,7 +455,7 @@ export const AssetsPage: React.FC = () => {
   const resetWizardForm = () => {
     setCurrentStep(1);
     setName('');
-    setCategory('vehicle_light');
+    setCategory((categories[0]?.value as any) || 'vehicle_light');
     setCodeTag('');
     setCriticalityLevel('B');
     setBrand('');
@@ -678,11 +682,11 @@ export const AssetsPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-            <span>Ativos e Frotas</span>
+            <span>{assetNamePlural}</span>
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
           <p className="text-slate-500 text-xs mt-1">
-            Gestão completa, auditoria documental in-loco, conformidade regulamentar INATRO / INNOQ e etiquetagem QR Code.
+            Gestão completa, auditoria documental in-loco, conformidade regulamentar e etiquetagem QR Code.
           </p>
         </div>
         <div className="flex gap-2">
@@ -726,7 +730,7 @@ export const AssetsPage: React.FC = () => {
           <Search size={14} className="absolute left-3.5 top-3 text-slate-400" />
           <input
             type="text"
-            placeholder="Pesquisar por tag, nome, matrícula ou modelo..."
+            placeholder={searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-9 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none"
@@ -739,10 +743,11 @@ export const AssetsPage: React.FC = () => {
             className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-700 focus:outline-none cursor-pointer"
           >
             <option value="all">Todas as Categorias</option>
-            <option value="vehicle_light">Veículos Ligeiros</option>
-            <option value="vehicle_heavy">Frota Pesada</option>
-            <option value="generator">Geradores Industriais</option>
-            <option value="machinery">Maquinaria</option>
+            {categories.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -933,7 +938,7 @@ export const AssetsPage: React.FC = () => {
             {/* Formulário Wizard */}
             <form onSubmit={handleSubmitForm} className="p-6 space-y-4 flex-1 overflow-y-auto max-h-[60vh] scrollbar-thin">
               
-              {/* ETAPA 1: IDENTIFICAÇÃO (Geral para todos os ativos) */}
+              {/* ETAPA 1: IDENTIFICAÇÃO */}
               {currentStep === 1 && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -945,12 +950,13 @@ export const AssetsPage: React.FC = () => {
                         value={category}
                         disabled={modalMode === 'edit'} // Categoria fixa na edição
                         onChange={(e) => setCategory(e.target.value as any)}
-                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
                       >
-                        <option value="vehicle_light">Veículo Ligeiro (Frota)</option>
-                        <option value="vehicle_heavy">Veículo Pesado (Logística)</option>
-                        <option value="generator">Gerador Industrial</option>
-                        <option value="machinery">Maquinaria de Chão de Fábrica</option>
+                        {categories.map((c) => (
+                          <option key={c.value} value={c.value}>
+                            {c.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div>
@@ -963,8 +969,7 @@ export const AssetsPage: React.FC = () => {
                         onChange={(e) => setCodeTag(e.target.value)}
                         placeholder="Deixe vazio para gerar automaticamente"
                         className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
-                      >
-                      </input>
+                      />
                     </div>
                   </div>
 
@@ -977,7 +982,7 @@ export const AssetsPage: React.FC = () => {
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="ex: Camião Volvo FMX Basculante ou Gerador Cummins"
+                      placeholder={domain === 'fleet' ? "ex: Camião Volvo FMX Basculante" : "ex: Gerador Cummins 500kVA ou Extrusora N2"}
                       className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                     />
                   </div>
@@ -1056,8 +1061,8 @@ export const AssetsPage: React.FC = () => {
               {/* ETAPA 2: OPERAÇÃO (Condicional) */}
               {currentStep === 2 && (
                 <div className="space-y-4">
-                  {(category === 'vehicle_light' || category === 'vehicle_heavy') ? (
-                    /* CAMPOS PARA VEÍCULOS */
+                  {domain === 'fleet' ? (
+                    /* CAMPOS PARA VEÍCULOS (FROTA) */
                     <>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -1116,7 +1121,7 @@ export const AssetsPage: React.FC = () => {
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-                          Leitura Atual do Odómetro (km) *
+                          {counterLabel} *
                         </label>
                         <input
                           type="number"
@@ -1128,18 +1133,19 @@ export const AssetsPage: React.FC = () => {
                       </div>
                     </>
                   ) : (
-                    /* CAMPOS PARA GERADORES E MAQUINARIA */
+                    /* CAMPOS PARA GERADORES E MAQUINARIA (FABRIL) */
                     <>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-                            Setor Fabril / Área
+                            Setor Fabril / Área *
                           </label>
                           <input
                             type="text"
+                            required
                             value={plantSector}
                             onChange={(e) => setPlantSector(e.target.value)}
-                            placeholder="ex: Moagem, Embalamento"
+                            placeholder="ex: Moagem, Embalamento, Linha 2"
                             className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                           />
                         </div>
@@ -1172,7 +1178,7 @@ export const AssetsPage: React.FC = () => {
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-                          Leitura Inicial do Horímetro (Horas de Uso) *
+                          {counterLabel} *
                         </label>
                         <input
                           type="number"
@@ -1187,11 +1193,11 @@ export const AssetsPage: React.FC = () => {
                 </div>
               )}
 
-              {/* ETAPA 3: CONFORMIDADE MOÇAMBIQUE */}
+              {/* ETAPA 3: CONFORMIDADE */}
               {currentStep === 3 && (
                 <div className="space-y-4">
-                  {(category === 'vehicle_light' || category === 'vehicle_heavy') ? (
-                    /* CONFORMIDADE DE TRÂNSITO INATRO */
+                  {domain === 'fleet' ? (
+                    /* CONFORMIDADE DE TRÂNSITO INATRO (FROTA) */
                     <>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -1246,7 +1252,7 @@ export const AssetsPage: React.FC = () => {
                       </div>
                     </>
                   ) : (
-                    /* CONFORMIDADE INDUSTRIAL INNOQ / TESTES PRESSÃO */
+                    /* CONFORMIDADE INDUSTRIAL INNOQ / PRESSÃO (FABRIL) */
                     <>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
