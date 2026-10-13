@@ -20,7 +20,8 @@ import {
   Briefcase,
   QrCode,
   Users,
-  Layers
+  Layers,
+  AlertTriangle
 } from 'lucide-react';
 
 export const Layout: React.FC = () => {
@@ -41,6 +42,9 @@ export const Layout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   
+  // Estado para controlar a visibilidade do modal de confirmação de logout
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
   // Estado para controlar se a sidebar está retraída no desktop
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = localStorage.getItem('cmms_sidebar_collapsed');
@@ -278,7 +282,7 @@ export const Layout: React.FC = () => {
         {/* Rodapé da Sidebar */}
         <div className="p-3 border-t border-slate-200 bg-white">
           <button
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-md text-xs font-medium text-slate-700 hover:text-red-700 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-all cursor-pointer ${
               isCollapsed ? 'p-2' : ''
             }`}
@@ -351,7 +355,7 @@ export const Layout: React.FC = () => {
         {/* Rodapé Mobile */}
         <div className="p-4 border-t border-slate-200 bg-white">
           <button
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-xs font-medium text-slate-700 hover:text-red-700 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-all cursor-pointer"
           >
             <LogOut size={16} />
@@ -547,6 +551,58 @@ export const Layout: React.FC = () => {
 
         {/* MODAL DE LEITOR QR CODE GLOBAL */}
         <QRScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} />
+
+        {/* MODAL DE CONFIRMAÇÃO DE LOGOUT */}
+        {showLogoutConfirm && (
+          <div 
+            className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
+            onClick={() => setShowLogoutConfirm(false)}
+          >
+            <div 
+              className="bg-white border border-slate-200 rounded-lg max-w-sm w-full p-5 shadow-lg relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Cabeçalho */}
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                  <AlertTriangle size={18} className="text-amber-500 shrink-0" />
+                  <span>Terminar Sessão</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
+                  aria-label="Fechar"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Texto Descritivo */}
+              <p className="text-slate-600 text-xs mb-5 leading-relaxed">
+                Tem a certeza de que pretende encerrar a sua sessão de trabalho no CMMS?
+              </p>
+
+              {/* Botões */}
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="bg-white border border-slate-300 text-slate-700 rounded-md text-xs px-3 py-1.5 hover:bg-slate-50 font-medium transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="bg-rose-600 hover:bg-rose-700 text-white rounded-md text-xs px-3 py-1.5 font-medium transition-colors cursor-pointer"
+                >
+                  Sim, Terminar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

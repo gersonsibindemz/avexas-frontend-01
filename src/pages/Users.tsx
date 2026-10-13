@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrentDomain } from '../config/domainRegistry';
 import {
   Plus,
   Users as UsersIcon,
@@ -27,11 +28,14 @@ interface TenantUser {
   role: 'tenant_admin' | 'supervisor' | 'technician' | 'driver_operator';
   operational_scope: 'fleet' | 'plant' | 'both';
   operationalScope?: 'fleet' | 'plant' | 'both';
+  specialty?: string;
   created_at?: string;
 }
 
 export const UsersPage: React.FC = () => {
   const { user, isTenantAdmin, isSuperAdmin } = useAuth();
+  const { technicianSpecialties } = useCurrentDomain();
+
   const [users, setUsers] = useState<TenantUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +53,12 @@ export const UsersPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'tenant_admin' | 'supervisor' | 'technician' | 'driver_operator'>('technician');
-  const [operationalScope, setOperationalScope] = useState<'fleet' | 'plant' | 'both'>('both');
+  const [operationalScope, setOperationalScope] = useState<'fleet' | 'plant' | 'both'>('fleet');
+  const [specialty, setSpecialty] = useState('');
+
+  // Escopo do utilizador atual e bloqueio de escopo
+  const currentUserScope = user?.operational_scope || user?.tenant?.operational_scope || user?.tenant?.operationalScope || 'fleet';
+  const isScopeLocked = !isSuperAdmin && (currentUserScope === 'fleet' || currentUserScope === 'plant');
 
   // Limites do Tenant
   const [maxUsersLimit, setMaxUsersLimit] = useState<number>(15);
@@ -71,7 +80,8 @@ export const UsersPage: React.FC = () => {
         fullName: u.fullName || u.fullName_ || u.name || 'Utilizador Técnico',
         email: u.email,
         role: u.role,
-        operational_scope: u.operational_scope || u.operationalScope || 'both'
+        operational_scope: u.operational_scope || u.operationalScope || 'fleet',
+        specialty: u.specialty || u.technical_specialty || u.specialization || ''
       }));
 
       setUsers(normalizedUsers);
@@ -113,24 +123,28 @@ export const UsersPage: React.FC = () => {
   }
 
   const handleOpenCreateModal = () => {
+    const initialScope = currentUserScope === 'plant' ? 'plant' : 'fleet';
     setModalMode('create');
     setEditingUserId(null);
     setFullName('');
     setEmail('');
     setPassword('');
     setRole('technician');
-    setOperationalScope('fleet');
+    setOperationalScope(initialScope);
+    setSpecialty(technicianSpecialties.length > 0 ? technicianSpecialties[0].value : '');
     setIsModalOpen(true);
   };
 
   const handleOpenEditModal = (targetUser: TenantUser) => {
+    const targetScope = targetUser.operational_scope === 'plant' ? 'plant' : (targetUser.operational_scope === 'fleet' ? 'fleet' : (currentUserScope === 'plant' ? 'plant' : 'fleet'));
     setModalMode('edit');
     setEditingUserId(targetUser.id);
     setFullName(targetUser.fullName);
     setEmail(targetUser.email);
     setPassword(''); // deixa vazio para não alterar se não preenchido
     setRole(targetUser.role);
-    setOperationalScope(targetUser.operational_scope);
+    setOperationalScope(targetScope);
+    setSpecialty(targetUser.specialty || (technicianSpecialties.length > 0 ? technicianSpecialties[0].value : ''));
     setIsModalOpen(true);
   };
 
@@ -144,15 +158,25 @@ export const UsersPage: React.FC = () => {
       alert('A palavra-passe é obrigatória para novos utilizadores.');
       return;
     }
+    if (role === 'technician' && !specialty) {
+      alert('Por favor, selecione a especialidade técnica.');
+      return;
+    }
 
     setSubmitting(true);
     try {
+      const activeScope = isScopeLocked ? (currentUserScope === 'plant' ? 'plant' : 'fleet') : (operationalScope === 'both' ? 'fleet' : operationalScope);
       const payload: any = {
         fullName,
         email,
         role,
-        operationalScope,
-        operational_scope: operationalScope
+        operationalScope: activeScope,
+        operational_scope: activeScope,
+        ...(role === 'technician' && {
+          specialty,
+          technical_specialty: specialty,
+          specialization: specialty
+        })
       };
 
       if (password.trim()) {
@@ -306,7 +330,7 @@ export const UsersPage: React.FC = () => {
         <div className="flex items-center gap-2.5 w-full md:w-auto">
           <button
             onClick={fetchUsers}
-            className="p-2 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 rounded-md border border-slate-300 transition-colors"
+            className="p-2 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 rounded-md border border-slate-300 transition-colors cursor-pointer"
             title="Recarregar Lista"
           >
             <RefreshCw size={14} />
@@ -334,7 +358,7 @@ export const UsersPage: React.FC = () => {
         <div className="bg-white border border-slate-200 rounded-md p-8 text-center text-red-700 flex flex-col items-center gap-4">
           <AlertTriangle size={32} />
           <p className="text-xs">{error}</p>
-          <button onClick={fetchUsers} className="bg-white hover:bg-slate-50 text-slate-700 text-xs px-4 py-2 rounded-md border border-slate-300">
+          <button onClick={fetchUsers} className="bg-white hover:bg-slate-50 text-slate-700 text-xs px-4 py-2 rounded-md border border-slate-300 cursor-pointer">
             Tentar Novamente
           </button>
         </div>
@@ -368,9 +392,16 @@ export const UsersPage: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4 font-mono text-slate-600">{u.email}</td>
                     <td className="py-3.5 px-4">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium ${getRoleBadgeColor(u.role)}`}>
-                        {formatRoleName(u.role)}
-                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className={`inline-flex items-center w-fit px-2 py-0.5 rounded-md text-[10px] font-medium ${getRoleBadgeColor(u.role)}`}>
+                          {formatRoleName(u.role)}
+                        </span>
+                        {u.role === 'technician' && u.specialty && (
+                          <span className="text-[10px] text-slate-500 font-medium">
+                            {u.specialty}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 text-slate-600">{formatScopeName(u.operational_scope)}</td>
                     <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
@@ -473,11 +504,17 @@ export const UsersPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                    Nível de Acesso (Cargo)
+                    Nível de Acesso (Cargo) *
                   </label>
                   <select
                     value={role}
-                    onChange={(e) => setRole(e.target.value as any)}
+                    onChange={(e) => {
+                      const newRole = e.target.value as any;
+                      setRole(newRole);
+                      if (newRole === 'technician' && !specialty && technicianSpecialties.length > 0) {
+                        setSpecialty(technicianSpecialties[0].value);
+                      }
+                    }}
                     className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
                   >
                     <option value="tenant_admin">Gestor de Contrato (Admin)</option>
@@ -493,15 +530,43 @@ export const UsersPage: React.FC = () => {
                   </label>
                   <select
                     required
-                    value={operationalScope === 'both' ? 'fleet' : operationalScope}
+                    disabled={isScopeLocked}
+                    value={operationalScope === 'both' ? (currentUserScope === 'plant' ? 'plant' : 'fleet') : operationalScope}
                     onChange={(e) => setOperationalScope(e.target.value as any)}
-                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                   >
-                    <option value="fleet">Frota Rodoviária (fleet)</option>
-                    <option value="plant">Instalação Fabril (plant)</option>
+                    <option value="fleet">Frota Rodoviária</option>
+                    <option value="plant">Instalação Fabril</option>
                   </select>
+                  {isScopeLocked && (
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Definido de acordo com o seu âmbito de gestão atual.
+                    </p>
+                  )}
                 </div>
               </div>
+
+              {/* CAMPO CONDICIONAL PARA TÉCNICO DE MANUTENÇÃO */}
+              {role === 'technician' && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                    Especialidade Técnica *
+                  </label>
+                  <select
+                    required
+                    value={specialty}
+                    onChange={(e) => setSpecialty(e.target.value)}
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
+                  >
+                    <option value="">Selecione a especialidade...</option>
+                    {technicianSpecialties.map((spec) => (
+                      <option key={spec.value} value={spec.value}>
+                        {spec.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
