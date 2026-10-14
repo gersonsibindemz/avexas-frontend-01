@@ -74,17 +74,20 @@ export const UsersPage: React.FC = () => {
         ? response.data
         : response.data?.users || response.data?.data || [];
       
-      // Adaptando nomes dos atributos vindos do backend
-      const normalizedUsers = data.map((u: any) => ({
+      // Adaptando nomes dos atributos vindos do backend e filtrando defensivamente is_active === false
+      const activeData = data.filter((u: any) => u.is_active !== false && u.isActive !== false);
+
+      const normalizedUsers = activeData.map((u: any) => ({
         id: u.id,
         fullName: u.fullName || u.fullName_ || u.name || 'Utilizador Técnico',
         email: u.email,
         role: u.role,
         operational_scope: u.operational_scope || u.operationalScope || 'fleet',
-        specialty: u.specialty || u.technical_specialty || u.specialization || ''
+        specialty: u.specialty || u.technical_specialty || u.specialization || '',
+        is_active: u.is_active ?? u.isActive ?? true
       }));
 
-      setUsers(normalizedUsers);
+      setUsers(normalizedUsers.filter(u => u.is_active !== false));
 
       // Obter limites se retornados pela API
       if (response.data?.maxUsers || response.data?.max_users) {
@@ -214,12 +217,13 @@ export const UsersPage: React.FC = () => {
 
   const handleDeleteUser = async () => {
     if (!deletingUser) return;
+    const targetUserId = deletingUser.id;
     try {
-      await api.delete(`/users/${deletingUser.id}`);
-      setSuccessMessage('Utilizador removido com sucesso!');
+      await api.delete(`/users/${targetUserId}`);
+      setUsers(prev => prev.filter(user => user.id !== targetUserId));
+      setSuccessMessage('Utilizador removido do contrato com sucesso.');
       setIsDeleteModalOpen(false);
       setDeletingUser(null);
-      await fetchUsers();
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       console.error('Erro ao eliminar utilizador:', err);

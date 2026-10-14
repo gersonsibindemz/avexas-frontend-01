@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { QRScannerModal } from './QRScannerModal';
 import { BrandLogo } from './BrandLogo';
+import { usePreventRefresh } from '../hooks/usePreventRefresh';
 import {
   Building2,
   Truck,
@@ -63,6 +64,9 @@ const formatTimeAgo = (dateStr?: string) => {
 };
 
 export const Layout: React.FC = () => {
+  // Ativa a proteção contra recarregamento acidental de página (F5 e fechar aba)
+  usePreventRefresh(true);
+
   const {
     user,
     logout,
