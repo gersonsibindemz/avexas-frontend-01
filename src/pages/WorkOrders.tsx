@@ -39,6 +39,9 @@ interface Asset {
   code_tag: string;
   codeTag?: string;
   name: string;
+  category?: string;
+  category_type?: string;
+  type?: string;
   current_meter?: number;
   currentMeter?: number;
   meter_kind?: string;
@@ -1072,12 +1075,77 @@ export const WorkOrdersPage: React.FC = () => {
     }
   };
 
+  // Resolução do Nome do Técnico Encarregue (Eliminar UUIDs nos Cards)
+  const resolveTechnicianName = (order: any) => {
+    if (!order) return 'Pendente de Atribuição';
+    if (order.assigned_technician_name) return order.assigned_technician_name;
+    if (order.assignedTechnicianName) return order.assignedTechnicianName;
+    if (order.technician_name) return order.technician_name;
+    if (order.technician?.name) return order.technician.name;
+    
+    // Fallback: procura na lista de técnicos/utilizadores já carregada em memória
+    const matchedTech = technicians.find(t => 
+      t.id === order.assigned_to || 
+      t.id === order.assignedTo || 
+      t.id === order.technician_id || 
+      t.id === order.technicianId
+    );
+    if (matchedTech) return matchedTech.name || (matchedTech as any).fullName;
+
+    // Proteção estrita: se for um UUID ou estiver vazio, NUNCA exibir o código na tela
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const assignedVal = order.assigned_to || order.assignedTo;
+    if (!assignedVal || isUUID.test(String(assignedVal))) {
+      return 'Pendente de Atribuição';
+    }
+    return String(assignedVal);
+  };
+
+  // Helper de Formatação dos Contadores (KM vs Horas)
+  const formatMeterReading = (val: any, unit: string) => {
+    if (val === undefined || val === null || val === '') return 'Sem registo';
+    const num = Number(val);
+    if (isNaN(num)) return 'Sem registo';
+    if (unit === 'km') {
+      return `${num.toLocaleString('pt-MZ')} km`;
+    }
+    return `${num.toLocaleString('pt-MZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} horas`;
+  };
+
+  // Filtro defensivo de isolamento de domínio (fleet vs plant)
+  const domainFilteredOrders = orders.filter((order) => {
+    const matchingAsset = assets.find(a => a.id === order.asset_id || a.id === order.assetId);
+    
+    if (domain === 'plant') {
+      const orderAssetType = (order as any).asset_type || (order as any).assetType;
+      const orderMeterType = (order as any).meter_type || (order as any).meterType || (order as any).meter_kind || (order as any).meterKind;
+      if (orderAssetType === 'fleet') return false;
+      if (orderMeterType === 'kms' || orderMeterType === 'odometer_km') return false;
+      if (matchingAsset) {
+        const isPlantCategory = matchingAsset.category === 'generator' || matchingAsset.category === 'machinery' || (matchingAsset as any).category_type === 'plant' || (matchingAsset as any).type === 'plant';
+        const isFleetCategory = matchingAsset.category === 'vehicle_light' || matchingAsset.category === 'vehicle_heavy' || (matchingAsset as any).category_type === 'fleet' || (matchingAsset as any).type === 'fleet';
+        if (isFleetCategory && !isPlantCategory) return false;
+      }
+    } else if (domain === 'fleet') {
+      const orderAssetType = (order as any).asset_type || (order as any).assetType;
+      const orderMeterType = (order as any).meter_type || (order as any).meterType || (order as any).meter_kind || (order as any).meterKind;
+      if (orderAssetType === 'plant') return false;
+      if (orderMeterType === 'hours' || orderMeterType === 'hourmeter') return false;
+      if (matchingAsset) {
+        const isPlantCategory = matchingAsset.category === 'generator' || matchingAsset.category === 'machinery' || (matchingAsset as any).category_type === 'plant' || (matchingAsset as any).type === 'plant';
+        const isFleetCategory = matchingAsset.category === 'vehicle_light' || matchingAsset.category === 'vehicle_heavy' || (matchingAsset as any).category_type === 'fleet' || (matchingAsset as any).type === 'fleet';
+        if (isPlantCategory && !isFleetCategory) return false;
+      }
+    }
+    return true;
+  });
+
   // Filtragem local inteligente baseada nos critérios de pesquisa
-  const filteredOrders = orders.filter((order) => {
+  const filteredOrders = domainFilteredOrders.filter((order) => {
     const title = (order.title || '').toLowerCase();
     const description = (order.description || '').toLowerCase();
     const woNum = (order.wo_number || order.woNumber || '').toLowerCase();
-    const assigned = (order.assigned_to || order.assignedTo || '').toLowerCase();
+    const assigned = resolveTechnicianName(order).toLowerCase();
     
     const matchingAsset = assets.find(a => a.id === order.asset_id || a.id === order.assetId);
     const assetString = matchingAsset 
@@ -1294,7 +1362,7 @@ export const WorkOrdersPage: React.FC = () => {
               : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          Todas ({orders.length})
+          Todas ({domainFilteredOrders.length})
         </button>
         <button
           onClick={() => setQuickTab('my_tasks')}
@@ -1304,7 +1372,7 @@ export const WorkOrdersPage: React.FC = () => {
               : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          Minhas Tarefas ({orders.filter(isAssignedToMe).filter(o => o.status !== 'completed').length})
+          Minhas Tarefas ({domainFilteredOrders.filter(isAssignedToMe).filter(o => o.status !== 'completed').length})
         </button>
         <button
           onClick={() => setQuickTab('pending')}
@@ -1314,7 +1382,7 @@ export const WorkOrdersPage: React.FC = () => {
               : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          Pendentes de Início ({orders.filter(o => o.status === 'open').length})
+          Pendentes de Início ({domainFilteredOrders.filter(o => o.status === 'open').length})
         </button>
         <button
           onClick={() => setQuickTab('in_progress')}
@@ -1324,7 +1392,7 @@ export const WorkOrdersPage: React.FC = () => {
               : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          Em Andamento ({orders.filter(o => o.status === 'in_progress').length})
+          Em Andamento ({domainFilteredOrders.filter(o => o.status === 'in_progress').length})
         </button>
         <button
           onClick={() => setQuickTab('completed')}
@@ -1334,7 +1402,7 @@ export const WorkOrdersPage: React.FC = () => {
               : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          Concluídas ({orders.filter(o => o.status === 'completed').length})
+          Concluídas ({domainFilteredOrders.filter(o => o.status === 'completed').length})
         </button>
       </div>
 
@@ -1367,11 +1435,12 @@ export const WorkOrdersPage: React.FC = () => {
               const isUrgent = priority === 'urgent' || priority === 'critical';
               const delayed = isDelayed(order);
               
-              const matchingTech = technicians.find(t => t.id === order.technician_id || t.id === order.technicianId);
-              const techDisplay = matchingTech ? matchingTech.name : (order.assigned_to || order.assignedTo || 'Pendente de Atribuição');
+              const techDisplay = resolveTechnicianName(order);
 
               const meterVal = order.meter_at_service ?? order.meterAtService;
-              const meterUnit = matchingAsset?.meter_kind === 'odometer_km' || matchingAsset?.meterKind === 'odometer_km' ? 'km' : 'horas';
+              const orderMeterType = (order as any).meter_type || (order as any).meterType || (order as any).meter_kind || (order as any).meterKind;
+              const isKm = domain === 'fleet' || orderMeterType === 'kms' || orderMeterType === 'odometer_km' || matchingAsset?.meter_kind === 'odometer_km' || matchingAsset?.meterKind === 'odometer_km';
+              const meterUnit = isKm ? 'km' : 'horas';
 
               return (
                 <div
@@ -1413,7 +1482,7 @@ export const WorkOrdersPage: React.FC = () => {
                         <Activity size={11} className="text-slate-400 shrink-0" />
                         <span>Contador de Entrada:</span>
                         <span className="text-slate-800 font-semibold">
-                          {meterVal !== undefined ? `${meterVal.toLocaleString('pt-MZ')} ${meterUnit}` : 'Sem registo'}
+                          {formatMeterReading(meterVal, meterUnit)}
                         </span>
                       </div>
                       <p className="text-slate-600 text-xs line-clamp-2 leading-relaxed">
@@ -1945,7 +2014,7 @@ export const WorkOrdersPage: React.FC = () => {
                   <div>
                     <span className="text-slate-500 uppercase text-[10px] font-semibold block">Técnico Atribuído</span>
                     <span className="text-slate-900 font-semibold">
-                      {technicians.find(t => t.id === selectedDrawerOrder.technician_id || t.id === selectedDrawerOrder.technicianId)?.name || selectedDrawerOrder.assigned_to || selectedDrawerOrder.assignedTo || 'Pendente'}
+                      {resolveTechnicianName(selectedDrawerOrder)}
                     </span>
                   </div>
                   <div>

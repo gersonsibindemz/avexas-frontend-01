@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { QRScannerModal } from './QRScannerModal';
+import { BrandLogo } from './BrandLogo';
 import {
   Building2,
   Truck,
@@ -357,15 +358,7 @@ export const Layout: React.FC = () => {
         {/* Header da Sidebar */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-9 h-9 bg-blue-50 text-blue-700 border border-blue-200 rounded-md flex items-center justify-center shrink-0">
-              <Briefcase size={18} />
-            </div>
-            {!isCollapsed && (
-              <div className="flex flex-col truncate">
-                <span className="font-bold text-sm tracking-wide text-slate-900 uppercase">CMMS Moçambique</span>
-                <span className="text-[10px] text-blue-700 font-semibold tracking-wider">Gestão Operacional</span>
-              </div>
-            )}
+            <BrandLogo variant="light" collapsed={isCollapsed} className="h-8 w-auto max-w-[170px]" />
           </div>
 
           {/* Botão de Retração */}
@@ -449,14 +442,8 @@ export const Layout: React.FC = () => {
       >
         {/* Header do Mobile Drawer */}
         <div className="h-16 flex items-center justify-between px-5 border-b border-slate-200">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-50 text-blue-700 border border-blue-200 rounded-md flex items-center justify-center shrink-0">
-              <Briefcase size={16} />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-xs tracking-wider text-slate-900 uppercase">CMMS Moçambique</span>
-              <span className="text-[9px] text-blue-700 font-bold tracking-widest uppercase">Frotas & Chão de Fábrica</span>
-            </div>
+          <div className="flex items-center gap-3 overflow-hidden">
+            <BrandLogo variant="light" className="h-8 w-auto max-w-[170px]" />
           </div>
           <button
             onClick={() => setIsMobileOpen(false)}

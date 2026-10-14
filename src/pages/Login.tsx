@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { BrandLogo } from '../components/BrandLogo';
 import {
   Wrench,
   AlertTriangle,
@@ -52,9 +53,7 @@ export const LoginPage: React.FC = () => {
         
         {/* Cabeçalho do Card de Login */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-md bg-blue-50 text-blue-700 border border-blue-200 mb-4 shadow-none">
-            <Wrench size={24} />
-          </div>
+          <BrandLogo variant="light" className="h-12 w-auto mx-auto mb-4" />
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Avexas CMMS</h1>
           <p className="text-slate-500 text-xs mt-1.5 leading-relaxed font-medium">
             Gestão de Frotas e Manutenção Fabril
@@ -123,7 +122,7 @@ export const LoginPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white font-medium py-2.5 px-4 rounded-md transition-all text-sm shadow-none flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-[#0066FF] hover:bg-[#0052CC] active:bg-[#0040A0] text-white font-medium py-2.5 px-4 rounded-md transition-all text-sm shadow-none flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>
