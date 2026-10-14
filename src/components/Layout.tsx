@@ -356,37 +356,50 @@ export const Layout: React.FC = () => {
         }`}
       >
         {/* Header da Sidebar */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-white/10">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-white/10 relative">
           {!isCollapsed ? (
-            <div className="flex items-center gap-3 overflow-hidden">
-              <img
-                src="https://i.postimg.cc/QxqWHtpg/avexas-logo-white.png"
-                alt="Avexas CMMS"
-                className="h-7 w-auto object-contain"
-              />
-            </div>
-          ) : (
-            <div className="w-full flex justify-center py-1">
-              <img
-                src="https://i.postimg.cc/GtJrMZ6H/avexasfavico.png"
-                alt="Avexas"
-                className="h-8 w-8 object-contain mx-auto"
-              />
-            </div>
-          )}
+            <>
+              <div className="flex items-center gap-3 overflow-hidden">
+                <img
+                  src="https://i.postimg.cc/QxqWHtpg/avexas-logo-white.png"
+                  alt="Avexas CMMS"
+                  className="h-7 w-auto object-contain"
+                />
+              </div>
 
-          {/* Botão de Retração */}
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="text-slate-400 hover:text-white hover:bg-white/10 p-1.5 rounded-md transition-all shrink-0"
-            aria-label={isCollapsed ? "Expandir menu" : "Recolher menu"}
-          >
-            {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-          </button>
+              {/* Botão de Retração */}
+              <button
+                onClick={() => setIsCollapsed(true)}
+                className="text-slate-400 hover:text-white hover:bg-white/10 p-1.5 rounded-md transition-all shrink-0 cursor-pointer"
+                aria-label="Recolher menu"
+              >
+                <ChevronLeft size={16} />
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="w-full flex justify-center py-1">
+                <img
+                  src="https://i.postimg.cc/GtJrMZ6H/avexasfavico.png"
+                  alt="Avexas"
+                  className="h-8 w-8 object-contain mx-auto"
+                />
+              </div>
+
+              {/* Botão Flutuante de Expansão */}
+              <button
+                onClick={() => setIsCollapsed(false)}
+                className="absolute -right-3 top-5 z-30 bg-[#0B132B] border border-white/20 text-slate-400 hover:text-white rounded-full p-1 shadow-md transition-all cursor-pointer"
+                aria-label="Expandir menu"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </>
+          )}
         </div>
 
         {/* Links de Navegação */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-2.5 py-4 space-y-1.5 overflow-y-auto overflow-x-hidden">
           {navigationItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname.startsWith(item.path);
@@ -396,13 +409,15 @@ export const Layout: React.FC = () => {
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors group relative ${
+                  `flex items-center rounded-md text-sm font-medium transition-colors group ${
+                    isCollapsed ? 'justify-center w-11 h-11 mx-auto px-0' : 'gap-3 px-3 py-2.5'
+                  } ${
                     isActive
-                      ? 'bg-[#0066FF] text-white rounded-md text-sm font-medium shadow-none'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5 rounded-md text-sm font-medium transition-colors'
+                      ? 'bg-[#0066FF] text-white shadow-none'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
                   }`
                 }
-                title={isCollapsed ? item.name : undefined}
+                title={item.name}
               >
                 <Icon 
                   size={18} 
@@ -414,13 +429,6 @@ export const Layout: React.FC = () => {
                 {!isCollapsed && (
                   <span className="truncate">{item.name}</span>
                 )}
-
-                {/* Tooltip quando colapsado */}
-                {isCollapsed && (
-                  <div className="absolute left-full ml-4 px-2.5 py-1.5 bg-[#0B132B] border border-white/10 text-white text-xs rounded-md whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg font-medium">
-                    {item.name}
-                  </div>
-                )}
               </NavLink>
             );
           })}
@@ -430,8 +438,8 @@ export const Layout: React.FC = () => {
         <div className="p-3 border-t border-white/10 bg-[#0B132B]">
           <button
             onClick={() => setShowLogoutConfirm(true)}
-            className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-md text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer ${
-              isCollapsed ? 'p-2' : ''
+            className={`flex items-center justify-center rounded-md text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer ${
+              isCollapsed ? 'justify-center w-11 h-11 mx-auto p-0' : 'w-full gap-2 px-3 py-2.5'
             }`}
             title="Terminar Sessão"
           >
