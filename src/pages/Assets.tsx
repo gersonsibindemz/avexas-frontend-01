@@ -760,27 +760,7 @@ export const AssetsPage: React.FC = () => {
     });
 
     try {
-      let response;
-      try {
-        response = await api.post('/assets/batch', { assets: assetsToImport });
-      } catch (firstErr: any) {
-        if (firstErr.response?.status === 404) {
-          try {
-            response = await api.post('/assets/import', { assets: assetsToImport });
-          } catch (secondErr: any) {
-            if (secondErr.response?.status === 404) {
-              for (const assetPayload of assetsToImport) {
-                await api.post('/assets', assetPayload);
-              }
-              response = { data: { success: true } };
-            } else {
-              throw secondErr;
-            }
-          }
-        } else {
-          throw firstErr;
-        }
-      }
+      const response = await api.post('/assets/bulk', { assets: assetsToImport });
 
       const count = assetsToImport.length;
       setSuccessMessage(`${count} ${count === 1 ? 'ativo importado' : 'ativos importados'} em lote com sucesso!`);

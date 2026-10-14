@@ -43,78 +43,60 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handlePasswordKeyEvent = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.getModifierState) {
-      setCapsLockActive(e.getModifierState('CapsLock'));
-    }
-  };
-
   return (
-    <div
-      className="min-h-screen w-full flex flex-col items-center justify-center p-4 selection:bg-blue-100 relative overflow-hidden bg-slate-50"
+    <div 
+      className="min-h-screen w-full flex flex-col items-center justify-center p-4 relative"
       style={{
         backgroundColor: '#F8FAFC',
         backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)',
         backgroundSize: '24px 24px'
       }}
     >
-      {/* Gradiente radial suave no topo para profundidade */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-blue-50/40 via-transparent to-transparent" />
-
-      {/* LOGÓTIPO CORPORATIVO (Fora do Cartão) */}
-      <div className="mb-6 flex flex-col items-center select-none relative z-10">
+      
+      {/* Logótipo FORA do Cartão */}
+      <div className="mb-6 flex justify-center z-10">
         <img
           src="https://i.postimg.cc/NfvHTQTR/avexas-logo-transp-copy.png"
           alt="Avexas CMMS"
-          className="h-9 w-auto object-contain transition-all hover:opacity-90"
+          className="h-10 w-auto object-contain"
         />
-        <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-200/60 border border-slate-300/50 text-[11px] font-medium text-slate-600 tracking-wide">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
-          CMMS Enterprise Platform
-        </div>
       </div>
 
-      {/* CARTÃO DE AUTENTICAÇÃO */}
-      <div className="w-full max-w-[380px] bg-white border border-slate-200/80 rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] p-6 sm:p-7 relative z-10 transition-all">
-        {/* Cabeçalho do Cartão */}
-        <div className="mb-5 text-center">
-          <h1 className="text-base font-semibold text-slate-900 tracking-tight">Iniciar Sessão</h1>
-          <p className="text-xs text-slate-500 mt-1">Introduza as suas credenciais para aceder ao sistema</p>
-        </div>
-
+      {/* Cartão do Formulário Compacto */}
+      <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm w-full max-w-sm p-6 sm:p-7 space-y-4 z-10">
+        
         {/* Banner de Alerta de Erro */}
         {error && (
-          <div className="mb-4 p-3 rounded-md bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-start gap-2.5 animate-fadeIn">
-            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-            <div className="flex-1 leading-snug font-medium">
-              {error}
+          <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg flex gap-2.5 items-start animate-fade-in">
+            <AlertTriangle size={16} className="shrink-0 text-red-600 mt-0.5" />
+            <div className="flex-1">
+              <span className="font-bold block text-red-800">Falha na Autenticação</span>
+              <span className="leading-relaxed text-red-700">{error}</span>
             </div>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="text-xs font-medium text-slate-700 block mb-1.5">
-              Utilizador ou E-mail *
+            <label htmlFor="email" className="block text-xs font-semibold text-slate-700 mb-1.5">
+              E-mail
             </label>
             <input
               id="email"
-              type="text"
+              type="email"
               required
               disabled={loading}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="ex: tecnico@empresa.co.mz"
-              autoComplete="username"
-              className="w-full h-9 px-3 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600/20 transition-all disabled:opacity-60"
+              className="w-full h-10 px-3 text-sm rounded-lg border border-slate-300 focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF] outline-none transition-all"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="text-xs font-medium text-slate-700 block mb-1.5">
-              Palavra-passe *
+            <label htmlFor="password" className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Senha
             </label>
-            <div className="relative flex items-center">
+            <div className="relative">
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
@@ -122,53 +104,45 @@ export const LoginPage: React.FC = () => {
                 disabled={loading}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={handlePasswordKeyEvent}
-                onKeyUp={handlePasswordKeyEvent}
-                placeholder="••••••••"
-                autoComplete="current-password"
-                className="w-full h-9 pl-3 pr-9 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600/20 transition-all disabled:opacity-60"
+                onKeyDown={(e) => setCapsLockActive(e.getModifierState('CapsLock'))}
+                onKeyUp={(e) => setCapsLockActive(e.getModifierState('CapsLock'))}
+                className="w-full h-10 pl-3 pr-10 text-sm rounded-lg border border-slate-300 focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF] outline-none transition-all"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-0 h-9 flex items-center pr-2.5 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors cursor-pointer"
-                aria-label={showPassword ? 'Ocultar palavra-passe' : 'Exibir palavra-passe'}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                aria-label={showPassword ? 'Ocultar senha' : 'Exibir senha'}
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-
-            {/* Aviso de Caps Lock Ativado */}
             {capsLockActive && (
-              <div className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-amber-600">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Bloq Maiús (Caps Lock) ativado</span>
-              </div>
+              <span className="text-[10px] text-amber-600 font-medium flex items-center gap-1 mt-1">
+                ⇪ Fixador de Maiúsculas (Caps Lock) ativado
+              </span>
             )}
+          </div>
+
+          <div className="text-[11px] text-slate-400 text-center my-2">
+            Acesso restrito a utilizadores autorizados
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-9 bg-[#0066FF] hover:bg-[#0052CC] text-white font-medium text-xs rounded-md transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer mt-2"
+            className="w-full h-10 bg-[#0066FF] hover:bg-[#0052CC] text-white font-semibold text-sm rounded-lg transition-colors shadow-none flex items-center justify-center cursor-pointer disabled:opacity-50"
           >
             {loading ? (
-              <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                <span>A autenticar...</span>
-              </>
+              <div className="flex items-center gap-2">
+                <RefreshCw size={16} className="animate-spin" />
+                <span>Acessar...</span>
+              </div>
             ) : (
-              <span>Acessar a Plataforma</span>
+              <span>Acessar</span>
             )}
           </button>
         </form>
-      </div>
-
-      {/* RODAPÉ DO CARTÃO / AVISO LEGAL */}
-      <div className="mt-6 text-center select-none relative z-10">
-        <span className="text-[11px] text-slate-400 font-normal">
-          Avexas CMMS &bull; Sistema de Gestão de Manutenção
-        </span>
       </div>
     </div>
   );

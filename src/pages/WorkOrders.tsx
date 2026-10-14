@@ -276,28 +276,18 @@ export const WorkOrdersPage: React.FC = () => {
     }
   };
 
-  // Carrega as peças utilizadas nesta OS específica (Requisito 10)
+  // Carrega as peças utilizadas nesta OS específica
   const fetchUsedParts = async (orderId: string) => {
     setLoadingUsedParts(true);
     try {
-      let data = [];
-      try {
-        const res = await api.get(`/work-orders/${orderId}/parts`);
-        data = Array.isArray(res.data) ? res.data : res.data?.parts || res.data?.data || [];
-      } catch (err) {
-        console.warn('API /work-orders/:id/parts não encontrada, recorrendo ao cache.');
-      }
-
-      if (data.length === 0) {
-        const allUsed = localStorage.getItem('cmms_work_orders_parts');
-        if (allUsed) {
-          const parsed = JSON.parse(allUsed);
-          data = parsed.filter((item: any) => item.work_order_id === orderId || item.workOrderId === orderId);
-        }
-      }
+      const res = await api.get(`/work-orders/${orderId}/parts`);
+      const data = Array.isArray(res.data)
+        ? res.data
+        : res.data?.parts || res.data?.data || [];
       setUsedParts(data);
     } catch (err) {
       console.error('Erro ao buscar peças utilizadas:', err);
+      setUsedParts([]);
     } finally {
       setLoadingUsedParts(false);
     }
@@ -306,38 +296,14 @@ export const WorkOrdersPage: React.FC = () => {
   // Carrega catálogo do inventário para apontar peças
   const fetchInventoryParts = async () => {
     try {
-      let data = [];
-      try {
-        const res = await api.get('/inventory');
-        data = Array.isArray(res.data) ? res.data : res.data?.parts || res.data?.data || [];
-      } catch (err) {
-        try {
-          const res = await api.get('/parts');
-          data = Array.isArray(res.data) ? res.data : res.data?.parts || res.data?.data || [];
-        } catch (err2) {
-          console.warn('API de inventário não disponível.');
-        }
-      }
-
-      if (data.length === 0) {
-        const cached = localStorage.getItem('cmms_inventory_parts');
-        if (cached) {
-          data = JSON.parse(cached);
-        } else {
-          // Utiliza a lista básica como fallback
-          data = [
-            { id: 'part-1', oem_reference: 'FIL-LF16015', name: 'Filtro de Óleo Fleetguard LF16015', category: 'lubricants', warehouse_location: 'Prateleira A1', current_stock: 12, min_stock: 5, unit_cost: 3200 },
-            { id: 'part-2', oem_reference: 'BEL-V80812', name: 'Correia de Transmissão V-Belt', category: 'mechanical', warehouse_location: 'Prateleira B3', current_stock: 3, min_stock: 4, unit_cost: 1850 },
-            { id: 'part-3', oem_reference: 'HYD-P550388', name: 'Filtro Hidráulico Donaldson', category: 'hydraulic', warehouse_location: 'Gaveta C1', current_stock: 2, min_stock: 3, unit_cost: 4500 },
-            { id: 'part-4', oem_reference: 'PNE-295-80R225', name: 'Pneu Radial Bridgestone 295/80R22.5', category: 'tires_wheels', warehouse_location: 'Área Exterior Lotes', current_stock: 8, min_stock: 4, unit_cost: 24500 },
-            { id: 'part-5', oem_reference: 'REL-24V-80A', name: 'Relé de Arranque 24V 80A Bosch', category: 'electrical', warehouse_location: 'Armário Elétrico 1', current_stock: 15, min_stock: 5, unit_cost: 950 }
-          ];
-          localStorage.setItem('cmms_inventory_parts', JSON.stringify(data));
-        }
-      }
+      const res = await api.get('/parts');
+      const data = Array.isArray(res.data)
+        ? res.data
+        : res.data?.parts || res.data?.data || [];
       setInventoryParts(data);
     } catch (err) {
       console.error('Erro ao buscar catálogo de peças:', err);
+      setInventoryParts([]);
     }
   };
 

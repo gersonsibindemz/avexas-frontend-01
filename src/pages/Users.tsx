@@ -17,7 +17,8 @@ import {
   Lock,
   Mail,
   User as UserIcon,
-  Layers
+  Layers,
+  Building2
 } from 'lucide-react';
 
 interface TenantUser {
@@ -32,15 +33,30 @@ interface TenantUser {
   created_at?: string;
 }
 
+interface TenantItem {
+  id: string;
+  name: string;
+  trade_name?: string;
+  tradeName?: string;
+  max_users_limit?: number;
+  max_users?: number;
+  maxUsers?: number;
+  operational_scope?: string;
+}
+
 export const UsersPage: React.FC = () => {
-  const { user, isTenantAdmin, isSuperAdmin } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const { technicianSpecialties } = useCurrentDomain();
 
+  const [tenants, setTenants] = useState<TenantItem[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
+  const [loadingTenants, setLoadingTenants] = useState<boolean>(true);
+
   const [users, setUsers] = useState<TenantUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Modais
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
@@ -49,6 +65,7 @@ export const UsersPage: React.FC = () => {
   const [deletingUser, setDeletingUser] = useState<TenantUser | null>(null);
 
   // Campos do Formulário
+  const [modalTenantId, setModalTenantId] = useState<string>('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -56,30 +73,59 @@ export const UsersPage: React.FC = () => {
   const [operationalScope, setOperationalScope] = useState<'fleet' | 'plant' | 'both'>('fleet');
   const [specialty, setSpecialty] = useState('');
 
-  // Escopo do utilizador atual e bloqueio de escopo
-  const currentUserScope = user?.operational_scope || user?.tenant?.operational_scope || user?.tenant?.operationalScope || 'fleet';
-  const isScopeLocked = !isSuperAdmin && (currentUserScope === 'fleet' || currentUserScope === 'plant');
-
-  // Limites do Tenant
-  const [maxUsersLimit, setMaxUsersLimit] = useState<number>(15);
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const fetchUsers = async () => {
+  // Tenant atualmente selecionado para cálculo de licenças
+  const selectedTenant = tenants.find((t) => t.id === (selectedTenantId || modalTenantId));
+  const maxUsersLimit = selectedTenant?.max_users_limit || selectedTenant?.max_users || selectedTenant?.maxUsers || 15;
+
+  // Carrega lista de empresas/tenants (Super Admin)
+  const fetchTenants = async () => {
+    setLoadingTenants(true);
+    try {
+      let data = [];
+      try {
+        const response = await api.get('/admin/tenants');
+        data = Array.isArray(response.data) ? response.data : response.data?.tenants || response.data?.data || [];
+      } catch {
+        const response = await api.get('/super-admin/tenants');
+        data = Array.isArray(response.data) ? response.data : response.data?.tenants || response.data?.data || [];
+      }
+      setTenants(data);
+      if (data.length > 0 && !selectedTenantId) {
+        setSelectedTenantId(data[0].id);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar lista de empresas:', err);
+    } finally {
+      setLoadingTenants(false);
+    }
+  };
+
+  // Carrega utilizadores filtrados por empresa
+  const fetchUsers = async (tenantIdToFetch?: string) => {
+    const targetTenantId = tenantIdToFetch !== undefined ? tenantIdToFetch : selectedTenantId;
+    if (!targetTenantId) {
+      setUsers([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get('/users');
+      const response = await api.get(`/users?tenant_id=${targetTenantId}`);
       const data = Array.isArray(response.data)
         ? response.data
         : response.data?.users || response.data?.data || [];
-      
+
       // Adaptando nomes dos atributos vindos do backend e filtrando defensivamente is_active === false
       const activeData = data.filter((u: any) => u.is_active !== false && u.isActive !== false);
 
       const normalizedUsers = activeData.map((u: any) => ({
         id: u.id,
-        fullName: u.fullName || u.fullName_ || u.name || 'Utilizador Técnico',
+        fullName: u.fullName || u.fullName_ || u.full_name || u.name || 'Utilizador Técnico',
         email: u.email,
         role: u.role,
         operational_scope: u.operational_scope || u.operationalScope || 'fleet',
@@ -88,19 +134,12 @@ export const UsersPage: React.FC = () => {
       }));
 
       setUsers(normalizedUsers.filter((u: any) => u.is_active !== false));
-
-      // Obter limites se retornados pela API
-      if (response.data?.maxUsers || response.data?.max_users) {
-        setMaxUsersLimit(response.data.maxUsers || response.data.max_users);
-      } else if (user?.tenant?.max_users || user?.tenant?.maxUsers) {
-        setMaxUsersLimit(user.tenant.max_users || user.tenant.maxUsers || 15);
-      }
     } catch (err: any) {
       console.error('Erro ao carregar utilizadores:', err);
       setError(
         err.response?.data?.message ||
         err.message ||
-        'Não foi possível ligar ao servidor para carregar a lista de utilizadores.'
+        'Não foi possível ligar ao servidor para carregar a lista de utilizadores da empresa selecionada.'
       );
     } finally {
       setLoading(false);
@@ -108,43 +147,55 @@ export const UsersPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, [user]);
+    fetchTenants();
+  }, []);
 
-  if (!isTenantAdmin && !isSuperAdmin) {
+  useEffect(() => {
+    if (selectedTenantId) {
+      fetchUsers(selectedTenantId);
+    } else {
+      setUsers([]);
+    }
+  }, [selectedTenantId]);
+
+  if (!isSuperAdmin && user?.role !== 'super_admin') {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center max-w-md mx-auto my-12 shadow-2xl">
         <div className="w-12 h-12 bg-red-950/40 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-800/30">
           <Shield size={24} />
         </div>
-        <h2 className="text-md font-bold text-slate-100">Acesso Restrito</h2>
+        <h2 className="text-md font-bold text-slate-100">Acesso Restrito ao Super Admin</h2>
         <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-          Apenas administradores da empresa têm permissão para aceder à Gestão de Utilizadores e Contratos.
+          Apenas Administradores Globais (Super Admin) têm permissão para gerir os utilizadores de empresas e contratos.
         </p>
       </div>
     );
   }
 
   const handleOpenCreateModal = () => {
-    const initialScope = currentUserScope === 'plant' ? 'plant' : 'fleet';
+    if (!selectedTenantId && tenants.length > 0) {
+      setModalTenantId(tenants[0].id);
+    } else {
+      setModalTenantId(selectedTenantId);
+    }
     setModalMode('create');
     setEditingUserId(null);
     setFullName('');
     setEmail('');
     setPassword('');
     setRole('technician');
-    setOperationalScope(initialScope);
+    setOperationalScope('fleet');
     setSpecialty(technicianSpecialties.length > 0 ? technicianSpecialties[0].value : '');
     setIsModalOpen(true);
   };
 
   const handleOpenEditModal = (targetUser: TenantUser) => {
-    const targetScope = targetUser.operational_scope === 'plant' ? 'plant' : (targetUser.operational_scope === 'fleet' ? 'fleet' : (currentUserScope === 'plant' ? 'plant' : 'fleet'));
+    const targetScope = targetUser.operational_scope === 'plant' ? 'plant' : 'fleet';
     setModalMode('edit');
     setEditingUserId(targetUser.id);
     setFullName(targetUser.fullName);
     setEmail(targetUser.email);
-    setPassword(''); // deixa vazio para não alterar se não preenchido
+    setPassword('');
     setRole(targetUser.role);
     setOperationalScope(targetScope);
     setSpecialty(targetUser.specialty || (technicianSpecialties.length > 0 ? technicianSpecialties[0].value : ''));
@@ -157,6 +208,13 @@ export const UsersPage: React.FC = () => {
       alert('Por favor, preencha os campos obrigatórios (*).');
       return;
     }
+
+    const activeTenantId = selectedTenantId || modalTenantId;
+    if (modalMode === 'create' && !activeTenantId) {
+      alert('Por favor, selecione uma empresa (tenant) antes de criar o utilizador.');
+      return;
+    }
+
     if (modalMode === 'create' && !password.trim()) {
       alert('A palavra-passe é obrigatória para novos utilizadores.');
       return;
@@ -168,39 +226,55 @@ export const UsersPage: React.FC = () => {
 
     setSubmitting(true);
     try {
-      const activeScope = isScopeLocked ? (currentUserScope === 'plant' ? 'plant' : 'fleet') : (operationalScope === 'both' ? 'fleet' : operationalScope);
-      const payload: any = {
-        fullName,
-        email,
-        role,
-        operationalScope: activeScope,
-        operational_scope: activeScope,
-        ...(role === 'technician' && {
-          specialty,
-          technical_specialty: specialty,
-          specialization: specialty
-        })
-      };
-
-      if (password.trim()) {
-        payload.password = password;
-      }
-
       if (modalMode === 'create') {
         if (users.length >= maxUsersLimit) {
-          alert(`Limite de utilizadores atingido (${maxUsersLimit}). Não é possível criar mais contas.`);
+          alert(`Limite de utilizadores atingido para esta empresa (${maxUsersLimit}). Não é possível criar mais contas.`);
           setSubmitting(false);
           return;
         }
-        await api.post('/users', payload);
+
+        const createPayload = {
+          tenant_id: activeTenantId,
+          tenantId: activeTenantId,
+          full_name: fullName.trim(),
+          fullName: fullName.trim(),
+          email: email.trim().toLowerCase(),
+          password: password,
+          role: role,
+          operational_scope: operationalScope,
+          operationalScope: operationalScope,
+          ...(role === 'technician' && {
+            specialty: specialty,
+            technical_specialty: specialty,
+            specialization: specialty
+          })
+        };
+
+        await api.post('/users', createPayload);
         setSuccessMessage('Utilizador criado com sucesso!');
       } else {
-        await api.put(`/users/${editingUserId}`, payload);
+        const editPayload = {
+          name: fullName.trim(),
+          full_name: fullName.trim(),
+          fullName: fullName.trim(),
+          email: email.trim().toLowerCase(),
+          role: role,
+          operational_scope: operationalScope,
+          operationalScope: operationalScope,
+          ...(role === 'technician' && {
+            specialty: specialty,
+            technical_specialty: specialty,
+            specialization: specialty
+          }),
+          ...(password.trim() ? { password } : {})
+        };
+
+        await api.put(`/users/${editingUserId}`, editPayload);
         setSuccessMessage('Utilizador atualizado com sucesso!');
       }
 
       setIsModalOpen(false);
-      await fetchUsers();
+      await fetchUsers(activeTenantId);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       console.error('Erro ao salvar utilizador:', err);
@@ -220,7 +294,7 @@ export const UsersPage: React.FC = () => {
     const targetUserId = deletingUser.id;
     try {
       await api.delete(`/users/${targetUserId}`);
-      setUsers(prev => prev.filter(user => user.id !== targetUserId));
+      setUsers((prev) => prev.filter((user) => user.id !== targetUserId));
       setSuccessMessage('Utilizador removido do contrato com sucesso.');
       setIsDeleteModalOpen(false);
       setDeletingUser(null);
@@ -259,7 +333,7 @@ export const UsersPage: React.FC = () => {
   const formatRoleName = (userRole: string) => {
     switch (userRole) {
       case 'tenant_admin':
-        return 'Gestor de Contrato';
+        return 'Gestor de Contrato (Admin)';
       case 'supervisor':
         return 'Supervisor Operacional';
       case 'technician':
@@ -289,21 +363,49 @@ export const UsersPage: React.FC = () => {
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
             <UsersIcon className="text-blue-700" size={24} />
-            Gestão de Utilizadores
+            Gestão de Utilizadores (Super Admin)
           </h1>
           <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-            Adicione e controle permissões de supervisores, técnicos e operadores do CMMS.
+            Selecione uma empresa para gerir as contas e atribuir níveis de acesso de supervisores e técnicos.
           </p>
         </div>
+      </div>
 
-        {/* INDICADOR DE UTILIZADORES USADOS */}
-        <div className="bg-white border border-slate-200 rounded-md px-4 py-2.5 flex items-center justify-between gap-4 self-start md:self-auto shadow-none">
-          <div className="flex items-center gap-2">
-            <Layers className="text-blue-700 shrink-0" size={16} />
-            <span className="text-xs font-semibold text-slate-700">Utilizadores do Contrato:</span>
-          </div>
-          <span className="text-xs font-bold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
-            {users.length} / {maxUsersLimit} Utilizadores Utilizados
+      {/* SELETOR DE EMPRESA (TENANT) NO TOPO */}
+      <div className="bg-white border border-slate-200 rounded-md p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-none">
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <Building2 className="text-blue-700 shrink-0" size={20} />
+          <label htmlFor="tenant-select" className="text-xs font-bold text-slate-700 whitespace-nowrap">
+            Empresa:
+          </label>
+          {loadingTenants ? (
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <RefreshCw className="animate-spin" size={14} />
+              <span>A carregar empresas...</span>
+            </div>
+          ) : (
+            <select
+              id="tenant-select"
+              value={selectedTenantId}
+              onChange={(e) => setSelectedTenantId(e.target.value)}
+              className="w-full md:w-72 bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs font-medium text-slate-900 focus:outline-none cursor-pointer"
+            >
+              <option value="">[ Selecione uma Empresa ▾ ]</option>
+              {tenants.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {/* INDICADOR DE UTILIZADORES USADOS DO TENANT SELECIONADO */}
+        <div className="flex items-center gap-2 self-start md:self-auto bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-md">
+          <Layers className="text-blue-700 shrink-0" size={16} />
+          <span className="text-xs font-semibold text-slate-700">Licenças do Contrato:</span>
+          <span className="text-xs font-bold text-slate-900 bg-white px-2.5 py-0.5 rounded border border-slate-200">
+            {selectedTenantId ? `${users.length} / ${maxUsersLimit} Utilizadores Utilizados` : 'Selecione uma Empresa'}
           </span>
         </div>
       </div>
@@ -324,25 +426,29 @@ export const UsersPage: React.FC = () => {
           </span>
           <input
             type="text"
-            placeholder="Pesquisar por nome, email ou nível..."
+            disabled={!selectedTenantId}
+            placeholder={selectedTenantId ? "Pesquisar por nome, email ou nível..." : "Selecione uma empresa primeiro..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-10 pr-4 py-2 text-xs text-slate-900 focus:outline-none transition-colors font-mono"
+            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-10 pr-4 py-2 text-xs text-slate-900 focus:outline-none transition-colors font-mono disabled:bg-slate-100 disabled:cursor-not-allowed"
           />
         </div>
 
         <div className="flex items-center gap-2.5 w-full md:w-auto">
           <button
-            onClick={fetchUsers}
-            className="p-2 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 rounded-md border border-slate-300 transition-colors cursor-pointer"
+            onClick={() => fetchUsers(selectedTenantId)}
+            disabled={!selectedTenantId}
+            className="p-2 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 rounded-md border border-slate-300 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             title="Recarregar Lista"
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
           
           <button
             onClick={handleOpenCreateModal}
-            className="flex-1 md:flex-none bg-blue-700 hover:bg-blue-800 text-white font-medium py-2 px-4 rounded-md transition-colors text-xs flex items-center justify-center gap-2 shadow-none cursor-pointer"
+            disabled={!selectedTenantId}
+            title={!selectedTenantId ? "Selecione uma empresa primeiro" : "Criar utilizador para a empresa selecionada"}
+            className="flex-1 md:flex-none bg-blue-700 hover:bg-blue-800 text-white font-medium py-2 px-4 rounded-md transition-colors text-xs flex items-center justify-center gap-2 shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus size={15} />
             <span>Novo Utilizador</span>
@@ -351,26 +457,34 @@ export const UsersPage: React.FC = () => {
       </div>
 
       {/* LISTA DE UTILIZADORES */}
-      {loading ? (
+      {!selectedTenantId ? (
+        <div className="bg-white border border-slate-200 rounded-md p-12 text-center text-slate-500 shadow-none">
+          <Building2 className="mx-auto text-slate-300 mb-3" size={40} />
+          <p className="text-sm font-bold text-slate-800">Selecione uma Empresa</p>
+          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+            Por favor, escolha uma empresa no seletor acima para visualizar, editar e criar contas de utilizadores.
+          </p>
+        </div>
+      ) : loading ? (
         <div className="bg-white border border-slate-200 rounded-md p-12 text-center shadow-none">
           <div className="flex flex-col items-center justify-center gap-3">
             <RefreshCw className="text-blue-700 animate-spin" size={28} />
-            <p className="text-xs text-slate-500 font-medium">A carregar utilizadores do tenant...</p>
+            <p className="text-xs text-slate-500 font-medium">A carregar utilizadores da empresa...</p>
           </div>
         </div>
       ) : error ? (
         <div className="bg-white border border-slate-200 rounded-md p-8 text-center text-red-700 flex flex-col items-center gap-4">
           <AlertTriangle size={32} />
           <p className="text-xs">{error}</p>
-          <button onClick={fetchUsers} className="bg-white hover:bg-slate-50 text-slate-700 text-xs px-4 py-2 rounded-md border border-slate-300 cursor-pointer">
+          <button onClick={() => fetchUsers(selectedTenantId)} className="bg-white hover:bg-slate-50 text-slate-700 text-xs px-4 py-2 rounded-md border border-slate-300 cursor-pointer">
             Tentar Novamente
           </button>
         </div>
       ) : filteredUsers.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-md p-12 text-center text-slate-500">
           <UsersIcon className="mx-auto text-slate-400 mb-3" size={36} />
-          <p className="text-xs font-semibold text-slate-900">Nenhum utilizador encontrado.</p>
-          <p className="text-xs text-slate-500 mt-1">Tente ajustar os seus termos de pesquisa ou adicione um novo utilizador.</p>
+          <p className="text-xs font-semibold text-slate-900">Nenhum utilizador encontrado para esta empresa.</p>
+          <p className="text-xs text-slate-500 mt-1">Clique em "+ Novo Utilizador" para adicionar o primeiro utilizador a este contrato.</p>
         </div>
       ) : (
         <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
@@ -448,6 +562,28 @@ export const UsersPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {/* Seleção de Empresa no Modal se não selecionado */}
+              {modalMode === 'create' && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
+                    Empresa (Tenant) *
+                  </label>
+                  <select
+                    required
+                    value={modalTenantId || selectedTenantId}
+                    onChange={(e) => setModalTenantId(e.target.value)}
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
+                  >
+                    <option value="">Selecione a empresa...</option>
+                    {tenants.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1.5">
                   Nome Completo *
@@ -534,19 +670,13 @@ export const UsersPage: React.FC = () => {
                   </label>
                   <select
                     required
-                    disabled={isScopeLocked}
-                    value={operationalScope === 'both' ? (currentUserScope === 'plant' ? 'plant' : 'fleet') : operationalScope}
+                    value={operationalScope}
                     onChange={(e) => setOperationalScope(e.target.value as any)}
-                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
                   >
                     <option value="fleet">Frota Rodoviária</option>
                     <option value="plant">Instalação Fabril</option>
                   </select>
-                  {isScopeLocked && (
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      Definido de acordo com o seu âmbito de gestão atual.
-                    </p>
-                  )}
                 </div>
               </div>
 
