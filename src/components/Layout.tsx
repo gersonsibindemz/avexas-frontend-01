@@ -276,13 +276,19 @@ export const Layout: React.FC = () => {
 
   // Definição dos links de navegação com base na role
   const getNavigationItems = () => {
-    if (user.role === 'super_admin') {
+    if (user?.role === 'super_admin') {
       return [
         {
           name: 'Empresas & Contratos',
           path: '/super-admin',
           icon: Building2,
           description: 'Controlo de contratos e tenants'
+        },
+        {
+          name: 'Gestão de Utilizadores',
+          path: '/app/users',
+          icon: Users,
+          description: 'Gestão de contas e permissões'
         }
       ];
     }
@@ -323,16 +329,6 @@ export const Layout: React.FC = () => {
         path: '/app/inventory',
         icon: Layers,
         description: 'Gestão de peças e consumíveis'
-      });
-    }
-
-    // Gestão de Utilizadores apenas para tenant_admin
-    if (user.role === 'tenant_admin') {
-      items.push({
-        name: 'Gestão de Utilizadores',
-        path: '/app/users',
-        icon: Users,
-        description: 'Gestão de contas e permissões'
       });
     }
 

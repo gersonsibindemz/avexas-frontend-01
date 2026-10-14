@@ -180,11 +180,20 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requiresSuperAdmin?:
     return <Navigate to="/app/assets" replace />;
   }
 
-  if (!requiresSuperAdmin && user.role === 'super_admin') {
-    return <Navigate to="/super-admin" replace />;
+  return <>{children}</>;
+};
+
+// Componente para proteger estritamente o módulo de Gestão de Utilizadores para super_admin
+const SuperAdminUsersGuard: React.FC = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) return null;
+
+  if (user?.role !== 'super_admin') {
+    return <Navigate to="/app/assets" replace />;
   }
 
-  return <>{children}</>;
+  return <UsersPage />;
 };
 
 export default function App() {
@@ -194,6 +203,9 @@ export default function App() {
         <Routes>
           {/* Rota Pública */}
           <Route path="/login" element={<LoginPage />} />
+
+          {/* Atalho direto para /users */}
+          <Route path="/users" element={<Navigate to="/app/users" replace />} />
 
           {/* Rotas Privadas e com Layout */}
           <Route path="/" element={<Navigate to="/app/assets" replace />} />
@@ -212,7 +224,7 @@ export default function App() {
             <Route path="work-orders" element={<WorkOrdersPage />} />
             <Route path="fuel" element={<FuelPage />} />
             <Route path="inventory" element={<InventoryPage />} />
-            <Route path="users" element={<UsersPage />} />
+            <Route path="users" element={<SuperAdminUsersGuard />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
