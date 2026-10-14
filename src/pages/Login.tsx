@@ -1,15 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { BrandLogo } from '../components/BrandLogo';
 import {
-  Wrench,
   AlertTriangle,
   RefreshCw,
   Eye,
-  EyeOff,
-  KeyRound,
-  ArrowRight
+  EyeOff
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
@@ -39,7 +35,6 @@ export const LoginPage: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Erro durante o login:', err);
-      // Mensagem de erro amigável baseada no erro retornado ou erro de rede
       const message = err.message || 'Ocorreu um erro ao conectar ao servidor. Verifique a sua ligação à internet.';
       setError(message);
     } finally {
@@ -48,34 +43,35 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-50 text-slate-900 p-4">
-      <div className="w-full max-w-md bg-white border border-slate-200 rounded-md shadow-sm p-8 relative">
-        
-        {/* Cabeçalho do Card de Login */}
-        <div className="text-center mb-8">
-          <BrandLogo variant="light" className="h-12 w-auto mx-auto mb-4" />
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Avexas CMMS</h1>
-          <p className="text-slate-500 text-xs mt-1.5 leading-relaxed font-medium">
-            Gestão de Frotas e Manutenção Fabril
-          </p>
-        </div>
+    <div className="bg-slate-100 flex flex-col items-center justify-center min-h-screen p-4">
+      
+      {/* Logótipo FORA do Cartão */}
+      <div className="mb-6 flex justify-center">
+        <img
+          src="https://i.postimg.cc/NfvHTQTR/avexas-logo-transp-copy.png"
+          alt="Avexas CMMS"
+          className="h-10 w-auto object-contain"
+        />
+      </div>
 
-        {/* Banner de Alerta de Erro Vermelho Destacado */}
+      {/* Cartão do Formulário Compacto */}
+      <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm w-full max-w-sm p-6 sm:p-7 space-y-4">
+        
+        {/* Banner de Alerta de Erro */}
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md flex gap-3 items-start mb-6 animate-fade-in">
-            <AlertTriangle size={18} className="shrink-0 text-red-600 mt-0.5" />
+          <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg flex gap-2.5 items-start animate-fade-in">
+            <AlertTriangle size={16} className="shrink-0 text-red-600 mt-0.5" />
             <div className="flex-1">
-              <span className="font-bold block mb-0.5 text-red-800">Falha na Autenticação</span>
-              <span className="leading-relaxed block text-red-700">{error}</span>
+              <span className="font-bold block text-red-800">Falha na Autenticação</span>
+              <span className="leading-relaxed text-red-700">{error}</span>
             </div>
           </div>
         )}
 
-        {/* Formulário Corporativo */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider">
-              E-mail Corporativo
+            <label htmlFor="email" className="block text-xs font-semibold text-slate-700 mb-1.5">
+              E-mail
             </label>
             <input
               id="email"
@@ -84,14 +80,13 @@ export const LoginPage: React.FC = () => {
               disabled={loading}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="ex: utilizador@empresa.co.mz"
-              className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none transition-all font-mono placeholder-slate-400"
+              className="w-full h-10 px-3 text-sm rounded-lg border border-slate-300 focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF] outline-none transition-all"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider">
-              Palavra-passe
+            <label htmlFor="password" className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Senha
             </label>
             <div className="relative">
               <input
@@ -101,39 +96,35 @@ export const LoginPage: React.FC = () => {
                 disabled={loading}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Introduza a sua senha"
-                className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-3.5 pr-11 py-2.5 text-sm text-slate-900 focus:outline-none transition-all font-mono placeholder-slate-400"
+                className="w-full h-10 pl-3 pr-10 text-sm rounded-lg border border-slate-300 focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF] outline-none transition-all"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                aria-label={showPassword ? 'Ocultar palavra-passe' : 'Exibir palavra-passe'}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                aria-label={showPassword ? 'Ocultar senha' : 'Exibir senha'}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
 
-          <div className="text-[11px] text-slate-500 text-center leading-relaxed py-1">
-            Acesso restrito a utilizadores autorizados. Sessão protegida por encriptação ponta a ponta.
+          <div className="text-[11px] text-slate-400 text-center my-2">
+            Acesso restrito a utilizadores autorizados
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#0066FF] hover:bg-[#0052CC] active:bg-[#0040A0] text-white font-medium py-2.5 px-4 rounded-md transition-all text-sm shadow-none flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full h-10 bg-[#0066FF] hover:bg-[#0052CC] text-white font-semibold text-sm rounded-lg transition-colors shadow-none flex items-center justify-center cursor-pointer disabled:opacity-50"
           >
             {loading ? (
-              <>
+              <div className="flex items-center gap-2">
                 <RefreshCw size={16} className="animate-spin" />
-                <span>A conectar ao servidor Render...</span>
-              </>
+                <span>Acessar...</span>
+              </div>
             ) : (
-              <>
-                <span>Entrar no Sistema</span>
-                <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
-              </>
+              <span>Acessar</span>
             )}
           </button>
         </form>

@@ -87,7 +87,7 @@ export const UsersPage: React.FC = () => {
         is_active: u.is_active ?? u.isActive ?? true
       }));
 
-      setUsers(normalizedUsers.filter(u => u.is_active !== false));
+      setUsers(normalizedUsers.filter((u: any) => u.is_active !== false));
 
       // Obter limites se retornados pela API
       if (response.data?.maxUsers || response.data?.max_users) {

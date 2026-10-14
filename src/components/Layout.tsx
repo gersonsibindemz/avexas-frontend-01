@@ -355,20 +355,34 @@ export const Layout: React.FC = () => {
       
       {/* SIDEBAR PARA DESKTOP */}
       <aside 
-        className={`hidden md:flex flex-col bg-white border-r border-slate-200 transition-all duration-300 relative z-20 ${
+        className={`hidden md:flex flex-col bg-[#0B132B] border-r border-white/10 transition-all duration-300 relative z-20 ${
           isCollapsed ? 'w-20' : 'w-64'
         }`}
       >
         {/* Header da Sidebar */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200">
-          <div className="flex items-center gap-3 overflow-hidden">
-            <BrandLogo variant="light" collapsed={isCollapsed} className="h-8 w-auto max-w-[170px]" />
-          </div>
+        <div className="h-16 flex items-center justify-between px-4 border-b border-white/10">
+          {!isCollapsed ? (
+            <div className="flex items-center gap-3 overflow-hidden">
+              <img
+                src="https://i.postimg.cc/QxqWHtpg/avexas-logo-white.png"
+                alt="Avexas CMMS"
+                className="h-7 w-auto object-contain"
+              />
+            </div>
+          ) : (
+            <div className="w-full flex justify-center py-1">
+              <img
+                src="https://i.postimg.cc/GtJrMZ6H/avexasfavico.png"
+                alt="Avexas"
+                className="h-8 w-8 object-contain mx-auto"
+              />
+            </div>
+          )}
 
           {/* Botão de Retração */}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-1.5 rounded-md transition-all border border-transparent hover:border-slate-200"
+            className="text-slate-400 hover:text-white hover:bg-white/10 p-1.5 rounded-md transition-all shrink-0"
             aria-label={isCollapsed ? "Expandir menu" : "Recolher menu"}
           >
             {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
@@ -386,10 +400,10 @@ export const Layout: React.FC = () => {
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group relative duration-150 ${
+                  `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors group relative ${
                     isActive
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-none font-semibold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-transparent'
+                      ? 'bg-[#0066FF] text-white rounded-md text-sm font-medium shadow-none'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5 rounded-md text-sm font-medium transition-colors'
                   }`
                 }
                 title={isCollapsed ? item.name : undefined}
@@ -397,7 +411,7 @@ export const Layout: React.FC = () => {
                 <Icon 
                   size={18} 
                   className={`shrink-0 transition-transform group-hover:scale-105 duration-150 ${
-                    isActive ? 'text-blue-700' : 'text-slate-400 group-hover:text-slate-700'
+                    isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'
                   }`} 
                 />
                 
@@ -407,7 +421,7 @@ export const Layout: React.FC = () => {
 
                 {/* Tooltip quando colapsado */}
                 {isCollapsed && (
-                  <div className="absolute left-full ml-4 px-2.5 py-1.5 bg-white border border-slate-200 text-slate-800 text-xs rounded-md whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-md font-medium">
+                  <div className="absolute left-full ml-4 px-2.5 py-1.5 bg-[#0B132B] border border-white/10 text-white text-xs rounded-md whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg font-medium">
                     {item.name}
                   </div>
                 )}
@@ -417,10 +431,10 @@ export const Layout: React.FC = () => {
         </nav>
 
         {/* Rodapé da Sidebar */}
-        <div className="p-3 border-t border-slate-200 bg-white">
+        <div className="p-3 border-t border-white/10 bg-[#0B132B]">
           <button
             onClick={() => setShowLogoutConfirm(true)}
-            className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-md text-xs font-medium text-slate-700 hover:text-red-700 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-all cursor-pointer ${
+            className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-md text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer ${
               isCollapsed ? 'p-2' : ''
             }`}
             title="Terminar Sessão"
@@ -440,18 +454,22 @@ export const Layout: React.FC = () => {
       />
 
       <aside 
-        className={`fixed top-0 bottom-0 left-0 w-72 bg-white border-r border-slate-200 z-50 flex flex-col transition-transform duration-300 transform md:hidden ${
+        className={`fixed top-0 bottom-0 left-0 w-72 bg-[#0B132B] border-r border-white/10 z-50 flex flex-col transition-transform duration-300 transform md:hidden ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Header do Mobile Drawer */}
-        <div className="h-16 flex items-center justify-between px-5 border-b border-slate-200">
+        <div className="h-16 flex items-center justify-between px-5 border-b border-white/10">
           <div className="flex items-center gap-3 overflow-hidden">
-            <BrandLogo variant="light" className="h-8 w-auto max-w-[170px]" />
+            <img
+              src="https://i.postimg.cc/QxqWHtpg/avexas-logo-white.png"
+              alt="Avexas CMMS"
+              className="h-7 w-auto object-contain"
+            />
           </div>
           <button
             onClick={() => setIsMobileOpen(false)}
-            className="text-slate-400 hover:text-slate-700 p-1.5 rounded-md transition-all"
+            className="text-slate-400 hover:text-white p-1.5 rounded-md transition-all"
             aria-label="Fechar menu"
           >
             <X size={20} />
@@ -469,10 +487,10 @@ export const Layout: React.FC = () => {
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all ${
+                  `flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200 font-semibold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-transparent'
+                      ? 'bg-[#0066FF] text-white rounded-md text-sm font-medium shadow-none'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5 rounded-md text-sm font-medium transition-colors'
                   }`
                 }
               >
@@ -484,10 +502,10 @@ export const Layout: React.FC = () => {
         </nav>
 
         {/* Rodapé Mobile */}
-        <div className="p-4 border-t border-slate-200 bg-white">
+        <div className="p-4 border-t border-white/10 bg-[#0B132B]">
           <button
             onClick={() => setShowLogoutConfirm(true)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-xs font-medium text-slate-700 hover:text-red-700 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-all cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
           >
             <LogOut size={16} />
             <span>Terminar Sessão</span>
