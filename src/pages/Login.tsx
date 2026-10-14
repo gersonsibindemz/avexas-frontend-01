@@ -32,7 +32,7 @@ export const LoginPage: React.FC = () => {
       if (loggedUser.role === 'super_admin') {
         navigate('/super-admin');
       } else {
-        navigate('/app/assets');
+        navigate('/app/dashboard');
       }
     } catch (err: any) {
       console.error('Erro durante o login:', err);

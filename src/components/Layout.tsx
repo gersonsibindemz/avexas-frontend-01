@@ -280,12 +280,6 @@ export const Layout: React.FC = () => {
     if (user?.role === 'super_admin') {
       return [
         {
-          name: 'Visão Geral',
-          path: '/app/dashboard',
-          icon: LayoutDashboard,
-          description: 'Indicadores e estado operacional'
-        },
-        {
           name: 'Empresas & Contratos',
           path: '/super-admin',
           icon: Building2,

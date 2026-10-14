@@ -184,6 +184,33 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requiresSuperAdmin?:
   return <>{children}</>;
 };
 
+// Componente Guard para redirecionar super_admin ao tentar aceder a /app/dashboard
+const DashboardGuard: React.FC = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) return null;
+
+  if (user?.role === 'super_admin') {
+    return <Navigate to="/super-admin" replace />;
+  }
+
+  return <DashboardPage />;
+};
+
+// Componente para gerir o redirecionamento dinâmico na rota raiz /
+const RootRedirect: React.FC = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+
+  if (user.role === 'super_admin') {
+    return <Navigate to="/super-admin" replace />;
+  }
+
+  return <Navigate to="/app/dashboard" replace />;
+};
+
 // Componente para proteger estritamente o módulo de Gestão de Utilizadores para super_admin
 const SuperAdminUsersGuard: React.FC = () => {
   const { user, loading } = useAuth();
@@ -208,8 +235,8 @@ export default function App() {
           {/* Atalho direto para /users */}
           <Route path="/users" element={<Navigate to="/app/users" replace />} />
 
-          {/* Rotas Privadas e com Layout */}
-          <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
+          {/* Rota Raiz Dinâmica */}
+          <Route path="/" element={<RootRedirect />} />
           
           {/* Rotas de Aplicação Comum (Clientes/Gestores/Mecânicos) */}
           <Route 
@@ -220,8 +247,8 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Navigate to="/app/dashboard" replace />} />
-            <Route path="dashboard" element={<DashboardPage />} />
+            <Route index element={<RootRedirect />} />
+            <Route path="dashboard" element={<DashboardGuard />} />
             <Route path="assets" element={<AssetsPage />} />
             <Route path="work-orders" element={<WorkOrdersPage />} />
             <Route path="fuel" element={<FuelPage />} />

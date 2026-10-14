@@ -18,11 +18,11 @@ import {
 } from 'lucide-react';
 
 const formatMZN = (val: number) => {
-  return new Intl.NumberFormat('pt-MZ', {
-    style: 'currency',
-    currency: 'MZN',
-    minimumFractionDigits: 2
-  }).format(val || 0).replace('MTn', 'MZN').trim() + ' MZN';
+  const formatted = (val || 0).toLocaleString('pt-MZ', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  return `${formatted} MZN`;
 };
 
 export const DashboardPage: React.FC = () => {
