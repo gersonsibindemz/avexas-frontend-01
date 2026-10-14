@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react
 import { AuthProvider, useAuth, User } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/Login';
+import DashboardPage from './pages/Dashboard';
 import AssetsPage from './pages/Assets';
 import WorkOrdersPage from './pages/WorkOrders';
 import FuelPage from './pages/Fuel';
@@ -177,7 +178,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requiresSuperAdmin?:
   }
 
   if (requiresSuperAdmin && user.role !== 'super_admin') {
-    return <Navigate to="/app/assets" replace />;
+    return <Navigate to="/app/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -190,7 +191,7 @@ const SuperAdminUsersGuard: React.FC = () => {
   if (loading) return null;
 
   if (user?.role !== 'super_admin') {
-    return <Navigate to="/app/assets" replace />;
+    return <Navigate to="/app/dashboard" replace />;
   }
 
   return <UsersPage />;
@@ -208,7 +209,7 @@ export default function App() {
           <Route path="/users" element={<Navigate to="/app/users" replace />} />
 
           {/* Rotas Privadas e com Layout */}
-          <Route path="/" element={<Navigate to="/app/assets" replace />} />
+          <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
           
           {/* Rotas de Aplicação Comum (Clientes/Gestores/Mecânicos) */}
           <Route 
@@ -219,7 +220,8 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Navigate to="/app/assets" replace />} />
+            <Route index element={<Navigate to="/app/dashboard" replace />} />
+            <Route path="dashboard" element={<DashboardPage />} />
             <Route path="assets" element={<AssetsPage />} />
             <Route path="work-orders" element={<WorkOrdersPage />} />
             <Route path="fuel" element={<FuelPage />} />

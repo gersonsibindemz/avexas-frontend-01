@@ -6,6 +6,7 @@ import { QRScannerModal } from './QRScannerModal';
 import { BrandLogo } from './BrandLogo';
 import { usePreventRefresh } from '../hooks/usePreventRefresh';
 import {
+  LayoutDashboard,
   Building2,
   Truck,
   Wrench,
@@ -279,6 +280,12 @@ export const Layout: React.FC = () => {
     if (user?.role === 'super_admin') {
       return [
         {
+          name: 'Visão Geral',
+          path: '/app/dashboard',
+          icon: LayoutDashboard,
+          description: 'Indicadores e estado operacional'
+        },
+        {
           name: 'Empresas & Contratos',
           path: '/super-admin',
           icon: Building2,
@@ -296,6 +303,14 @@ export const Layout: React.FC = () => {
     const items: any[] = [];
     const scope = user.operational_scope || user.tenant?.operational_scope || user.tenant?.operationalScope;
     const isPlantUser = scope === 'plant';
+
+    // Primeiro elemento para todos os utilizadores operacionais
+    items.push({
+      name: 'Visão Geral',
+      path: '/app/dashboard',
+      icon: LayoutDashboard,
+      description: 'Indicadores e estado operacional'
+    });
 
     // Todos os escopos têm acesso aos Ativos
     items.push({
