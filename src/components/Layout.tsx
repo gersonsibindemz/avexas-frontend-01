@@ -108,7 +108,26 @@ export const Layout: React.FC = () => {
   const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
   const notificationRef = useRef<HTMLDivElement>(null);
 
-  // Busca notificações na API (GET /notifications)
+  // Estado para Toast flutuante de notificação em tempo real
+  const [activeToast, setActiveToast] = useState<NotificationItem | null>(null);
+
+  // Temporizador de 6 segundos para fechar automaticamente o Toast
+  useEffect(() => {
+    if (!activeToast) return;
+    const timer = setTimeout(() => {
+      setActiveToast(null);
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [activeToast]);
+
+  // Verificação de conformidade ao entrar (para tenant_admin ou supervisor)
+  useEffect(() => {
+    if (user && (user.role === 'tenant_admin' || user.role === 'supervisor')) {
+      api.get('/notifications/check-compliance').catch(() => {});
+    }
+  }, [user]);
+
+  // Busca notificações na API (GET /notifications) - carrega até 25 itens
   const fetchNotifications = async () => {
     try {
       const response = await api.get('/notifications');
@@ -133,19 +152,71 @@ export const Layout: React.FC = () => {
         }
       }
 
-      setNotifications(list);
+      setNotifications(list.slice(0, 25));
       setUnreadCount(count);
     } catch (err) {
       console.warn('Não foi possível obter as notificações:', err);
     }
   };
 
+  // Conexão SSE persistente em tempo real
   useEffect(() => {
-    if (user) {
-      fetchNotifications();
-      const interval = setInterval(fetchNotifications, 60000);
-      return () => clearInterval(interval);
-    }
+    if (!user) return;
+
+    fetchNotifications();
+
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const connectSSE = () => {
+      const token = sessionStorage.getItem('cmms_auth_token') || '';
+      const baseURL = api.defaults.baseURL || 'https://cmms-backend-api.onrender.com/api';
+      const sseUrl = `${baseURL}/notifications/stream?token=${encodeURIComponent(token)}`;
+
+      try {
+        eventSource = new EventSource(sseUrl, { withCredentials: true });
+
+        eventSource.onmessage = (event) => {
+          try {
+            const parsed = JSON.parse(event.data);
+            if (parsed.type === 'CONNECTED') {
+              console.log('SSE Notificações Conectado');
+            } else if (parsed.type === 'NOTIFICATION' && parsed.notification) {
+              const newNotif: NotificationItem = parsed.notification;
+              setNotifications(prev => [newNotif, ...prev.slice(0, 24)]);
+              setUnreadCount(prev => prev + 1);
+              setActiveToast(newNotif);
+            }
+          } catch (e) {
+            console.warn('Erro ao processar mensagem SSE:', e);
+          }
+        };
+
+        eventSource.onerror = () => {
+          console.warn('Erro na conexão SSE de Notificações, reconectando em 5s...');
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          reconnectTimeout = setTimeout(() => {
+            connectSSE();
+          }, 5000);
+        };
+      } catch (err) {
+        console.warn('Erro ao inicializar EventSource:', err);
+      }
+    };
+
+    connectSSE();
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+    };
   }, [user]);
 
   // Fechar dropdown de notificações ao clicar fora
@@ -360,6 +431,43 @@ export const Layout: React.FC = () => {
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans antialiased selection:bg-blue-100 selection:text-blue-900">
       
+      {/* TOAST FLUTUANTE DE NOTIFICAÇÃO EM TEMPO REAL */}
+      {activeToast && (
+        <div className="fixed top-5 right-5 z-50 max-w-sm w-full bg-white border border-blue-200 rounded-xl shadow-xl p-4 flex gap-3.5 items-start animate-slide-in">
+          <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 border border-blue-100">
+            <Bell size={18} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-slate-900 truncate">
+                {activeToast.title || activeToast.titulo || 'Nova Notificação'}
+              </h4>
+              <button 
+                onClick={() => setActiveToast(null)} 
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                aria-label="Fechar notificação"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed">
+              {activeToast.message || activeToast.mensagem}
+            </p>
+            {(activeToast.link || activeToast.targetUrl || activeToast.target_url || activeToast.url) && (
+              <button 
+                onClick={() => { 
+                  handleMarkAsRead(activeToast); 
+                  setActiveToast(null); 
+                }}
+                className="mt-2 text-xs font-bold text-blue-700 hover:text-blue-800 cursor-pointer"
+              >
+                Ver detalhes →
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* SIDEBAR PARA DESKTOP */}
       <aside 
         className={`hidden md:flex flex-col bg-[#0B132B] border-r border-white/10 transition-all duration-300 relative z-20 ${
@@ -652,7 +760,7 @@ export const Layout: React.FC = () => {
                   </div>
 
                   {/* Lista de Notificações */}
-                  <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                  <div className="max-h-96 overflow-y-auto divide-y divide-slate-100">
                     {notifications.length === 0 ? (
                       <div className="py-8 px-4 text-center flex flex-col items-center justify-center">
                         <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mb-2 border border-slate-200">
@@ -699,6 +807,11 @@ export const Layout: React.FC = () => {
                         );
                       })
                     )}
+                  </div>
+
+                  {/* Rodapé do Popover */}
+                  <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/50 text-center text-[11px] text-slate-400 font-medium">
+                    Exibindo as notificações mais recentes
                   </div>
                 </div>
               )}
