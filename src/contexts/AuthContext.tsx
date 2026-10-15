@@ -142,9 +142,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       sessionStorage.removeItem('cmms_auth_token');
       setUser(null);
       setLoading(false);
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
-      }
     }
   };
 

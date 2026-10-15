@@ -271,7 +271,7 @@ export const Layout: React.FC = () => {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate('/login');
+      navigate('/login', { replace: true });
     } catch (error) {
       console.error('Erro ao terminar sessão:', error);
     }
