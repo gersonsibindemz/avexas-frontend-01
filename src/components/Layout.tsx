@@ -5,6 +5,7 @@ import { api } from '../services/api';
 import { QRScannerModal } from './QRScannerModal';
 import { BrandLogo } from './BrandLogo';
 import { usePreventRefresh } from '../hooks/usePreventRefresh';
+import { useVersionCheck } from '../hooks/useVersionCheck';
 import {
   LayoutDashboard,
   Building2,
@@ -67,6 +68,7 @@ const formatTimeAgo = (dateStr?: string) => {
 export const Layout: React.FC = () => {
   // Ativa a proteção contra recarregamento acidental de página (F5 e fechar aba)
   usePreventRefresh(true);
+  const { hasNewVersion, updateApp } = useVersionCheck();
 
   const {
     user,
@@ -529,6 +531,22 @@ export const Layout: React.FC = () => {
       {/* ÁREA DE CONTEÚDO PRINCIPAL (SLATE-50) */}
       <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
         
+        {/* Banner de Nova Versão */}
+        {hasNewVersion && (
+          <div className="bg-[#0066FF] text-white px-4 py-2 flex items-center justify-between text-xs font-medium z-50 shadow-md shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Uma nova versão do Avexas CMMS está disponível com melhorias e correções.</span>
+            </div>
+            <button
+              onClick={updateApp}
+              className="bg-white text-[#0066FF] hover:bg-slate-100 font-bold px-3 py-1 rounded transition-colors cursor-pointer text-xs"
+            >
+              Atualizar Agora
+            </button>
+          </div>
+        )}
+
         {/* TOP BAR / CABEÇALHO */}
         <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-4 md:px-6 shrink-0 z-10">
           

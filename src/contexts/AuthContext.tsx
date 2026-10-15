@@ -40,12 +40,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const authSyncChannel = typeof window !== 'undefined' && 'BroadcastChannel' in window
+  ? new BroadcastChannel('avexas_auth_sync')
+  : null;
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentScope, setCurrentScope] = useState<'fleet' | 'plant'>('fleet');
 
-  const checkAuth = async () => {
+  const fetchProfile = async () => {
     try {
       const response = await api.get('/auth/me');
       const userData = response.data?.user || response.data;
@@ -69,7 +73,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    checkAuth();
+    fetchProfile();
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'LOGIN' || event.data?.type === 'LOGOUT') {
+        fetchProfile();
+      }
+    };
+
+    authSyncChannel?.addEventListener('message', handleMessage);
+
+    const handleWindowFocus = () => { fetchProfile(); };
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      authSyncChannel?.removeEventListener('message', handleMessage);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
   }, []);
 
   useEffect(() => {
@@ -99,6 +119,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setCurrentScope('fleet');
       }
+
+      authSyncChannel?.postMessage({ type: 'LOGIN', userId: userData.id, tenantId: userData.tenantId });
+
       return userData;
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Erro ao efetuar login.';
@@ -115,6 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setUser(null);
       setLoading(false);
+      authSyncChannel?.postMessage({ type: 'LOGOUT' });
     }
   };
 
