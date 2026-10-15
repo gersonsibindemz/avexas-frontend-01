@@ -35,6 +35,7 @@ import {
   Bell,
   Printer
 } from 'lucide-react';
+import { MaintenanceNotificationModal } from '../components/MaintenanceNotificationModal';
 
 interface Asset {
   id: string;
@@ -131,7 +132,58 @@ export const WorkOrdersPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [quickTab, setQuickTab] = useState<'all' | 'my_tasks' | 'pending' | 'in_progress' | 'completed'>('all');
+  const [quickTab, setQuickTab] = useState<'all' | 'my_tasks' | 'pending' | 'in_progress' | 'completed' | 'maintenance_requests'>('all');
+
+  // Solicitações de Manutenção / Notificações
+  const [maintenanceRequests, setMaintenanceRequests] = useState<any[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+
+  const fetchMaintenanceRequests = async () => {
+    setLoadingRequests(true);
+    try {
+      let list: any[] = [];
+      try {
+        const res = await api.get('/notifications/maintenance');
+        list = Array.isArray(res.data) ? res.data : (res.data?.notifications || res.data?.data || []);
+      } catch {
+        const res = await api.get('/maintenance-notifications');
+        list = Array.isArray(res.data) ? res.data : (res.data?.notifications || res.data?.data || []);
+      }
+      setMaintenanceRequests(list);
+    } catch (err) {
+      console.warn('Erro ao carregar solicitações de manutenção:', err);
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  const handleConvertToWorkOrder = (req: any) => {
+    setFormMode('create');
+    setEditingEditingOrderId(null);
+
+    const matchedAsset = assets.find(a => a.id === req.asset_id || a.id === req.assetId);
+    const initialAssetId = matchedAsset ? matchedAsset.id : (assets.length > 0 ? assets[0].id : '');
+    const initialMeter = req.meter_value ?? req.meterValue ?? (matchedAsset ? (matchedAsset.current_meter ?? matchedAsset.currentMeter ?? 0) : '');
+
+    setFormData({
+      assetId: initialAssetId,
+      asset_id: initialAssetId,
+      title: `[Triagem] ${req.description ? req.description.substring(0, 50) : 'Intervenção Solicitada'}`,
+      description: `Solicitante: ${req.requester_name || req.requesterName || 'N/A'}\nLocal: ${req.location || 'N/A'}\n\nDescrição da Avaria:\n${req.description}`,
+      orderType: req.maintenance_type || req.maintenanceType || 'corrective',
+      order_type: req.maintenance_type || req.maintenanceType || 'corrective',
+      priority: req.priority || 'medium',
+      meterAtService: initialMeter,
+      meter_at_service: initialMeter,
+      assignedTo: '',
+      technicianId: '',
+      technician_id: ''
+    });
+
+    setSelectedPartsList([]);
+    setIsFormModalOpen(true);
+  };
 
   // Estados de Notificações
   const [isBellOpen, setIsBellOpen] = useState(false);
@@ -184,6 +236,7 @@ export const WorkOrdersPage: React.FC = () => {
   const [downtimeHours, setDowntimeHours] = useState<number | ''>('');
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [submittingClose, setSubmittingClose] = useState(false);
+
   // Modal de Impressão A4 Oficial
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [printOrder, setPrintOrder] = useState<WorkOrder | null>(null);
@@ -199,6 +252,49 @@ export const WorkOrdersPage: React.FC = () => {
       console.error('Erro ao gerar QR code:', err);
     }
     setIsPrintModalOpen(true);
+  };
+
+  // Modal de Cancelamento de OS
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [submittingCancel, setSubmittingCancel] = useState(false);
+
+  // Submeter Cancelamento de OS
+  const handleCancelOrderSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDrawerOrder || !cancelReason.trim()) {
+      alert('Por favor, informe a justificativa do cancelamento.');
+      return;
+    }
+
+    setSubmittingCancel(true);
+    try {
+      try {
+        await api.post(`/work-orders/${selectedDrawerOrder.id}/transitions`, {
+          eventType: 'cancel',
+          reason: cancelReason,
+          justification: cancelReason
+        });
+      } catch {
+        await api.patch(`/work-orders/${selectedDrawerOrder.id}`, {
+          status: 'cancelled',
+          resolution_notes: cancelReason
+        });
+      }
+
+      setSuccessMessage('Ordem de Serviço cancelada com sucesso!');
+      setIsCancelModalOpen(false);
+      setCancelReason('');
+      setIsDrawerOpen(false);
+      setSelectedDrawerOrder(null);
+      await fetchWorkOrders();
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      console.error('Erro ao cancelar ordem de serviço:', err);
+      alert(err.response?.data?.message || err.message || 'Erro ao cancelar ordem de serviço.');
+    } finally {
+      setSubmittingCancel(false);
+    }
   };
 
   // Submissões de Formulários
@@ -539,6 +635,7 @@ export const WorkOrdersPage: React.FC = () => {
     fetchWorkOrders();
     fetchAssetsForDropdown();
     fetchTechnicians();
+    fetchMaintenanceRequests();
 
     api.get('/parts')
       .then(res => {
@@ -1272,6 +1369,13 @@ export const WorkOrdersPage: React.FC = () => {
           </div>
 
           <button
+            onClick={() => setIsNotificationModalOpen(true)}
+            className="bg-white border border-blue-600 text-blue-700 hover:bg-blue-50 px-3.5 py-2.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+          >
+            <Wrench size={15} />
+            <span>Reportar Avaria (Notificação)</span>
+          </button>
+          <button
             onClick={fetchWorkOrders}
             disabled={loading}
             className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer disabled:opacity-50"
@@ -1350,6 +1454,17 @@ export const WorkOrdersPage: React.FC = () => {
           }`}
         >
           Todas ({domainFilteredOrders.length})
+        </button>
+        <button
+          onClick={() => setQuickTab('maintenance_requests')}
+          className={`px-4 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap cursor-pointer border flex items-center gap-1.5 ${
+            quickTab === 'maintenance_requests'
+              ? 'bg-blue-700 text-white border-blue-700 shadow-none font-semibold'
+              : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+          }`}
+        >
+          <Wrench size={13} />
+          <span>Solicitações Pendentes ({maintenanceRequests.length})</span>
         </button>
         <button
           onClick={() => setQuickTab('my_tasks')}
@@ -1836,26 +1951,56 @@ export const WorkOrdersPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsFormModalOpen(false)}
-                  disabled={submittingForm}
-                  className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingForm}
-                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white rounded-md text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-none"
-                >
-                  {submittingForm ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <span>Guardar Ordem</span>
-                  )}
-                </button>
+              <div className="flex justify-between items-center border-t border-slate-200 pt-5 mt-2">
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setIsFormModalOpen(false)}
+                    disabled={submittingForm}
+                    className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium transition-all cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (formMode === 'edit' && editingOrderId) {
+                        const orderToPrint = orders.find(o => o.id === editingOrderId);
+                        if (orderToPrint) openPrintModal(orderToPrint);
+                      } else {
+                        openPrintModal({
+                          id: 'preview',
+                          wo_number: 'RASCUNHO',
+                          title: formData.title || 'Ordem de Serviço (Rascunho)',
+                          description: formData.description,
+                          asset_id: formData.assetId,
+                          order_type: formData.orderType,
+                          priority: formData.priority,
+                          status: 'open',
+                          opened_at: new Date().toISOString()
+                        } as any);
+                      }
+                    }}
+                    className="bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 font-medium px-4 py-2 rounded-md text-xs flex items-center gap-2 cursor-pointer"
+                  >
+                    <Printer size={15} />
+                    <span>Imprimir Ficha (A4)</span>
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={submittingForm}
+                    className="px-4 py-2 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white rounded-md text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-none"
+                  >
+                    {submittingForm ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <span>{formMode === 'edit' ? 'Guardar Alterações' : 'Guardar Ordem'}</span>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -1985,18 +2130,19 @@ export const WorkOrdersPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => openPrintModal(selectedDrawerOrder)}
-                  className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 font-medium px-4 py-2 rounded-md text-xs flex items-center gap-2 cursor-pointer transition-colors"
                   title="Imprimir Ficha (A4)"
                 >
-                  <Printer size={14} />
-                  <span>Imprimir Ficha</span>
+                  <Printer size={15} />
+                  <span>Imprimir Ficha (A4)</span>
                 </button>
                 <button
                   onClick={() => {
                     setIsDrawerOpen(false);
                     setSelectedDrawerOrder(null);
                   }}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
+                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+                  title="Fechar"
                 >
                   <X size={20} />
                 </button>
@@ -2040,7 +2186,7 @@ export const WorkOrdersPage: React.FC = () => {
               </div>
 
               {/* COCKPIT DE EXECUÇÃO DE CAMPO EM TEMPO REAL */}
-              {selectedDrawerOrder.status !== 'completed' && (
+              {selectedDrawerOrder.status !== 'completed' && selectedDrawerOrder.status !== 'cancelled' && (
                 <div className="p-4 bg-white border border-slate-200 rounded-md space-y-3">
                   <span className="text-xs font-bold text-slate-900 uppercase tracking-wide block flex items-center gap-1.5">
                     <Activity size={14} className="text-blue-700" />
@@ -2106,6 +2252,21 @@ export const WorkOrdersPage: React.FC = () => {
                         <span>Retomar Trabalho (Resume)</span>
                       </button>
                     )}
+
+                    {/* Botão de Opção: Cancelar Ordem de Serviço */}
+                    <div className="pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCancelReason('');
+                          setIsCancelModalOpen(true);
+                        }}
+                        className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <X size={14} />
+                        <span>Cancelar Ordem de Serviço</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -2280,6 +2441,64 @@ export const WorkOrdersPage: React.FC = () => {
               </div>
 
             </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL DE CONFIRMAÇÃO DE CANCELAMENTO DE OS
+          ========================================== */}
+      {isCancelModalOpen && selectedDrawerOrder && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-sm rounded-md shadow-xl overflow-hidden animate-slide-up">
+            
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-2 text-rose-700 font-bold text-sm">
+                <AlertTriangle size={18} />
+                <span>Cancelar Ordem de Serviço</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCancelModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCancelOrderSubmit} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Motivo / Justificativa do Cancelamento *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Descreva o motivo pelo qual esta Ordem de Serviço está a ser cancelada..."
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-rose-600 focus:ring-1 focus:ring-rose-600"
+                />
+              </div>
+
+              <div className="flex justify-between items-center pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsCancelModalOpen(false)}
+                  className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-md cursor-pointer"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingCancel}
+                  className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium rounded-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {submittingCancel ? <Loader2 size={13} className="animate-spin" /> : <span>Confirmar Cancelamento</span>}
+                </button>
+              </div>
+            </form>
 
           </div>
         </div>
