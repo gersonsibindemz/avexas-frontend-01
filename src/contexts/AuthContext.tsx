@@ -40,16 +40,19 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const authSyncChannel = typeof window !== 'undefined' && 'BroadcastChannel' in window
-  ? new BroadcastChannel('avexas_auth_sync')
-  : null;
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentScope, setCurrentScope] = useState<'fleet' | 'plant'>('fleet');
 
   const fetchProfile = async () => {
+    const token = sessionStorage.getItem('cmms_auth_token');
+    if (!token) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await api.get('/auth/me');
       const userData = response.data?.user || response.data;
@@ -75,19 +78,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     fetchProfile();
 
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'LOGIN' || event.data?.type === 'LOGOUT') {
+    const handleWindowFocus = () => {
+      if (sessionStorage.getItem('cmms_auth_token')) {
         fetchProfile();
       }
     };
-
-    authSyncChannel?.addEventListener('message', handleMessage);
-
-    const handleWindowFocus = () => { fetchProfile(); };
     window.addEventListener('focus', handleWindowFocus);
 
     return () => {
-      authSyncChannel?.removeEventListener('message', handleMessage);
       window.removeEventListener('focus', handleWindowFocus);
     };
   }, []);
@@ -106,6 +104,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string): Promise<User> => {
     try {
       const response = await api.post('/auth/login', { email, password });
+      
+      if (response.data?.token) {
+        sessionStorage.setItem('cmms_auth_token', response.data.token);
+      } else if (response.data?.accessToken) {
+        sessionStorage.setItem('cmms_auth_token', response.data.accessToken);
+      }
+
       const userData = response.data?.user || response.data;
       
       if (!userData || !userData.id || !userData.role) {
@@ -119,8 +124,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setCurrentScope('fleet');
       }
-
-      authSyncChannel?.postMessage({ type: 'LOGIN', userId: userData.id, tenantId: userData.tenantId });
 
       return userData;
     } catch (err: any) {
@@ -136,9 +139,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Erro ao efetuar logout no servidor', err);
     } finally {
+      sessionStorage.removeItem('cmms_auth_token');
       setUser(null);
       setLoading(false);
-      authSyncChannel?.postMessage({ type: 'LOGOUT' });
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
     }
   };
 

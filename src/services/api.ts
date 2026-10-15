@@ -6,6 +6,15 @@ export const api = axios.create({
   withCredentials: true,
 });
 
+// Interceptor de requisição para injetar o token JWT da aba atual (sessionStorage)
+api.interceptors.request.use((config) => {
+  const token = sessionStorage.getItem('cmms_auth_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // Interceptor para tratamento de erros global (ex: deslogar se 401)
 api.interceptors.response.use(
   (response) => response,
