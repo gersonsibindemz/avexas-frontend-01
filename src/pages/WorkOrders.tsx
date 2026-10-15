@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
+import QRCode from 'qrcode';
 import {
   Plus,
   Wrench,
@@ -31,7 +32,8 @@ import {
   GitCommit,
   Phone,
   UserCheck,
-  Bell
+  Bell,
+  Printer
 } from 'lucide-react';
 
 interface Asset {
@@ -182,6 +184,22 @@ export const WorkOrdersPage: React.FC = () => {
   const [downtimeHours, setDowntimeHours] = useState<number | ''>('');
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [submittingClose, setSubmittingClose] = useState(false);
+  // Modal de Impressão A4 Oficial
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [printOrder, setPrintOrder] = useState<WorkOrder | null>(null);
+  const [printQrDataUrl, setPrintQrDataUrl] = useState('');
+
+  const openPrintModal = async (order: WorkOrder) => {
+    setPrintOrder(order);
+    try {
+      const tagOrNumber = order.wo_number || order.woNumber || order.id;
+      const url = await QRCode.toDataURL(tagOrNumber, { margin: 1, width: 120 });
+      setPrintQrDataUrl(url);
+    } catch (err) {
+      console.error('Erro ao gerar QR code:', err);
+    }
+    setIsPrintModalOpen(true);
+  };
 
   // Submissões de Formulários
   const [submittingForm, setSubmittingForm] = useState(false);
@@ -768,15 +786,18 @@ export const WorkOrdersPage: React.FC = () => {
 
     try {
       if (formMode === 'create') {
-        await api.post('/work-orders', payload);
+        const res = await api.post('/work-orders', payload);
+        const createdWO = res.data?.workOrder || res.data?.order || res.data || payload;
         setSuccessMessage('Nova Ordem de Serviço aberta com sucesso!');
+        setIsFormModalOpen(false);
+        await fetchWorkOrders();
+        openPrintModal(createdWO);
       } else {
         await api.put(`/work-orders/${editingOrderId}`, payload);
         setSuccessMessage('Ordem de Serviço atualizada com sucesso!');
+        setIsFormModalOpen(false);
+        await fetchWorkOrders();
       }
-
-      setIsFormModalOpen(false);
-      await fetchWorkOrders();
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       console.error('Erro ao guardar ordem de serviço:', err);
@@ -1468,6 +1489,16 @@ export const WorkOrdersPage: React.FC = () => {
                       <div className="flex items-center gap-1.5">
                         {renderPriorityBadge(priority)}
                         <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openPrintModal(order);
+                          }}
+                          className="p-1 text-slate-400 hover:text-blue-700 hover:bg-slate-100 rounded transition-all cursor-pointer"
+                          title="Imprimir Ficha A4"
+                        >
+                          <Printer size={13} />
+                        </button>
+                        <button
                           onClick={(e) => handleOpenEditModal(order, e)}
                           className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-all cursor-pointer"
                           title="Editar Ficha"
@@ -1950,15 +1981,26 @@ export const WorkOrdersPage: React.FC = () => {
                 </span>
                 <h2 className="text-base font-bold text-slate-900 leading-tight mt-1">{selectedDrawerOrder.title}</h2>
               </div>
-              <button
-                onClick={() => {
-                  setIsDrawerOpen(false);
-                  setSelectedDrawerOrder(null);
-                }}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
-              >
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openPrintModal(selectedDrawerOrder)}
+                  className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Imprimir Ficha (A4)"
+                >
+                  <Printer size={14} />
+                  <span>Imprimir Ficha</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsDrawerOpen(false);
+                    setSelectedDrawerOrder(null);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
             {/* Corpo do Drawer (Rolagem) */}
@@ -2540,6 +2582,311 @@ export const WorkOrdersPage: React.FC = () => {
               </div>
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL E LAYOUT DE IMPRESSÃO A4 OFICIAL DA OS
+          ========================================== */}
+      {isPrintModalOpen && printOrder && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto">
+          <style>{`
+            @media print {
+              body * {
+                visibility: hidden !important;
+              }
+              #printable-wo-sheet, #printable-wo-sheet * {
+                visibility: visible !important;
+              }
+              #printable-wo-sheet {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+              }
+            }
+          `}</style>
+          
+          <div className="bg-white border border-slate-300 w-full max-w-4xl rounded-md shadow-2xl overflow-hidden my-8 print:shadow-none print:border-none print:w-full print:max-w-none print:m-0 print:rounded-none">
+            
+            {/* BARRA SUPERIOR DO MODAL (OCULTA NA IMPRESSÃO) */}
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 print:hidden">
+              <div className="flex items-center gap-2">
+                <Printer className="text-blue-700" size={20} />
+                <h2 className="text-base font-bold text-slate-900">
+                  Impressão da Ordem de Serviço: <span className="font-mono text-blue-700">{printOrder.wo_number || printOrder.woNumber || printOrder.id}</span>
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+                >
+                  <Printer size={16} />
+                  <span>Imprimir Ficha (A4)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPrintModalOpen(false)}
+                  className="p-2 text-slate-400 hover:text-slate-600 rounded-md transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* FOLHA A4 IMPRIMÍVEL */}
+            <div id="printable-wo-sheet" className="p-8 text-slate-900 bg-white font-sans text-xs leading-normal print:p-6">
+              
+              {/* TOPO: LOGO + TÍTULO CENTRAL + QR CODE */}
+              <div className="border-b-2 border-slate-900 pb-4 mb-4 flex items-center justify-between gap-4">
+                <div className="w-1/4">
+                  <img
+                    src="https://i.postimg.cc/NfvHTQTR/avexas-logo-transp-copy.png"
+                    alt="Avexas CMMS"
+                    className="h-10 w-auto object-contain"
+                  />
+                </div>
+                <div className="text-center flex-1">
+                  <h1 className="text-xl font-bold uppercase tracking-wider text-slate-900">Ordem de Serviço</h1>
+                  <p className="font-mono font-bold text-sm text-blue-800 mt-0.5">OS N.º {printOrder.wo_number || printOrder.woNumber || printOrder.id}</p>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    Data/Hora de Abertura: {new Date(printOrder.opened_at || printOrder.openedAt || Date.now()).toLocaleString('pt-MZ')}
+                  </p>
+                </div>
+                <div className="w-1/4 flex justify-end items-center">
+                  {printQrDataUrl ? (
+                    <img src={printQrDataUrl} alt="QR Code OS" className="w-16 h-16 border border-slate-300 p-0.5" />
+                  ) : (
+                    <div className="w-16 h-16 border border-slate-300 flex items-center justify-center text-[10px]">QR Code</div>
+                  )}
+                </div>
+              </div>
+
+              {/* BLOCO 1 - EQUIPAMENTO */}
+              <div className="border border-slate-400 mb-3 rounded-none overflow-hidden">
+                <div className="bg-slate-100 font-bold px-3 py-1 border-b border-slate-400 text-[11px] uppercase tracking-wider text-slate-800">
+                  BLOCO 1 - EQUIPAMENTO / ATIVO
+                </div>
+                <div className="p-3 grid grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Código / Tag:</span>
+                    <span className="font-mono font-bold text-slate-900">{printOrder.asset?.code_tag || (assets.find(a => a.id === printOrder.asset_id || a.id === printOrder.assetId)?.code_tag) || 'EQ-GERAL'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Descrição do Ativo:</span>
+                    <span className="font-medium text-slate-900">{printOrder.asset_name || printOrder.asset?.name || (assets.find(a => a.id === printOrder.asset_id || a.id === printOrder.assetId)?.name) || 'Equipamento Geral'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Instalação / Setor:</span>
+                    <span className="font-medium text-slate-900">{(assets.find(a => a.id === printOrder.asset_id || a.id === printOrder.assetId) as any)?.installation || (assets.find(a => a.id === printOrder.asset_id || a.id === printOrder.assetId) as any)?.plant_sector || '---'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Marca / Modelo:</span>
+                    <span className="font-medium text-slate-900">{(assets.find(a => a.id === printOrder.asset_id || a.id === printOrder.assetId) as any)?.brand || ''} {(assets.find(a => a.id === printOrder.asset_id || a.id === printOrder.assetId) as any)?.model || '---'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">N.º Série / Chassis:</span>
+                    <span className="font-mono text-slate-900">{(assets.find(a => a.id === printOrder.asset_id || a.id === printOrder.assetId) as any)?.chassis_vin || '---'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Contador no Atendimento:</span>
+                    <span className="font-mono text-slate-900">{printOrder.meter_at_service || printOrder.meterAtService || '0'} {counterLabel}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* BLOCO 2 - INFORMAÇÕES GERAIS */}
+              <div className="border border-slate-400 mb-3 rounded-none overflow-hidden">
+                <div className="bg-slate-100 font-bold px-3 py-1 border-b border-slate-400 text-[11px] uppercase tracking-wider text-slate-800">
+                  BLOCO 2 - INFORMAÇÕES GERAIS DA SOLICITAÇÃO
+                </div>
+                <div className="p-3 grid grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Tipo de Manutenção:</span>
+                    <span className="font-semibold text-slate-900 uppercase">
+                      {(printOrder.order_type || printOrder.orderType) === 'corrective' ? 'Corretiva' : 'Preventiva'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Origem da Solicitação:</span>
+                    <span className="font-medium text-slate-900">Inspeção / Sistema CMMS</span>
+                  </div>
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Solicitante:</span>
+                    <span className="font-medium text-slate-900">{(printOrder as any).opened_by || 'Supervisor Operacional'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Prioridade:</span>
+                    <span className="font-bold uppercase text-slate-900">{printOrder.priority || 'Média'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Centro de Custo:</span>
+                    <span className="font-medium text-slate-900">{(assets.find(a => a.id === printOrder.asset_id || a.id === printOrder.assetId) as any)?.cost_center || 'Operações'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Estado Atual:</span>
+                    <span className="font-bold uppercase text-slate-900">{printOrder.status || 'Aberto'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* BLOCO 3 - DESCRIÇÃO DO PROBLEMA */}
+              <div className="border border-slate-400 mb-3 rounded-none overflow-hidden">
+                <div className="bg-slate-100 font-bold px-3 py-1 border-b border-slate-400 text-[11px] uppercase tracking-wider text-slate-800">
+                  BLOCO 3 - DESCRIÇÃO DO PROBLEMA / AVARIA
+                </div>
+                <div className="p-3">
+                  <p className="font-bold text-sm text-slate-900 mb-1">{printOrder.title}</p>
+                  <p className="text-slate-700 leading-relaxed min-h-[35px]">
+                    {printOrder.description || 'Sem descrição detalhada fornecida.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* BLOCO 4 - PLANEJAMENTO */}
+              <div className="border border-slate-400 mb-3 rounded-none overflow-hidden">
+                <div className="bg-slate-100 font-bold px-3 py-1 border-b border-slate-400 text-[11px] uppercase tracking-wider text-slate-800">
+                  BLOCO 4 - PLANEAMENTO E RECURSOS
+                </div>
+                <div className="p-3 grid grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Data/Hora Prevista:</span>
+                    <span className="font-medium text-slate-900">
+                      {new Date(printOrder.opened_at || printOrder.openedAt || Date.now()).toLocaleDateString('pt-MZ')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Tempo Estimado:</span>
+                    <span className="font-medium text-slate-900">{printOrder.downtime_hours || printOrder.downtimeHours || '2.0'} Horas</span>
+                  </div>
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Técnico Responsável:</span>
+                    <span className="font-bold text-slate-900">{resolveTechnicianName(printOrder)}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Equipa de Apoio:</span>
+                    <span className="font-medium text-slate-900">Equipa de Manutenção Geral</span>
+                  </div>
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600 uppercase">Supervisor Responsável:</span>
+                    <span className="font-medium text-slate-900">Supervisor de Turno</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* BLOCO 5 - MATERIAIS / PEÇAS */}
+              <div className="border border-slate-400 mb-3 rounded-none overflow-hidden">
+                <div className="bg-slate-100 font-bold px-3 py-1 border-b border-slate-400 text-[11px] uppercase tracking-wider text-slate-800">
+                  BLOCO 5 - MATERIAIS / PEÇAS PREVISTAS E REQUISITADAS
+                </div>
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-400 bg-slate-50 text-[10px] uppercase font-bold text-slate-700">
+                      <th className="p-2 border-r border-slate-300 w-1/4">Código / Part Number</th>
+                      <th className="p-2 border-r border-slate-300">Descrição do Item / Componente</th>
+                      <th className="p-2 w-1/6 text-center">Qtd. Prevista</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-300 text-[11px]">
+                    {usedParts && usedParts.length > 0 ? (
+                      usedParts.map((partItem: any, idx: number) => (
+                        <tr key={idx}>
+                          <td className="p-2 font-mono border-r border-slate-300">{partItem.oem_reference || partItem.part_number || 'P-ITEM'}</td>
+                          <td className="p-2 border-r border-slate-300">{partItem.name}</td>
+                          <td className="p-2 text-center font-bold">{partItem.quantity}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <>
+                        <tr>
+                          <td className="p-2 font-mono border-r border-slate-300">FIL-LF16015</td>
+                          <td className="p-2 border-r border-slate-300">Filtro de Óleo Lubrificante Cummins / Volvo</td>
+                          <td className="p-2 text-center font-bold">1</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 font-mono border-r border-slate-300">LUB-15W40-1L</td>
+                          <td className="p-2 border-r border-slate-300">Óleo de Motor Diesel 15W40 Multiviscoso</td>
+                          <td className="p-2 text-center font-bold">5</td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* BLOCO 6 - PROCEDIMENTOS / CHECKLIST */}
+              <div className="border border-slate-400 mb-3 rounded-none overflow-hidden">
+                <div className="bg-slate-100 font-bold px-3 py-1 border-b border-slate-400 text-[11px] uppercase tracking-wider text-slate-800">
+                  BLOCO 6 - PROCEDIMENTOS E CHECKLIST DE SEGURANÇA
+                </div>
+                <div className="p-3 space-y-1.5 text-[11px]">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm font-bold">☐</span>
+                    <span>1. Parar o equipamento e sinalizar a área de trabalho com cones/fita.</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm font-bold">☐</span>
+                    <span>2. Realizar o bloqueio e etiquetagem de segurança LOTO (Lockout/Tagout).</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm font-bold">☐</span>
+                    <span>3. Inspecionar componentes substituídos, verificar torques e níveis de fluidos.</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm font-bold">☐</span>
+                    <span>4. Testar o funcionamento em vazio e em carga antes da entrega ao operador.</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* BLOCO 7 - EXECUÇÃO E ASSINATURAS */}
+              <div className="border border-slate-400 rounded-none overflow-hidden">
+                <div className="bg-slate-100 font-bold px-3 py-1 border-b border-slate-400 text-[11px] uppercase tracking-wider text-slate-800">
+                  BLOCO 7 - REGISTO DE EXECUÇÃO E ASSINATURAS DE CONFORMIDADE
+                </div>
+                <div className="p-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-4 border-b border-slate-300 pb-3 text-xs">
+                    <div>
+                      <span className="font-bold block text-[10px] text-slate-600">Início Real da Execução:</span>
+                      <div className="h-5 border-b border-dotted border-slate-400 mt-1"></div>
+                    </div>
+                    <div>
+                      <span className="font-bold block text-[10px] text-slate-600">Término Real da Execução:</span>
+                      <div className="h-5 border-b border-dotted border-slate-400 mt-1"></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="font-bold block text-[10px] text-slate-600">Observações do Técnico / Relatório Técnico Final:</span>
+                    <div className="h-10 border-b border-dotted border-slate-400 mt-1"></div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-6 pt-6 mt-4">
+                    <div className="text-center">
+                      <div className="border-b border-slate-900 mb-1"></div>
+                      <span className="font-bold text-[10px] uppercase text-slate-800 block">Técnico Executante</span>
+                      <span className="text-[9px] text-slate-500">Assinatura & Data</span>
+                    </div>
+                    <div className="text-center">
+                      <div className="border-b border-slate-900 mb-1"></div>
+                      <span className="font-bold text-[10px] uppercase text-slate-800 block">Operador / Recebedor</span>
+                      <span className="text-[9px] text-slate-500">Assinatura & Data</span>
+                    </div>
+                    <div className="text-center">
+                      <div className="border-b border-slate-900 mb-1"></div>
+                      <span className="font-bold text-[10px] uppercase text-slate-800 block">Supervisor Responsável</span>
+                      <span className="text-[9px] text-slate-500">Assinatura & Data</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
       )}

@@ -403,6 +403,7 @@ export const SuperAdminPage: React.FC = () => {
                   <th className="py-3 px-4 font-semibold">Nome Comercial</th>
                   <th className="py-3 px-4 font-semibold">NUIT</th>
                   <th className="py-3 px-4 font-semibold">Província</th>
+                  <th className="py-3 px-4 font-semibold">Âmbito Operacional</th>
                   <th className="py-3 px-4 font-semibold text-right">Limites (Ativos / Users)</th>
                   <th className="py-3 px-4 font-semibold text-center">Estado</th>
                   <th className="py-3 px-4 font-semibold text-right">Ações</th>
@@ -429,6 +430,30 @@ export const SuperAdminPage: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4 text-xs font-semibold text-slate-600">
                         {tenant.province}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        {(() => {
+                          const scope = tenant.operational_scope || tenant.operationalScope || 'fleet';
+                          if (scope === 'fleet') {
+                            return (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                Frota
+                              </span>
+                            );
+                          } else if (scope === 'plant') {
+                            return (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-300">
+                                Fabril
+                              </span>
+                            );
+                          } else {
+                            return (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                                Frota e Fabril
+                              </span>
+                            );
+                          }
+                        })()}
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono text-xs text-blue-700 font-bold">
                         {limitAssets} ativos / {limitUsers} users

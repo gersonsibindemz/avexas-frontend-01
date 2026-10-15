@@ -160,6 +160,7 @@ export const AssetsPage: React.FC = () => {
   const [model, setModel] = useState('');
   const [manufactureYear, setManufactureYear] = useState<number>(new Date().getFullYear());
   const [costCenter, setCostCenter] = useState('');
+  const [installation, setInstallation] = useState('');
 
   // Etapa 2: Operação
   // Se Veículo
@@ -478,6 +479,7 @@ export const AssetsPage: React.FC = () => {
     setModel('');
     setManufactureYear(new Date().getFullYear());
     setCostCenter('');
+    setInstallation('');
     setLicensePlate('');
     setChassisVin('');
     setEngineNumber('');
@@ -512,6 +514,7 @@ export const AssetsPage: React.FC = () => {
     setModel(asset.model || '');
     setManufactureYear(asset.manufacture_year || asset.manufactureYear || new Date().getFullYear());
     setCostCenter(asset.cost_center || asset.costCenter || '');
+    setInstallation((asset as any).installation || asset.plant_sector || asset.plantSector || '');
 
     // Etapa 2 e 3
     setLicensePlate(asset.license_plate || asset.licensePlate || '');
@@ -1251,31 +1254,44 @@ export const AssetsPage: React.FC = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-                        Centro de Custo / Província *
+                        Centro de Custo *
                       </label>
                       <input
                         type="text"
                         required
                         value={costCenter}
                         onChange={(e) => setCostCenter(e.target.value)}
-                        placeholder="ex: CFM Maputo, Nampula Logística"
+                        placeholder="ex: CC-01, Operações"
                         className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                       />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-                        Nível de Criticidade
+                        Instalação / Província
                       </label>
-                      <select
-                        value={criticalityLevel}
-                        onChange={(e) => setCriticalityLevel(e.target.value as any)}
+                      <input
+                        type="text"
+                        value={installation}
+                        onChange={(e) => setInstallation(e.target.value)}
+                        placeholder="ex: Maputo, Manica, Sofala"
                         className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
-                      >
-                        <option value="A">Nível A (Alta Paragem Crítica)</option>
-                        <option value="B">Nível B (Média Criticidade)</option>
-                        <option value="C">Nível C (Baixa Criticidade)</option>
-                      </select>
+                      />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                      Nível de Criticidade
+                    </label>
+                    <select
+                      value={criticalityLevel}
+                      onChange={(e) => setCriticalityLevel(e.target.value as any)}
+                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
+                    >
+                      <option value="A">A - Alta</option>
+                      <option value="B">B - Média</option>
+                      <option value="C">C - Baixa</option>
+                    </select>
                   </div>
                 </div>
               )}
@@ -1348,8 +1364,9 @@ export const AssetsPage: React.FC = () => {
                         <input
                           type="number"
                           required
-                          value={currentMeter}
-                          onChange={(e) => setCurrentMeter(Number(e.target.value))}
+                          value={currentMeter === 0 ? '' : currentMeter}
+                          onChange={(e) => setCurrentMeter(e.target.value === '' ? 0 : Number(e.target.value))}
+                          placeholder="0"
                           className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                         />
                       </div>
@@ -1405,8 +1422,9 @@ export const AssetsPage: React.FC = () => {
                         <input
                           type="number"
                           required
-                          value={currentMeter}
-                          onChange={(e) => setCurrentMeter(Number(e.target.value))}
+                          value={currentMeter === 0 ? '' : currentMeter}
+                          onChange={(e) => setCurrentMeter(e.target.value === '' ? 0 : Number(e.target.value))}
+                          placeholder="0"
                           className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                         />
                       </div>
@@ -1419,12 +1437,12 @@ export const AssetsPage: React.FC = () => {
               {currentStep === 3 && (
                 <div className="space-y-4">
                   {domain === 'fleet' ? (
-                    /* CONFORMIDADE DE TRÂNSITO INATRO (FROTA) */
+                    /* CONFORMIDADE DE TRÂNSITO (FROTA) */
                     <>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-                            Validade Inspeção INATRO
+                            Validade da Inspeção
                           </label>
                           <input
                             type="date"
@@ -1435,31 +1453,18 @@ export const AssetsPage: React.FC = () => {
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-                            Companhia de Seguros
+                            Validade da Garantia
                           </label>
                           <input
-                            type="text"
-                            value={insuranceCompany}
-                            onChange={(e) => setInsuranceCompany(e.target.value)}
-                            placeholder="ex: EMOSE, Fidelidade"
-                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
+                            type="date"
+                            value={warrantyExpiry}
+                            onChange={(e) => setWarrantyExpiry(e.target.value)}
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
                           />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-                            Número de Apólice do Seguro
-                          </label>
-                          <input
-                            type="text"
-                            value={insurancePolicyNumber}
-                            onChange={(e) => setInsurancePolicyNumber(e.target.value)}
-                            placeholder="ex: POL-8429-01"
-                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
-                          />
-                        </div>
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                             Validade do Seguro

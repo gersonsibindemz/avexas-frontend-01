@@ -23,6 +23,10 @@ interface Asset {
   code_tag: string;
   codeTag?: string;
   name: string;
+  fuel_tank_capacity_liters?: number;
+  fuelTankCapacityLiters?: number;
+  current_meter?: number;
+  currentMeter?: number;
 }
 
 interface FuelLog {
@@ -135,6 +139,20 @@ export const FuelPage: React.FC = () => {
     e.preventDefault();
     if (!selectedAssetId || !liters || !pricePerLiterMzn || !currentMeter || !stationName || !receiptDocRef) {
       alert('Por favor, preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    const selectedAsset = assets.find((a) => a.id === selectedAssetId);
+    const tankCapacity = selectedAsset?.fuel_tank_capacity_liters ?? selectedAsset?.fuelTankCapacityLiters;
+    const currentMeterVal = selectedAsset?.current_meter ?? selectedAsset?.currentMeter;
+
+    if (tankCapacity && Number(liters) > tankCapacity) {
+      alert(`A quantidade informada não pode ser superior à capacidade do tanque (${tankCapacity} Litros).`);
+      return;
+    }
+
+    if (currentMeterVal !== undefined && currentMeterVal !== null && Number(currentMeter) < currentMeterVal) {
+      alert(`A quilometragem informada não pode ser inferior ao último registro (${currentMeterVal} km).`);
       return;
     }
 

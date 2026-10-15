@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
@@ -18,7 +19,8 @@ import {
   Mail,
   User as UserIcon,
   Layers,
-  Building2
+  Building2,
+  ArrowLeft
 } from 'lucide-react';
 
 interface TenantUser {
@@ -45,6 +47,7 @@ interface TenantItem {
 }
 
 export const UsersPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user, isSuperAdmin } = useAuth();
   const { technicianSpecialties } = useCurrentDomain();
 
@@ -360,14 +363,41 @@ export const UsersPage: React.FC = () => {
     <div className="space-y-6">
       {/* CABEÇALHO */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
-            <UsersIcon className="text-blue-700" size={24} />
-            Gestão de Utilizadores (Super Admin)
-          </h1>
-          <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-            Selecione uma empresa para gerir as contas e atribuir níveis de acesso de supervisores e técnicos.
-          </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-colors cursor-pointer"
+            title="Voltar"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
+              <UsersIcon className="text-blue-700" size={24} />
+              Gestão de Utilizadores & Técnicos
+            </h1>
+            <p className="text-slate-500 text-xs mt-1 leading-relaxed">
+              Selecione uma empresa para gerir as contas e atribuir níveis de acesso de supervisores e técnicos.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => selectedTenantId && fetchUsers(selectedTenantId)}
+            disabled={loading}
+            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+            title="Atualizar lista"
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            <span>Atualizar</span>
+          </button>
+          <button
+            onClick={handleOpenCreateModal}
+            className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+          >
+            <Plus size={16} />
+            <span>Registar Novo Utilizador / Técnico</span>
+          </button>
         </div>
       </div>
 

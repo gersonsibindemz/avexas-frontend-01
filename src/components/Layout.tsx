@@ -310,7 +310,7 @@ export const Layout: React.FC = () => {
 
     // Todos os escopos têm acesso aos Ativos
     items.push({
-      name: isPlantUser ? 'Equipamentos Fabris' : 'Frotas e Viaturas',
+      name: isPlantUser ? 'Equipamentos Fabris' : 'Frota',
       path: '/app/assets',
       icon: isPlantUser ? Wrench : Truck,
       description: isPlantUser ? 'Equipamentos industriais' : 'Registo e frotas de viaturas'

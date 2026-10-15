@@ -21,6 +21,16 @@ export interface DomainConfig {
   partCategories: CategoryOption[];
 }
 
+export const COMMON_TECHNICIAN_SPECIALTIES: CategoryOption[] = [
+  { value: 'Mecânico Auto', label: 'Mecânico Auto' },
+  { value: 'Mecânico Auto Especialista', label: 'Mecânico Auto Especialista' },
+  { value: 'Electricista Auto', label: 'Electricista Auto' },
+  { value: 'Electricista Auto Especialista', label: 'Electricista Auto Especialista' },
+  { value: 'Bate-Chapa', label: 'Bate-Chapa' },
+  { value: 'Serralheiro', label: 'Serralheiro' },
+  { value: 'Montador de Pneus', label: 'Montador de Pneus' }
+];
+
 export const DOMAIN_REGISTRY: Record<'fleet' | 'plant', DomainConfig> = {
   fleet: {
     domain: 'fleet',
@@ -32,12 +42,13 @@ export const DOMAIN_REGISTRY: Record<'fleet' | 'plant', DomainConfig> = {
     counterShort: 'Odómetro',
     searchPlaceholder: 'Pesquisar por matrícula, modelo ou código de frota...',
     categories: [
-      { value: 'vehicle_light', label: 'Veículo Ligeiro (Frota)' },
-      { value: 'vehicle_heavy', label: 'Veículo Pesado (Logística)' }
+      { value: 'vehicle_light', label: 'Veículo Ligeiro' },
+      { value: 'vehicle_heavy', label: 'Veículo Pesado' },
+      { value: 'other_equipment', label: 'Outros Equipamentos' }
     ],
     complianceDocTypes: [
-      { value: 'inspection_certificate', label: 'Certificado de Inspeção INATRO' },
-      { value: 'insurance', label: 'Apólice de Seguro de Trânsito' },
+      { value: 'inspection_certificate', label: 'Certificado de Inspeção' },
+      { value: 'warranty', label: 'Validade da Garantia' },
       { value: 'tech_sheet', label: 'Ficha Técnica da Viatura' },
       { value: 'manual', label: 'Manual do Condutor' }
     ],
@@ -50,13 +61,7 @@ export const DOMAIN_REGISTRY: Record<'fleet' | 'plant', DomainConfig> = {
       { value: 'suspension', label: 'Desgaste na Suspensão' },
       { value: 'preventive_service', label: 'Manutenção Preventiva de Rotina' }
     ],
-    technicianSpecialties: [
-      { value: 'Mecânica Automóvel / Diesel', label: 'Mecânica Automóvel / Diesel' },
-      { value: 'Eletricidade Auto', label: 'Eletricidade Auto' },
-      { value: 'Pneumática e Bate-Chapa', label: 'Pneumática e Bate-Chapa' },
-      { value: 'Sistemas de Travagem e Frotas', label: 'Sistemas de Travagem e Frotas' },
-      { value: 'Diagnóstico Eletrónico (OBD)', label: 'Diagnóstico Eletrónico (OBD)' }
-    ],
+    technicianSpecialties: COMMON_TECHNICIAN_SPECIALTIES,
     partCategories: [
       { value: 'Filtros & Lubrificantes', label: 'Filtros & Lubrificantes' },
       { value: 'Pneus e Câmaras de Ar', label: 'Pneus e Câmaras de Ar' },
@@ -77,7 +82,8 @@ export const DOMAIN_REGISTRY: Record<'fleet' | 'plant', DomainConfig> = {
     searchPlaceholder: 'Pesquisar por tag técnica, setor fabril ou modelo...',
     categories: [
       { value: 'generator', label: 'Gerador Industrial' },
-      { value: 'machinery', label: 'Maquinaria de Chão de Fábrica' }
+      { value: 'machinery', label: 'Maquinaria de Chão de Fábrica' },
+      { value: 'other_equipment', label: 'Outros Equipamentos' }
     ],
     complianceDocTypes: [
       { value: 'innoq_calibration', label: 'Certificado de Calibração INNOQ' },
@@ -95,13 +101,7 @@ export const DOMAIN_REGISTRY: Record<'fleet' | 'plant', DomainConfig> = {
       { value: 'calibration_drift', label: 'Desvio de Calibração de Sensores' },
       { value: 'preventive_service', label: 'Manutenção Preventiva de Rotina' }
     ],
-    technicianSpecialties: [
-      { value: 'Eletromecânica Industrial', label: 'Eletromecânica Industrial' },
-      { value: 'Automação e Instrumentação', label: 'Automação e Instrumentação' },
-      { value: 'Hidráulica e Pneumática', label: 'Hidráulica e Pneumática' },
-      { value: 'Caldeiras e Vapores', label: 'Caldeiras e Vapores' },
-      { value: 'Geradores e Alta Tensão', label: 'Geradores e Alta Tensão' }
-    ],
+    technicianSpecialties: COMMON_TECHNICIAN_SPECIALTIES,
     partCategories: [
       { value: 'Rolamentos e Chumaceiras', label: 'Rolamentos e Chumaceiras' },
       { value: 'Sensores e Instrumentação', label: 'Sensores e Instrumentação' },
