@@ -19,6 +19,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  CalendarClock,
   Bell,
   User,
   Settings,
@@ -98,6 +100,9 @@ export const Layout: React.FC = () => {
     const saved = localStorage.getItem('cmms_sidebar_collapsed');
     return saved ? JSON.parse(saved) : false;
   });
+
+  // Estado para o submenu sanfona de Manutenção
+  const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(true);
 
   // Estado para controlar o menu hambúrguer em dispositivos móveis
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -325,12 +330,28 @@ export const Layout: React.FC = () => {
       description: isPlantUser ? 'Equipamentos industriais' : 'Registo e frotas de viaturas'
     });
 
-    // Ordens de Serviço
+    // Grupo Manutenção (Acordeão com Ordens de Serviço, Equipes e Plano de Manutenção)
     items.push({
-      name: 'Ordens de Serviço',
-      path: '/app/work-orders',
-      icon: ClipboardList,
-      description: user.role === 'technician' ? 'Minhas tarefas de manutenção' : 'Manutenção corretiva e preventiva'
+      name: 'Manutenção',
+      type: 'accordion',
+      icon: Wrench,
+      subItems: [
+        {
+          name: 'Ordens de Serviço',
+          path: '/app/work-orders',
+          icon: ClipboardList
+        },
+        {
+          name: 'Equipes',
+          path: '/app/teams',
+          icon: Users
+        },
+        {
+          name: 'Plano de Manutenção',
+          path: '/app/maintenance-plans',
+          icon: CalendarClock
+        }
+      ]
     });
 
     // Combustível disponível para tenant_admin e supervisor apenas se NÃO for plant
@@ -385,7 +406,7 @@ export const Layout: React.FC = () => {
                 <img
                   src="https://i.postimg.cc/QxqWHtpg/avexas-logo-white.png"
                   alt="Avexas CMMS"
-                  className="h-7 w-auto object-contain"
+                  className="h-10 sm:h-11 w-auto max-w-[170px] object-contain transition-all duration-200"
                 />
               </div>
 
@@ -423,9 +444,76 @@ export const Layout: React.FC = () => {
         {/* Links de Navegação */}
         <nav className="flex-1 px-2.5 py-4 space-y-1.5 overflow-y-auto overflow-x-hidden">
           {navigationItems.map((item) => {
+            if (item.type === 'accordion') {
+              const isMaintenanceActive = location.pathname.startsWith('/app/work-orders') ||
+                location.pathname.startsWith('/app/teams') ||
+                location.pathname.startsWith('/app/maintenance-plans');
+
+              if (isCollapsed) {
+                return (
+                  <NavLink
+                    key="maintenance-group-collapsed"
+                    to="/app/work-orders"
+                    className={({ isActive }) =>
+                      `flex items-center justify-center w-11 h-11 mx-auto rounded-md text-sm font-medium transition-colors group ${
+                        isMaintenanceActive
+                          ? 'bg-[#0066FF] text-white shadow-none'
+                          : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      }`
+                    }
+                    title="Manutenção"
+                  >
+                    <Wrench size={18} className="shrink-0" />
+                  </NavLink>
+                );
+              }
+
+              return (
+                <div key="maintenance-group-expanded" className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsMaintenanceOpen(!isMaintenanceOpen)}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-medium transition-colors cursor-pointer group ${
+                      isMaintenanceActive
+                        ? 'text-white font-semibold'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Wrench size={18} className={`shrink-0 ${isMaintenanceActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+                      <span className="truncate">Manutenção</span>
+                    </div>
+                    {isMaintenanceOpen ? <ChevronDown size={15} className="text-slate-400" /> : <ChevronRight size={15} className="text-slate-400" />}
+                  </button>
+
+                  {isMaintenanceOpen && (
+                    <div className="pl-6 border-l border-white/10 ml-4 space-y-1 my-1">
+                      {item.subItems.map((sub: any) => {
+                        const SubIcon = sub.icon;
+                        return (
+                          <NavLink
+                            key={sub.path}
+                            to={sub.path}
+                            className={({ isActive }) =>
+                              `flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+                                isActive
+                                  ? 'bg-[#0066FF] text-white font-semibold shadow-none'
+                                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                              }`
+                            }
+                          >
+                            <SubIcon size={15} className="shrink-0" />
+                            <span className="truncate">{sub.name}</span>
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             const Icon = item.icon;
-            const isActive = location.pathname.startsWith(item.path);
-            
             return (
               <NavLink
                 key={item.path}
@@ -444,7 +532,7 @@ export const Layout: React.FC = () => {
                 <Icon 
                   size={18} 
                   className={`shrink-0 transition-transform group-hover:scale-105 duration-150 ${
-                    isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'
+                    location.pathname.startsWith(item.path) ? 'text-white' : 'text-slate-400 group-hover:text-white'
                   }`} 
                 />
                 
@@ -490,7 +578,7 @@ export const Layout: React.FC = () => {
             <img
               src="https://i.postimg.cc/QxqWHtpg/avexas-logo-white.png"
               alt="Avexas CMMS"
-              className="h-7 w-auto object-contain"
+              className="h-10 w-auto object-contain"
             />
           </div>
           <button
@@ -505,13 +593,61 @@ export const Layout: React.FC = () => {
         {/* Links de Navegação Mobile */}
         <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
           {navigationItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname.startsWith(item.path);
+            if (item.type === 'accordion') {
+              const isMaintenanceActive = location.pathname.startsWith('/app/work-orders') ||
+                location.pathname.startsWith('/app/teams') ||
+                location.pathname.startsWith('/app/maintenance-plans');
 
+              return (
+                <div key="maintenance-group-mobile" className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsMaintenanceOpen(!isMaintenanceOpen)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-md text-sm font-medium transition-colors ${
+                      isMaintenanceActive ? 'text-white font-semibold' : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Wrench size={18} className="shrink-0" />
+                      <span className="truncate">Manutenção</span>
+                    </div>
+                    {isMaintenanceOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                  </button>
+
+                  {isMaintenanceOpen && (
+                    <div className="pl-6 border-l border-white/10 ml-4 space-y-1 my-1">
+                      {item.subItems.map((sub: any) => {
+                        const SubIcon = sub.icon;
+                        return (
+                          <NavLink
+                            key={sub.path}
+                            to={sub.path}
+                            onClick={() => setIsMobileOpen(false)}
+                            className={({ isActive }) =>
+                              `flex items-center gap-2.5 px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
+                                isActive
+                                  ? 'bg-[#0066FF] text-white font-semibold'
+                                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                              }`
+                            }
+                          >
+                            <SubIcon size={16} className="shrink-0" />
+                            <span className="truncate">{sub.name}</span>
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            const Icon = item.icon;
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
+                onClick={() => setIsMobileOpen(false)}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-colors ${
                     isActive

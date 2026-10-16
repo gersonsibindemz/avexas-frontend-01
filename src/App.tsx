@@ -10,6 +10,8 @@ import FuelPage from './pages/Fuel';
 import SuperAdminPage from './pages/SuperAdmin';
 import UsersPage from './pages/Users';
 import InventoryPage from './pages/Inventory';
+import TeamsPage from './pages/Teams';
+import MaintenancePlansPage from './pages/MaintenancePlans';
 import {
   Building2,
   Truck,
@@ -193,6 +195,8 @@ export default function App() {
             <Route path="dashboard" element={<DashboardGuard />} />
             <Route path="assets" element={<AssetsPage />} />
             <Route path="work-orders" element={<WorkOrdersPage />} />
+            <Route path="teams" element={<TeamsPage />} />
+            <Route path="maintenance-plans" element={<MaintenancePlansPage />} />
             <Route path="fuel" element={<FuelPage />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="users" element={<SuperAdminUsersGuard />} />

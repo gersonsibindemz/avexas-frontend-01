@@ -1805,7 +1805,7 @@ export const WorkOrdersPage: React.FC = () => {
           ========================================== */}
       {isFormModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 w-full max-w-lg rounded-md shadow-xl overflow-hidden animate-slide-up">
+          <div className="bg-white border border-slate-200 w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden animate-slide-up max-h-[90vh] flex flex-col">
             
             <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white">
               <div className="flex items-center gap-2">

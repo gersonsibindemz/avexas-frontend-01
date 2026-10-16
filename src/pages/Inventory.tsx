@@ -356,25 +356,11 @@ export const InventoryPage: React.FC = () => {
           </button>
           
           <button
-            onClick={() => {
-              if (parts.length === 0) {
-                alert('Adicione pelo menos uma peça ao inventário primeiro.');
-                return;
-              }
-              handleOpenStockModal(parts[0], 'input');
-            }}
-            className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <ArrowDownToLine size={15} />
-            <span>Entrada de Material</span>
-          </button>
-
-          <button
             onClick={handleOpenCreateModal}
             className="bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
           >
             <Plus size={16} />
-            <span>+ Nova Peça</span>
+            <span>Nova Peça</span>
           </button>
         </div>
       </div>
