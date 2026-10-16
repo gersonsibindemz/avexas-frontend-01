@@ -3109,7 +3109,6 @@ import QRCode from 'qrcode';
 import {
   Plus,
   Wrench,
-  Truck,
   AlertTriangle,
   CheckCircle2,
   Search,
@@ -4002,11 +4001,7 @@ export const AssetsPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
-            {domain === 'plant' ? (
-              <Wrench className="text-blue-700" size={24} />
-            ) : (
-              <Truck className="text-blue-700" size={24} />
-            )}
+            {domain === 'plant' && <Wrench className="text-blue-700" size={24} />}
             <span>{domain === 'plant' ? 'Equipamentos Fabris' : 'Frota'}</span>
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
