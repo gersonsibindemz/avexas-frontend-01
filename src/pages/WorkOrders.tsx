@@ -1399,13 +1399,6 @@ export const WorkOrdersPage: React.FC = () => {
           </div>
 
           <button
-            onClick={() => setIsNotificationModalOpen(true)}
-            className="bg-white border border-blue-600 text-blue-700 hover:bg-blue-50 px-3.5 py-2.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
-          >
-            <Wrench size={15} />
-            <span>Reportar Avaria (Notificação)</span>
-          </button>
-          <button
             onClick={fetchWorkOrders}
             disabled={loading}
             className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer disabled:opacity-50"

@@ -602,14 +602,16 @@ export const Layout: React.FC = () => {
             )}
 
             {/* Botão de Scan QR Code Global (Header) - EXCLUSIVO PARA MÓVEL */}
-            <button
-              onClick={() => setIsScannerOpen(true)}
-              className="md:hidden p-2 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-all border border-blue-200 cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
-              title="Escanear Equipamento (Código QR)"
-            >
-              <QrCode size={16} />
-              <span>Escanear</span>
-            </button>
+            {!isTenantAdmin && (
+              <button
+                onClick={() => setIsScannerOpen(true)}
+                className="md:hidden p-2 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-all border border-blue-200 cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+                title="Escanear Equipamento (Código QR)"
+              >
+                <QrCode size={16} />
+                <span>Escanear</span>
+              </button>
+            )}
 
             {/* Ícone de Notificações com Dropdown Popover */}
             <div className="relative" ref={notificationRef}>
@@ -777,13 +779,15 @@ export const Layout: React.FC = () => {
             </NavLink>
 
             {/* Botão Central de Scan Flutuante */}
-            <button
-              onClick={() => setIsScannerOpen(true)}
-              className="flex flex-col items-center justify-center -mt-6 bg-blue-700 hover:bg-blue-800 text-white w-14 h-14 rounded-full shadow-md active:scale-95 transition-all border-4 border-slate-50 shrink-0 cursor-pointer"
-              aria-label="Escanear QR Code de Campo"
-            >
-              <QrCode size={22} />
-            </button>
+            {!isTenantAdmin && (
+              <button
+                onClick={() => setIsScannerOpen(true)}
+                className="flex flex-col items-center justify-center -mt-6 bg-blue-700 hover:bg-blue-800 text-white w-14 h-14 rounded-full shadow-md active:scale-95 transition-all border-4 border-slate-50 shrink-0 cursor-pointer"
+                aria-label="Escanear QR Code de Campo"
+              >
+                <QrCode size={22} />
+              </button>
+            )}
 
             {/* Botão de Combustível condicional */}
             {(user.role === 'tenant_admin' || user.role === 'supervisor') && (
