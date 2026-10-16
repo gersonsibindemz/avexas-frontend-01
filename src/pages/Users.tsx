@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   Plus,
   Users as UsersIcon,
@@ -66,6 +67,9 @@ export const UsersPage: React.FC = () => {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingUser, setDeletingUser] = useState<TenantUser | null>(null);
+
+  useEscapeKey(() => setIsModalOpen(false), isModalOpen);
+  useEscapeKey(() => setIsDeleteModalOpen(false), isDeleteModalOpen);
 
   // Campos do Formulário
   const [modalTenantId, setModalTenantId] = useState<string>('');
@@ -351,11 +355,11 @@ export const UsersPage: React.FC = () => {
   const formatScopeName = (scope: string) => {
     switch (scope) {
       case 'fleet':
-        return 'Frota Rodoviária';
+        return 'Frota';
       case 'plant':
         return 'Instalação Fabril';
       default:
-        return 'Frota Rodoviária';
+        return 'Frota';
     }
   };
 
@@ -704,7 +708,7 @@ export const UsersPage: React.FC = () => {
                     onChange={(e) => setOperationalScope(e.target.value as any)}
                     className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
                   >
-                    <option value="fleet">Frota Rodoviária</option>
+                    <option value="fleet">Frota</option>
                     <option value="plant">Instalação Fabril</option>
                   </select>
                 </div>

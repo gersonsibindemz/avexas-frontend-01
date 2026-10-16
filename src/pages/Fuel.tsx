@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   Plus,
   AlertTriangle,
@@ -67,6 +68,7 @@ export const FuelPage: React.FC = () => {
 
   // Modais e Toasts
   const [isModalOpen, setIsModalOpen] = useState(false);
+  useEscapeKey(() => setIsModalOpen(false), isModalOpen);
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -190,8 +192,9 @@ export const FuelPage: React.FC = () => {
       setStationName('');
       setReceiptDocRef('');
 
-      // Recarrega os dados
+      // Recarrega os dados de histórico e lista de ativos com novo contador
       await fetchFuelLogs();
+      await fetchAssetsForDropdown();
 
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
@@ -472,171 +475,212 @@ export const FuelPage: React.FC = () => {
 
             <form onSubmit={handleRegisterFuel} className="p-6 space-y-4">
               
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="fuelAsset" className="block text-xs font-medium text-slate-700 mb-1">
-                    Ativo Abastecido *
-                  </label>
-                  <select
-                    id="fuelAsset"
-                    required
-                    value={selectedAssetId}
-                    onChange={(e) => setSelectedAssetId(e.target.value)}
-                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
-                  >
-                    {assets.length === 0 ? (
-                      <option value="">A carregar ativos...</option>
-                    ) : (
-                      assets.map((asset) => (
-                        <option key={asset.id} value={asset.id}>
-                          [{asset.code_tag || asset.codeTag}] {asset.name}
-                        </option>
-                      ))
+              {(() => {
+                const currentSelectedAsset = assets.find(a => a.id === selectedAssetId);
+                const tankCap = currentSelectedAsset?.fuel_tank_capacity_liters ?? currentSelectedAsset?.fuelTankCapacityLiters;
+                const lastMeter = currentSelectedAsset?.current_meter ?? currentSelectedAsset?.currentMeter;
+
+                const hasCapacityError = Boolean(tankCap && liters !== '' && Number(liters) > tankCap);
+                const hasMeterError = Boolean(lastMeter !== undefined && lastMeter !== null && currentMeter !== '' && Number(currentMeter) < lastMeter);
+
+                return (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="fuelAsset" className="block text-xs font-medium text-slate-700 mb-1">
+                          Ativo Abastecido *
+                        </label>
+                        <select
+                          id="fuelAsset"
+                          required
+                          value={selectedAssetId}
+                          onChange={(e) => setSelectedAssetId(e.target.value)}
+                          className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
+                        >
+                          {assets.length === 0 ? (
+                            <option value="">A carregar ativos...</option>
+                          ) : (
+                            assets.map((asset) => (
+                              <option key={asset.id} value={asset.id}>
+                                [{asset.code_tag || asset.codeTag}] {asset.name}
+                              </option>
+                            ))
+                          )}
+                        </select>
+
+                        {/* Limites da Viatura selecionada */}
+                        {currentSelectedAsset && (
+                          <div className="p-2 bg-slate-50 border border-slate-200 rounded mt-1.5 text-[11px] text-slate-600 font-mono space-y-0.5">
+                            <div>Capacidade do Tanque: <strong className="text-slate-800">{tankCap ?? 'N/A'} L</strong></div>
+                            <div>Último Contador Registado: <strong className="text-slate-800">{lastMeter ?? 0} km</strong></div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label htmlFor="fuelKindSelect" className="block text-xs font-medium text-slate-700 mb-1">
+                          Tipo de Combustível *
+                        </label>
+                        <select
+                          id="fuelKindSelect"
+                          value={fuelType}
+                          onChange={(e) => setFuelType(e.target.value as any)}
+                          className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
+                        >
+                          <option value="Diesel">Diesel (Gasóleo)</option>
+                          <option value="Gasolina">Gasolina</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Alertas em Vermelho */}
+                    {hasCapacityError && (
+                      <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded flex items-center gap-2">
+                        <AlertTriangle size={14} className="text-red-600 shrink-0" />
+                        <span>Aviso: O abastecimento excede a capacidade máxima do tanque ({tankCap} Litros).</span>
+                      </div>
                     )}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="fuelKindSelect" className="block text-xs font-medium text-slate-700 mb-1">
-                    Tipo de Combustível *
-                  </label>
-                  <select
-                    id="fuelKindSelect"
-                    value={fuelType}
-                    onChange={(e) => setFuelType(e.target.value as any)}
-                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Diesel">Diesel (Gasóleo)</option>
-                    <option value="Gasolina">Gasolina</option>
-                  </select>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="litersInput" className="block text-xs font-medium text-slate-700 mb-1">
-                    Litros Abastecidos *
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="litersInput"
-                      type="number"
-                      step="0.01"
-                      required
-                      min={0.1}
-                      value={liters}
-                      onChange={(e) => setLiters(e.target.value !== '' ? Number(e.target.value) : '')}
-                      placeholder="ex: 120,50"
-                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3.5 py-2 text-xs text-slate-900 font-mono focus:outline-none"
-                    />
-                    <span className="absolute right-3 top-2 text-[11px] font-bold text-slate-500">LITROS</span>
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="priceInput" className="block text-xs font-medium text-slate-700 mb-1">
-                    Preço por Litro (MZN) *
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="priceInput"
-                      type="number"
-                      step="0.01"
-                      required
-                      min={0.1}
-                      value={pricePerLiterMzn}
-                      onChange={(e) => setPricePerLiterMzn(e.target.value !== '' ? Number(e.target.value) : '')}
-                      placeholder="ex: 75,00"
-                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3.5 py-2 text-xs text-slate-900 font-mono focus:outline-none"
-                    />
-                    <span className="absolute right-3 top-2 text-[11px] font-bold text-slate-500">MZN</span>
-                  </div>
-                </div>
-              </div>
+                    {hasMeterError && (
+                      <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded flex items-center gap-2">
+                        <AlertTriangle size={14} className="text-red-600 shrink-0" />
+                        <span>Aviso: A quilometragem informada não pode ser inferior ao odómetro atual ({lastMeter} km).</span>
+                      </div>
+                    )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="meterInput" className="block text-xs font-medium text-slate-700 mb-1">
-                    Odómetro Atual (km) *
-                  </label>
-                  <input
-                    id="meterInput"
-                    type="number"
-                    required
-                    min={0}
-                    value={currentMeter}
-                    onChange={(e) => setCurrentMeter(e.target.value !== '' ? Number(e.target.value) : '')}
-                    placeholder="ex: 142500"
-                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="station" className="block text-xs font-medium text-slate-700 mb-1">
-                    Posto de Abastecimento *
-                  </label>
-                  <input
-                    id="station"
-                    type="text"
-                    required
-                    value={stationName}
-                    onChange={(e) => setStationName(e.target.value)}
-                    placeholder="ex: Petromoc Maputo"
-                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
-                  />
-                </div>
-              </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="litersInput" className="block text-xs font-medium text-slate-700 mb-1">
+                          Litros Abastecidos *
+                        </label>
+                        <div className="relative">
+                          <input
+                            id="litersInput"
+                            type="number"
+                            step="0.01"
+                            required
+                            min={0.1}
+                            value={liters}
+                            onChange={(e) => setLiters(e.target.value !== '' ? Number(e.target.value) : '')}
+                            placeholder="ex: 120,50"
+                            className={`w-full bg-white border rounded-md px-3.5 py-2 text-xs text-slate-900 font-mono focus:outline-none ${
+                              hasCapacityError ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600'
+                            }`}
+                          />
+                          <span className="absolute right-3 top-2 text-[11px] font-bold text-slate-500">LITROS</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label htmlFor="priceInput" className="block text-xs font-medium text-slate-700 mb-1">
+                          Preço por Litro (MZN) *
+                        </label>
+                        <div className="relative">
+                          <input
+                            id="priceInput"
+                            type="number"
+                            step="0.01"
+                            required
+                            min={0.1}
+                            value={pricePerLiterMzn}
+                            onChange={(e) => setPricePerLiterMzn(e.target.value !== '' ? Number(e.target.value) : '')}
+                            placeholder="ex: 75,00"
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3.5 py-2 text-xs text-slate-900 font-mono focus:outline-none"
+                          />
+                          <span className="absolute right-3 top-2 text-[11px] font-bold text-slate-500">MZN</span>
+                        </div>
+                      </div>
+                    </div>
 
-              <div>
-                <label htmlFor="receipt" className="block text-xs font-medium text-slate-700 mb-1">
-                  Referência do Recibo / Fatura *
-                </label>
-                <input
-                  id="receipt"
-                  type="text"
-                  required
-                  value={receiptDocRef}
-                  onChange={(e) => setReceiptDocRef(e.target.value)}
-                  placeholder="ex: FAT-2026/8942"
-                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none"
-                />
-              </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="meterInput" className="block text-xs font-medium text-slate-700 mb-1">
+                          Odómetro Atual (km) *
+                        </label>
+                        <input
+                          id="meterInput"
+                          type="number"
+                          required
+                          min={0}
+                          value={currentMeter}
+                          onChange={(e) => setCurrentMeter(e.target.value !== '' ? Number(e.target.value) : '')}
+                          placeholder="ex: 142500"
+                          className={`w-full bg-white border rounded-md px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none ${
+                            hasMeterError ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600'
+                          }`}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="station" className="block text-xs font-medium text-slate-700 mb-1">
+                          Posto de Abastecimento *
+                        </label>
+                        <input
+                          id="station"
+                          type="text"
+                          required
+                          value={stationName}
+                          onChange={(e) => setStationName(e.target.value)}
+                          placeholder="ex: Petromoc Maputo"
+                          className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
+                        />
+                      </div>
+                    </div>
 
-              {/* Pré-visualização do Custo Estimado */}
-              {liters && pricePerLiterMzn && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center justify-between text-xs">
-                  <span className="font-medium text-blue-700 flex items-center gap-1">
-                    <DollarSign size={14} />
-                    Custo Total Calculado:
-                  </span>
-                  <span className="font-mono font-bold text-slate-900 text-sm">
-                    {formatMZN(Number(liters) * Number(pricePerLiterMzn))}
-                  </span>
-                </div>
-              )}
+                    <div>
+                      <label htmlFor="receipt" className="block text-xs font-medium text-slate-700 mb-1">
+                        Referência do Recibo / Fatura *
+                      </label>
+                      <input
+                        id="receipt"
+                        type="text"
+                        required
+                        value={receiptDocRef}
+                        onChange={(e) => setReceiptDocRef(e.target.value)}
+                        placeholder="ex: FAT-2026/8942"
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none"
+                      />
+                    </div>
 
-              {/* Botões */}
-              <div className="flex justify-end gap-3 border-t border-slate-200 pt-4 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  disabled={submitting}
-                  className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md text-xs font-medium transition-colors cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>A guardar...</span>
-                    </>
-                  ) : (
-                    <span>Guardar Abastecimento</span>
-                  )}
-                </button>
-              </div>
+                    {/* Pré-visualização do Custo Estimado */}
+                    {liters && pricePerLiterMzn && !hasCapacityError && (
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center justify-between text-xs">
+                        <span className="font-medium text-blue-700 flex items-center gap-1">
+                          <DollarSign size={14} />
+                          Custo Total Calculado:
+                        </span>
+                        <span className="font-mono font-bold text-slate-900 text-sm">
+                          {formatMZN(Number(liters) * Number(pricePerLiterMzn))}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Botões */}
+                    <div className="flex justify-end gap-3 border-t border-slate-200 pt-4 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsModalOpen(false)}
+                        disabled={submitting}
+                        className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md text-xs font-medium transition-colors cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submitting || hasCapacityError || hasMeterError}
+                        className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {submitting ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            <span>A guardar...</span>
+                          </>
+                        ) : (
+                          <span>Guardar Abastecimento</span>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
             </form>
           </div>
         </div>

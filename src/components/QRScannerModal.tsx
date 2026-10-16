@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { api } from '../services/api';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   X,
   QrCode,
@@ -73,6 +74,7 @@ interface Document {
 }
 
 export const QRScannerModal: React.FC<QRScannerModalProps> = ({ isOpen, onClose }) => {
+  useEscapeKey(onClose, isOpen);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [loadingAsset, setLoadingAsset] = useState(false);
   const [activeAsset, setActiveAsset] = useState<Asset | null>(null);

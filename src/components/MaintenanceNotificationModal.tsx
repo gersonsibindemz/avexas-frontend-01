@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { BrandLogo } from './BrandLogo';
 import {
   Wrench,
@@ -39,6 +40,7 @@ export const MaintenanceNotificationModal: React.FC<MaintenanceNotificationModal
   onSuccess,
   initialData
 }) => {
+  useEscapeKey(onClose, isOpen);
   const { user } = useAuth();
   const domainConfig = useCurrentDomain();
   const isPlant = domainConfig.domain === 'plant';
@@ -349,7 +351,7 @@ export const MaintenanceNotificationModal: React.FC<MaintenanceNotificationModal
             <div className="bg-[#0B132B] px-4 py-2.5 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-between">
               <span>{isPlant ? 'DADOS DO EQUIPAMENTO / PROCESSO' : 'DADOS DO VEÍCULO / EQUIPAMENTO'}</span>
               <span className="text-[10px] text-slate-300 font-mono">
-                {isPlant ? 'ÂMBITO FABRIL' : 'FROTA RODOVIÁRIA'}
+                {isPlant ? 'ÂMBITO FABRIL' : 'FROTA'}
               </span>
             </div>
 

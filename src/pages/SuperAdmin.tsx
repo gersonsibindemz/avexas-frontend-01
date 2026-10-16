@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   Plus,
   Building2,
@@ -55,6 +56,9 @@ export const SuperAdminPage: React.FC = () => {
   // Modal de Exclusão/Arquivamento
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingTenant, setDeletingTenant] = useState<Tenant | null>(null);
+
+  useEscapeKey(() => setIsModalOpen(false), isModalOpen);
+  useEscapeKey(() => setIsDeleteModalOpen(false), isDeleteModalOpen);
 
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -615,7 +619,7 @@ export const SuperAdminPage: React.FC = () => {
                       onChange={(e) => setOperationalScope(e.target.value as 'fleet' | 'plant' | 'mixed')}
                       className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
                     >
-                      <option value="fleet">Frota Rodoviária (Transportes/Logística)</option>
+                      <option value="fleet">Frota (Transportes/Logística)</option>
                       <option value="plant">Instalação Fabril (Indústria/Maquinaria)</option>
                       <option value="mixed">Operação Mista (Frota + Fábrica)</option>
                     </select>

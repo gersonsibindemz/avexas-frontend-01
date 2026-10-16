@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 
 import { MaintenanceNotificationModal } from '../components/MaintenanceNotificationModal';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 const formatMZN = (val: number) => {
   const formatted = (val || 0).toLocaleString('pt-MZ', {
@@ -35,62 +36,75 @@ export const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  useEscapeKey(() => setIsNotificationModalOpen(false), isNotificationModalOpen);
 
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/dashboard/stats');
-      const data = response.data?.stats || response.data?.data || response.data;
-      setStats(data);
-    } catch (err: any) {
-      console.error('Erro ao carregar estatísticas do dashboard:', err);
-      // Recorre a dados reais das rotas individuais se /dashboard/stats não retornar dados
+      let data: any = null;
       try {
-        const [assetsRes, woRes, partsRes] = await Promise.allSettled([
+        const res = await api.get('/dashboard');
+        data = res.data?.stats || res.data?.data || res.data;
+      } catch {
+        const res = await api.get('/dashboard/stats');
+        data = res.data?.stats || res.data?.data || res.data;
+      }
+
+      if (data && (data.assets || data.total_assets)) {
+        setStats(data);
+      } else {
+        throw new Error('Endpoint indisponível, recorrendo ao fallback de agregação.');
+      }
+    } catch {
+      try {
+        const [assetsRes, woRes, fuelRes, partsRes] = await Promise.allSettled([
           api.get('/assets'),
           api.get('/work-orders'),
+          api.get('/fuel'),
           api.get('/parts')
         ]);
 
         const assetsList = assetsRes.status === 'fulfilled' ? (Array.isArray(assetsRes.value.data) ? assetsRes.value.data : assetsRes.value.data?.assets || []) : [];
         const woList = woRes.status === 'fulfilled' ? (Array.isArray(woRes.value.data) ? woRes.value.data : woRes.value.data?.workOrders || []) : [];
+        const fuelList = fuelRes.status === 'fulfilled' ? (Array.isArray(fuelRes.value.data) ? fuelRes.value.data : fuelRes.value.data?.fuelLogs || []) : [];
         const partsList = partsRes.status === 'fulfilled' ? (Array.isArray(partsRes.value.data) ? partsRes.value.data : partsRes.value.data?.parts || []) : [];
 
         const totalAssets = assetsList.length;
         const opAssets = assetsList.filter((a: any) => a.status === 'operational').length;
+        const maintAssets = assetsList.filter((a: any) => a.status === 'maintenance' || a.status === 'breakdown').length;
+
         const pendingWo = woList.filter((w: any) => w.status === 'open' || w.status === 'pending').length;
-        const inProgWo = woList.filter((w: any) => w.status === 'in_progress').length;
-        const monthCost = woList.reduce((acc: number, w: any) => acc + Number(w.total_cost_mzn || w.totalCostMzn || 0), 0);
+        const inProgWo = woList.filter((w: any) => w.status === 'in_progress' || w.status === 'waiting_parts' || w.status === 'paused').length;
+
+        const maintMonthCost = woList.reduce((acc: number, w: any) => acc + Number(w.total_cost_mzn || w.totalCostMzn || 0), 0);
+        const fuelMonthCost = fuelList.reduce((acc: number, f: any) => acc + Number(f.total_cost_mzn || f.totalCostMzn || 0), 0);
+        const totalOpCost = maintMonthCost + fuelMonthCost;
+
         const downtime = woList.reduce((acc: number, w: any) => acc + Number(w.downtime_hours || w.downtimeHours || 0), 0);
         const lowStock = partsList.filter((p: any) => (p.current_stock ?? p.currentStock ?? 0) <= (p.min_stock ?? p.minStock ?? 5)).length;
 
         setStats({
           assets: {
-            total: totalAssets || 12,
-            operational: opAssets || 11,
+            total: totalAssets,
+            operational: opAssets,
+            maintenance: maintAssets
           },
           workOrders: {
             pending: pendingWo,
             in_progress: inProgWo,
-            total_month_cost_mzn: monthCost,
+            total_month_cost_mzn: totalOpCost,
             total_downtime_hours: downtime
           },
           inventory: {
             lowStockCount: lowStock
           },
           compliance: {
-            expiringCount: 2
+            expiringCount: 0
           },
           recentWorkOrders: woList.slice(0, 5)
         });
-      } catch {
-        setStats({
-          assets: { total: 0, operational: 0 },
-          workOrders: { pending: 0, in_progress: 0, total_month_cost_mzn: 0, total_downtime_hours: 0 },
-          inventory: { lowStockCount: 0 },
-          compliance: { expiringCount: 0 },
-          recentWorkOrders: []
-        });
+      } catch (err) {
+        console.error('Erro ao calcular estatísticas locais:', err);
       }
     } finally {
       setLoading(false);
@@ -156,7 +170,7 @@ export const DashboardPage: React.FC = () => {
             Visão Geral Operacional
           </h1>
           <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-            {isPlant ? 'Monitorização do Chão de Fábrica e Equipamentos Industriais' : 'Monitorização de Frota Rodoviária e Manutenção de Viaturas'}
+            {isPlant ? 'Monitorização do Chão de Fábrica e Equipamentos Industriais' : 'Monitorização de Frota e Manutenção de Viaturas'}
           </p>
         </div>
 
@@ -299,145 +313,82 @@ export const DashboardPage: React.FC = () => {
 
       </div>
 
-      {/* SECÇÃO CENTRAL - GRID DE 2 COLUNAS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* COLUNA ESQUERDA: ORDENS CRÍTICAS & INTERVENÇÕES RECENTES (2 Colunas) */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-md p-5 shadow-none space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Ordens Críticas & Intervenções Recentes</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Últimas tarefas operacionais registadas nas frotas e equipamentos</p>
-            </div>
-            <Link
-              to="/app/work-orders"
-              className="text-xs text-[#0066FF] hover:underline font-semibold flex items-center gap-1"
-            >
-              Ver Todas <ArrowRight size={13} />
-            </Link>
+      {/* SECÇÃO CENTRAL - ORDENS CRÍTICAS & INTERVENÇÕES RECENTES */}
+      <div className="bg-white border border-slate-200 rounded-md p-5 shadow-none space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">Ordens Críticas & Intervenções Recentes</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Últimas tarefas operacionais registadas nas frotas e equipamentos</p>
           </div>
-
-          {loading ? (
-            <div className="py-8 text-center text-xs text-slate-500">
-              <RefreshCw className="animate-spin text-[#0066FF] mx-auto mb-2" size={20} />
-              A carregar intervenções recentes...
-            </div>
-          ) : recentOrders.length === 0 ? (
-            <div className="py-8 text-center text-slate-500">
-              <CheckCircle2 size={32} className="mx-auto text-emerald-500 mb-2" />
-              <p className="text-xs font-semibold text-slate-800">Sem ordens críticas pendentes</p>
-              <p className="text-xs text-slate-400 mt-0.5">Todas as intervenções recentes foram concluídas com sucesso.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                    <th className="py-2.5 px-3">Código</th>
-                    <th className="py-2.5 px-3">Ativo</th>
-                    <th className="py-2.5 px-3">Prioridade</th>
-                    <th className="py-2.5 px-3">Técnico Encarregue</th>
-                    <th className="py-2.5 px-3 text-right">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
-                  {recentOrders.map((order: any) => {
-                    const statusInfo = getStatusBadge(order.status);
-                    const techName = order.assigned_technician_name || order.technician_name || order.technician?.name || 'Pendente de Atribuição';
-                    const assetName = order.asset_name || order.asset?.name || order.asset?.code_tag || 'Ativo Operacional';
-
-                    return (
-                      <tr
-                        key={order.id}
-                        onClick={() => navigate('/app/work-orders')}
-                        className="hover:bg-slate-50 cursor-pointer transition-colors"
-                      >
-                        <td className="py-3 px-3 font-mono font-semibold text-slate-900">
-                          {order.wo_number || order.woNumber || order.id.substring(0, 8)}
-                        </td>
-                        <td className="py-3 px-3 font-medium text-slate-800 max-w-[150px] truncate">
-                          {assetName}
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${getPriorityBadge(order.priority)}`}>
-                            {order.priority || 'média'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 text-slate-600 truncate max-w-[140px]">
-                          {techName}
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${statusInfo.color}`}>
-                            {statusInfo.label}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <Link
+            to="/app/work-orders"
+            className="text-xs text-[#0066FF] hover:underline font-semibold flex items-center gap-1"
+          >
+            Ver Todas <ArrowRight size={13} />
+          </Link>
         </div>
 
-        {/* COLUNA DIREITA: ACESSO RÁPIDO & COCKPIT DE CAMPO (1 Coluna) */}
-        <div className="bg-white border border-slate-200 rounded-md p-5 shadow-none space-y-4">
-          <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-bold text-slate-900">Acesso Rápido & Cockpit</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Atalhos diretos para operações frequentes de campo</p>
+        {loading ? (
+          <div className="py-8 text-center text-xs text-slate-500">
+            <RefreshCw className="animate-spin text-[#0066FF] mx-auto mb-2" size={20} />
+            A carregar intervenções recentes do servidor...
           </div>
-
-          <div className="space-y-2.5">
-            <button
-              onClick={() => navigate('/app/work-orders')}
-              className="w-full bg-[#0066FF] hover:bg-[#0052CC] text-white font-medium p-3 rounded-md transition-colors text-xs flex items-center justify-between group shadow-none cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <Plus size={16} />
-                <span className="font-semibold">+ Nova Ordem de Serviço</span>
-              </div>
-              <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-            </button>
-
-            <button
-              onClick={() => navigate('/app/assets')}
-              className="w-full bg-white hover:bg-slate-50 text-slate-800 font-medium p-3 rounded-md border border-slate-300 transition-colors text-xs flex items-center justify-between group cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <Wrench size={16} className="text-slate-500" />
-                <span className="font-semibold">+ Cadastrar Ativo</span>
-              </div>
-              <ArrowRight size={14} className="text-slate-400 transition-transform group-hover:translate-x-1" />
-            </button>
-
-            <button
-              onClick={() => navigate('/app/assets')}
-              className="w-full bg-white hover:bg-slate-50 text-slate-800 font-medium p-3 rounded-md border border-slate-300 transition-colors text-xs flex items-center justify-between group cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <QrCode size={16} className="text-slate-500" />
-                <span className="font-semibold">Escanear QR Code de Campo</span>
-              </div>
-              <ArrowRight size={14} className="text-slate-400 transition-transform group-hover:translate-x-1" />
-            </button>
-
-            <button
-              onClick={() => navigate('/app/inventory')}
-              className="w-full bg-white hover:bg-slate-50 text-slate-800 font-medium p-3 rounded-md border border-slate-300 transition-colors text-xs flex items-center justify-between group cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <Layers size={16} className="text-slate-500" />
-                <span className="font-semibold">Consultar Inventário</span>
-              </div>
-              <ArrowRight size={14} className="text-slate-400 transition-transform group-hover:translate-x-1" />
-            </button>
+        ) : recentOrders.length === 0 ? (
+          <div className="py-8 text-center text-slate-500">
+            <CheckCircle2 size={32} className="mx-auto text-emerald-500 mb-2" />
+            <p className="text-xs font-semibold text-slate-800">Sem ordens críticas pendentes</p>
+            <p className="text-xs text-slate-400 mt-0.5">Todas as intervenções recentes foram concluídas com sucesso.</p>
           </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                  <th className="py-2.5 px-3">Código</th>
+                  <th className="py-2.5 px-3">Ativo</th>
+                  <th className="py-2.5 px-3">Prioridade</th>
+                  <th className="py-2.5 px-3">Técnico Encarregue</th>
+                  <th className="py-2.5 px-3 text-right">Estado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs">
+                {recentOrders.map((order: any) => {
+                  const statusInfo = getStatusBadge(order.status);
+                  const techName = order.assigned_technician_name || order.technician_name || order.technician?.name || 'Pendente de Atribuição';
+                  const assetName = order.asset_name || order.asset?.name || order.asset?.code_tag || 'Ativo Operacional';
 
-          <div className="p-3 bg-blue-50 border border-blue-100 rounded-md text-[11px] text-blue-900 leading-relaxed mt-4">
-            <span className="font-bold block mb-0.5">Dica Operacional:</span>
-            Aceda rapidamente aos detalhes de viaturas e equipamentos escaneando as etiquetas QR Code afixadas nos ativos.
+                  return (
+                    <tr
+                      key={order.id}
+                      onClick={() => navigate('/app/work-orders')}
+                      className="hover:bg-slate-50 cursor-pointer transition-colors"
+                    >
+                      <td className="py-3 px-3 font-mono font-semibold text-slate-900">
+                        {order.wo_number || order.woNumber || order.id.substring(0, 8)}
+                      </td>
+                      <td className="py-3 px-3 font-medium text-slate-800 max-w-[200px] truncate">
+                        {assetName}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${getPriorityBadge(order.priority)}`}>
+                          {order.priority || 'média'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-slate-600 truncate max-w-[180px]">
+                        {techName}
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${statusInfo.color}`}>
+                          {statusInfo.label}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        </div>
+        )}
       </div>
 
       {/* MODAL DE NOTIFICAÇÃO DE MANUTENÇÃO */}

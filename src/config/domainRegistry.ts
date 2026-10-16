@@ -34,7 +34,7 @@ export const COMMON_TECHNICIAN_SPECIALTIES: CategoryOption[] = [
 export const DOMAIN_REGISTRY: Record<'fleet' | 'plant', DomainConfig> = {
   fleet: {
     domain: 'fleet',
-    domainLabel: 'Frota Rodoviária',
+    domainLabel: 'Frota',
     assetNameSingular: 'Viatura / Ativo',
     assetNamePlural: 'Ativos e Frotas',
     counterLabel: 'Quilometragem (KM)',

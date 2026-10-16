@@ -6,6 +6,7 @@ import { QRScannerModal } from './QRScannerModal';
 import { BrandLogo } from './BrandLogo';
 import { usePreventRefresh } from '../hooks/usePreventRefresh';
 import { useVersionCheck } from '../hooks/useVersionCheck';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   LayoutDashboard,
   Building2,
@@ -26,7 +27,8 @@ import {
   QrCode,
   Users,
   Layers,
-  AlertTriangle
+  AlertTriangle,
+  ArrowLeft
 } from 'lucide-react';
 
 interface NotificationItem {
@@ -89,6 +91,7 @@ export const Layout: React.FC = () => {
   
   // Estado para controlar a visibilidade do modal de confirmação de logout
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  useEscapeKey(() => setShowLogoutConfirm(false), showLogoutConfirm);
 
   // Estado para controlar se a sidebar está retraída no desktop
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -107,18 +110,6 @@ export const Layout: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
   const notificationRef = useRef<HTMLDivElement>(null);
-
-  // Estado para Toast flutuante de notificação em tempo real
-  const [activeToast, setActiveToast] = useState<NotificationItem | null>(null);
-
-  // Temporizador de 6 segundos para fechar automaticamente o Toast
-  useEffect(() => {
-    if (!activeToast) return;
-    const timer = setTimeout(() => {
-      setActiveToast(null);
-    }, 6000);
-    return () => clearTimeout(timer);
-  }, [activeToast]);
 
   // Verificação de conformidade ao entrar (para tenant_admin ou supervisor)
   useEffect(() => {
@@ -159,64 +150,11 @@ export const Layout: React.FC = () => {
     }
   };
 
-  // Conexão SSE persistente em tempo real
+  // Notificações estáticas - atualiza apenas ao montar o componente
   useEffect(() => {
-    if (!user) return;
-
-    fetchNotifications();
-
-    let eventSource: EventSource | null = null;
-    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
-
-    const connectSSE = () => {
-      const token = sessionStorage.getItem('cmms_auth_token') || '';
-      const baseURL = api.defaults.baseURL || 'https://cmms-backend-api.onrender.com/api';
-      const sseUrl = `${baseURL}/notifications/stream?token=${encodeURIComponent(token)}`;
-
-      try {
-        eventSource = new EventSource(sseUrl, { withCredentials: true });
-
-        eventSource.onmessage = (event) => {
-          try {
-            const parsed = JSON.parse(event.data);
-            if (parsed.type === 'CONNECTED') {
-              console.log('SSE Notificações Conectado');
-            } else if (parsed.type === 'NOTIFICATION' && parsed.notification) {
-              const newNotif: NotificationItem = parsed.notification;
-              setNotifications(prev => [newNotif, ...prev.slice(0, 24)]);
-              setUnreadCount(prev => prev + 1);
-              setActiveToast(newNotif);
-            }
-          } catch (e) {
-            console.warn('Erro ao processar mensagem SSE:', e);
-          }
-        };
-
-        eventSource.onerror = () => {
-          console.warn('Erro na conexão SSE de Notificações, reconectando em 5s...');
-          if (eventSource) {
-            eventSource.close();
-            eventSource = null;
-          }
-          reconnectTimeout = setTimeout(() => {
-            connectSSE();
-          }, 5000);
-        };
-      } catch (err) {
-        console.warn('Erro ao inicializar EventSource:', err);
-      }
-    };
-
-    connectSSE();
-
-    return () => {
-      if (eventSource) {
-        eventSource.close();
-      }
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
-    };
+    if (user) {
+      fetchNotifications();
+    }
   }, [user]);
 
   // Fechar dropdown de notificações ao clicar fora
@@ -431,42 +369,7 @@ export const Layout: React.FC = () => {
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans antialiased selection:bg-blue-100 selection:text-blue-900">
       
-      {/* TOAST FLUTUANTE DE NOTIFICAÇÃO EM TEMPO REAL */}
-      {activeToast && (
-        <div className="fixed top-5 right-5 z-50 max-w-sm w-full bg-white border border-blue-200 rounded-xl shadow-xl p-4 flex gap-3.5 items-start animate-slide-in">
-          <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 border border-blue-100">
-            <Bell size={18} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold text-slate-900 truncate">
-                {activeToast.title || activeToast.titulo || 'Nova Notificação'}
-              </h4>
-              <button 
-                onClick={() => setActiveToast(null)} 
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
-                aria-label="Fechar notificação"
-              >
-                <X size={14} />
-              </button>
-            </div>
-            <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed">
-              {activeToast.message || activeToast.mensagem}
-            </p>
-            {(activeToast.link || activeToast.targetUrl || activeToast.target_url || activeToast.url) && (
-              <button 
-                onClick={() => { 
-                  handleMarkAsRead(activeToast); 
-                  setActiveToast(null); 
-                }}
-                className="mt-2 text-xs font-bold text-blue-700 hover:text-blue-800 cursor-pointer"
-              >
-                Ver detalhes →
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+
 
       {/* SIDEBAR PARA DESKTOP */}
       <aside 
@@ -658,7 +561,7 @@ export const Layout: React.FC = () => {
         {/* TOP BAR / CABEÇALHO */}
         <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-4 md:px-6 shrink-0 z-10">
           
-          {/* Lado esquerdo: hambúrguer mobile + Breadcrumbs */}
+          {/* Lado esquerdo: hambúrguer mobile */}
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsMobileOpen(true)}
@@ -667,19 +570,6 @@ export const Layout: React.FC = () => {
             >
               <Menu size={20} />
             </button>
-
-            {/* Breadcrumb / Título do Contexto */}
-            <div className="flex items-center gap-2 text-xs md:text-sm">
-              <span className="text-slate-400 font-medium">CMMS</span>
-              <span className="text-slate-300">/</span>
-              <span className="text-slate-600 font-semibold truncate max-w-[150px] md:max-w-xs">
-                {user.tenantName || 'Avexas Global'}
-              </span>
-              <span className="text-slate-300">/</span>
-              <span className="text-slate-900 font-semibold tracking-wide">
-                {getActivePageName()}
-              </span>
-            </div>
           </div>
 
           {/* Lado direito: Notificações, Perfil, Info de Localização Moçambique */}
@@ -820,7 +710,7 @@ export const Layout: React.FC = () => {
             {/* Separador vertical */}
             <span className="w-px h-6 bg-slate-200 hidden md:inline"></span>
 
-            {/* Perfil e Configurações */}
+            {/* Perfil */}
             <div className="flex items-center gap-2">
               <NavLink 
                 to="/app/profile"
@@ -835,25 +725,25 @@ export const Layout: React.FC = () => {
               >
                 <User size={18} />
               </NavLink>
-              <NavLink 
-                to="/app/settings"
-                className={({ isActive }) => 
-                  `p-2 rounded-md transition-all border shrink-0 ${
-                    isActive 
-                      ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                      : 'text-slate-500 hover:text-slate-800 border-transparent hover:bg-slate-100 hover:border-slate-200'
-                  }`
-                }
-                title="Configurações"
-              >
-                <Settings size={18} />
-              </NavLink>
             </div>
           </div>
         </header>
 
         {/* ÁREA DE OUTLET COM ROLAGEM INDEPENDENTE */}
         <main className="flex-1 overflow-y-auto bg-slate-50 relative">
+          {/* Botão de Regressar */}
+          {location.pathname !== '/app/dashboard' && location.pathname !== '/super-admin' && location.pathname !== '/app/super-admin' && (
+            <div className="px-4 md:px-8 pt-4 flex items-center justify-between">
+              <button
+                onClick={() => navigate(-1)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-md transition-colors cursor-pointer shadow-xs"
+                title="Voltar à página anterior"
+              >
+                <ArrowLeft size={14} className="text-slate-500" />
+                <span>Voltar</span>
+              </button>
+            </div>
+          )}
           <div className="min-h-full p-4 md:p-8 max-w-7xl mx-auto w-full pb-20 md:pb-8">
             <Outlet />
           </div>

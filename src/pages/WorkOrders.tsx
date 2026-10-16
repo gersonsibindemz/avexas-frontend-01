@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import QRCode from 'qrcode';
 import {
   Plus,
@@ -242,7 +243,7 @@ export const WorkOrdersPage: React.FC = () => {
   const [printOrder, setPrintOrder] = useState<WorkOrder | null>(null);
   const [printQrDataUrl, setPrintQrDataUrl] = useState('');
 
-  const openPrintModal = async (order: WorkOrder) => {
+  const openPrintModal = async (order: WorkOrder, autoPrint: boolean = false) => {
     setPrintOrder(order);
     try {
       const tagOrNumber = order.wo_number || order.woNumber || order.id;
@@ -252,11 +253,27 @@ export const WorkOrdersPage: React.FC = () => {
       console.error('Erro ao gerar QR code:', err);
     }
     setIsPrintModalOpen(true);
+    if (autoPrint) {
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    }
   };
 
   // Modal de Cancelamento de OS
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+
+  // Ativação da tecla ESC em todos os modais
+  useEscapeKey(() => setIsFormModalOpen(false), isFormModalOpen);
+  useEscapeKey(() => setIsPrintModalOpen(false), isPrintModalOpen);
+  useEscapeKey(() => setIsCancelModalOpen(false), isCancelModalOpen);
+  useEscapeKey(() => setIsPauseModalOpen(false), isPauseModalOpen);
+  useEscapeKey(() => setIsCloseModalOpen(false), isCloseModalOpen);
+  useEscapeKey(() => setIsTechModalOpen(false), isTechModalOpen);
+  useEscapeKey(() => setIsAddPartModalOpen(false), isAddPartModalOpen);
+  useEscapeKey(() => setIsNotificationModalOpen(false), isNotificationModalOpen);
+  useEscapeKey(() => { setIsDrawerOpen(false); setSelectedDrawerOrder(null); }, isDrawerOpen);
   const [submittingCancel, setSubmittingCancel] = useState(false);
 
   // Submeter Cancelamento de OS
@@ -888,7 +905,8 @@ export const WorkOrdersPage: React.FC = () => {
         setSuccessMessage('Nova Ordem de Serviço aberta com sucesso!');
         setIsFormModalOpen(false);
         await fetchWorkOrders();
-        openPrintModal(createdWO);
+        await fetchMaintenanceRequests();
+        openPrintModal(createdWO, true);
       } else {
         await api.put(`/work-orders/${editingOrderId}`, payload);
         setSuccessMessage('Ordem de Serviço atualizada com sucesso!');
@@ -1267,6 +1285,18 @@ export const WorkOrdersPage: React.FC = () => {
     return matchesSearch && matchesPriority && matchesQuickTab && matchesStatus;
   });
 
+  // Filtro para Solicitações Pendentes (Notificações de Manutenção)
+  const filteredMaintenanceRequests = maintenanceRequests.filter((req) => {
+    const q = searchQuery.toLowerCase();
+    if (!q) return true;
+    const reqName = (req.requester_name || req.requesterName || '').toLowerCase();
+    const assetStr = (req.asset_name || req.asset_code_tag || '').toLowerCase();
+    const desc = (req.description || '').toLowerCase();
+    const loc = (req.location || '').toLowerCase();
+    const notifNum = (req.notification_number || req.id || '').toLowerCase();
+    return reqName.includes(q) || assetStr.includes(q) || desc.includes(q) || loc.includes(q) || notifNum.includes(q);
+  });
+
   return (
     <div className="space-y-6">
       
@@ -1508,8 +1538,99 @@ export const WorkOrdersPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Grid de Ordens de Serviço (Tabelas/Cartões Reais) */}
-      {loading ? (
+      {/* Grid de Ordens de Serviço ou Lista de Solicitações Pendentes (Triagem) */}
+      {quickTab === 'maintenance_requests' ? (
+        loadingRequests ? (
+          <div className="p-12 text-center bg-white border border-slate-200 rounded-md">
+            <Loader2 className="animate-spin text-blue-700 mx-auto" size={32} />
+            <p className="text-xs text-slate-500 mt-3 font-medium">A carregar solicitações de manutenção de campo...</p>
+          </div>
+        ) : filteredMaintenanceRequests.length === 0 ? (
+          <div className="bg-white border border-slate-200 rounded-md text-center py-20 px-4">
+            <Wrench size={36} className="text-slate-300 mx-auto mb-4" />
+            <h3 className="text-slate-700 font-bold text-sm">Nenhuma Solicitação de Manutenção Pendente</h3>
+            <p className="text-slate-500 text-xs mt-1">Todas as notificações de avaria já foram triadas ou convertidas em Ordem de Serviço.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+              Solicitações de Manutenção para Triagem ({filteredMaintenanceRequests.length})
+            </span>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredMaintenanceRequests.map((req) => {
+                const matchedAsset = assets.find(a => a.id === req.asset_id || a.id === req.assetId);
+                const assetName = matchedAsset 
+                  ? `[${matchedAsset.code_tag || matchedAsset.codeTag}] ${matchedAsset.name}` 
+                  : (req.asset_name || req.asset_code_tag || 'Equipamento/Veículo');
+
+                return (
+                  <div
+                    key={req.id || req.notification_number}
+                    className="bg-white border border-slate-200 hover:border-slate-300 rounded-md p-4 space-y-3.5 shadow-none flex flex-col justify-between"
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                        <span className="font-mono font-bold text-[10px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                          {req.notification_number || (req.id ? req.id.substring(0, 8) : 'NOTIF')}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          req.status === 'draft' 
+                            ? 'bg-slate-100 text-slate-700 border border-slate-200' 
+                            : 'bg-amber-50 text-amber-800 border border-amber-200'
+                        }`}>
+                          {req.status === 'draft' ? 'Rascunho' : 'Pendente de Triagem'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 truncate">{assetName}</h4>
+                        <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                          Solicitante: <span className="text-slate-800 font-semibold">{req.requester_name || req.requesterName || 'N/A'}</span>
+                          {req.location && ` · Local: ${req.location}`}
+                        </p>
+                      </div>
+
+                      <div className="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 leading-relaxed space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-500 block">Descrição da Avaria:</span>
+                        <p className="line-clamp-3">{req.description || 'Sem descrição'}</p>
+                      </div>
+
+                      {Array.isArray(req.attachments) && req.attachments.length > 0 && (
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Evidências Anexadas ({req.attachments.length}):</span>
+                          <div className="flex gap-1.5 overflow-x-auto pb-1">
+                            {req.attachments.map((att: string, idx: number) => (
+                              typeof att === 'string' && (att.startsWith('data:image') || att.startsWith('http')) ? (
+                                <img
+                                  key={idx}
+                                  src={att}
+                                  alt="Evidência"
+                                  className="w-12 h-12 object-cover rounded border border-slate-200 shrink-0"
+                                />
+                              ) : null
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100">
+                      <button
+                        onClick={() => handleConvertToWorkOrder(req)}
+                        className="w-full py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all shadow-none cursor-pointer"
+                      >
+                        <Settings size={13} />
+                        <span>⚙️ Converter em Ordem de Serviço</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )
+      ) : loading ? (
         <div className="p-12 text-center bg-white border border-slate-200 rounded-md">
           <Loader2 className="animate-spin text-blue-700 mx-auto" size={32} />
           <p className="text-xs text-slate-500 mt-3 font-medium">A carregar registos de ordens de serviço do CMMS...</p>
@@ -1623,7 +1744,7 @@ export const WorkOrdersPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Botões de Ação Direta no próprio cartão (Requisito 1) */}
+                    {/* Botões de Ação Direta no próprio cartão */}
                     <div className="pt-1.5 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
                       {order.status === 'open' && (
                         <button

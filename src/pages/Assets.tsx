@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import QRCode from 'qrcode';
 import {
   Plus,
@@ -125,6 +126,12 @@ export const AssetsPage: React.FC = () => {
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingAsset, setDeletingAsset] = useState<Asset | null>(null);
+
+  // Ativação da tecla ESC nos modais de Ativos
+  useEscapeKey(() => setIsModalOpen(false), isModalOpen);
+  useEscapeKey(() => setIsDocModalOpen(false), isDocModalOpen);
+  useEscapeKey(() => setIsQrModalOpen(false), isQrModalOpen);
+  useEscapeKey(() => setIsDeleteModalOpen(false), isDeleteModalOpen);
 
   // Toasts / Feedbacks
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -1927,7 +1934,7 @@ export const AssetsPage: React.FC = () => {
               {/* Seção 1: Instruções e Modelo */}
               <div className="bg-slate-50 border border-slate-200 rounded-md p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
-                  <span className="font-semibold text-slate-800 block">Modelo de Ficheiro CSV para {currentScope === 'plant' ? 'Equipamentos Fabris' : 'Frota Rodoviária'}</span>
+                  <span className="font-semibold text-slate-800 block">Modelo de Ficheiro CSV para {currentScope === 'plant' ? 'Equipamentos Fabris' : 'Frota'}</span>
                   <p className="text-slate-500 text-[11px] mt-0.5">
                     {currentScope === 'plant'
                       ? 'O modelo contém colunas para Nome, Categoria (generator/machinery), Tag, Fabricante, Modelo, Ano, Setor, Potência, Voltagem e Horímetro.'

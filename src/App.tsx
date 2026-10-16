@@ -80,7 +80,7 @@ const ProfilePage: React.FC = () => {
                 </span>
               ) : (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                  Frota Rodoviária
+                  Frota
                 </span>
               )}
             </div>
@@ -101,63 +101,7 @@ const ProfilePage: React.FC = () => {
   );
 };
 
-// ==========================================
-// CONFIGURAÇÕES DO SISTEMA
-// ==========================================
-const SettingsPage: React.FC = () => {
-  return (
-    <div className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900">Configurações do Sistema</h1>
-        <p className="text-slate-500 text-xs mt-1">
-          Ajustes de preferências do utilizador e parâmetros operacionais do chão de fábrica.
-        </p>
-      </div>
 
-      <div className="bg-white border border-slate-200 rounded-md p-6 space-y-6 shadow-none">
-        <div>
-          <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 mb-4">Notificações e Alertas</h3>
-          <div className="space-y-3">
-            <label className="flex items-start gap-3 cursor-pointer group">
-              <input type="checkbox" defaultChecked className="mt-1 accent-blue-700 bg-white border border-slate-300 rounded" />
-              <div>
-                <span className="text-sm font-medium text-slate-800 group-hover:text-blue-700 transition-colors">Alertas de Combustível Baixo</span>
-                <p className="text-xs text-slate-500 mt-0.5">Notificar quando o nível de diesel dos ativos cair abaixo de 20%.</p>
-              </div>
-            </label>
-            <label className="flex items-start gap-3 cursor-pointer group">
-              <input type="checkbox" defaultChecked className="mt-1 accent-blue-700 bg-white border border-slate-300 rounded" />
-              <div>
-                <span className="text-sm font-medium text-slate-800 group-hover:text-blue-700 transition-colors">Vencimento de Ordens de Manutenção</span>
-                <p className="text-xs text-slate-500 mt-0.5">Alertar 48h antes de vencer uma manutenção corretiva agendada.</p>
-              </div>
-            </label>
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 mb-4">Unidades de Medida</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Unidade de Distância / Odómetro</label>
-              <select className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-1.5 text-xs text-slate-900">
-                <option>Quilómetros (km)</option>
-                <option>Milhas (mi)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Unidade de Combustível</label>
-              <select className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-1.5 text-xs text-slate-900">
-                <option>Litros (L)</option>
-                <option>Galões (gal)</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // ==========================================
 // ROTEAMENTO PRINCIPAL E PROTEÇÃO
@@ -255,7 +199,7 @@ export default function App() {
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="users" element={<SuperAdminUsersGuard />} />
             <Route path="profile" element={<ProfilePage />} />
-            <Route path="settings" element={<SettingsPage />} />
+            <Route path="settings" element={<Navigate to="/app/dashboard" replace />} />
           </Route>
 
           {/* Rota Privada Super Admin */}
