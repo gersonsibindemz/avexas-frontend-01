@@ -368,7 +368,7 @@ export const Layout: React.FC = () => {
   });
 
   // Estado para o submenu sanfona de Manutenção
-  const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(true);
+  const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
 
   // Estado para controlar o menu hambúrguer em dispositivos móveis
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -2783,6 +2783,48 @@ export const BRANDING = {
     darkNavy: '#0B132B',
   },
 } as const;
+
+
+// ===== src/config/countriesCurrencies.ts =====
+export interface CountryCurrency {
+  country: string;
+  code: string;
+  currency: string;
+  currencyName: string;
+  symbol: string;
+}
+
+export const COUNTRIES_CURRENCIES: CountryCurrency[] = [
+  { country: 'Moçambique', code: 'MZ', currency: 'MZN', currencyName: 'Metical Moçambicano', symbol: 'MTn' },
+  { country: 'África do Sul', code: 'ZA', currency: 'ZAR', currencyName: 'Rand Sul-Africano', symbol: 'R' },
+  { country: 'Angola', code: 'AO', currency: 'AOA', currencyName: 'Kwanza Angolano', symbol: 'Kz' },
+  { country: 'Zimbabué', code: 'ZW', currency: 'USD', currencyName: 'Dólar Americano', symbol: '$' },
+  { country: 'Zâmbia', code: 'ZM', currency: 'ZMW', currencyName: 'Kwacha Zambiano', symbol: 'ZK' },
+  { country: 'Tanzânia', code: 'TZ', currency: 'TZS', currencyName: 'Xelim Tanzaniano', symbol: 'TSh' },
+  { country: 'Malawi', code: 'MW', currency: 'MWK', currencyName: 'Kwacha Malawiano', symbol: 'MK' },
+  { country: 'Botswana', code: 'BW', currency: 'BWP', currencyName: 'Pula de Botswana', symbol: 'P' },
+  { country: 'Namíbia', code: 'NA', currency: 'NAD', currencyName: 'Dólar Namibiano', symbol: 'N$' },
+  { country: 'Portugal', code: 'PT', currency: 'EUR', currencyName: 'Euro', symbol: '€' },
+  { country: 'Brasil', code: 'BR', currency: 'BRL', currencyName: 'Real Brasileiro', symbol: 'R$' },
+  { country: 'Emirados Árabes Unidos', code: 'AE', currency: 'AED', currencyName: 'Dirham dos EAU', symbol: 'AED' },
+  { country: 'Estados Unidos', code: 'US', currency: 'USD', currencyName: 'Dólar Americano', symbol: '$' }
+];
+
+export const ALL_CURRENCIES = [
+  { code: 'MZN', label: 'MZN - Metical Moçambicano' },
+  { code: 'ZAR', label: 'ZAR - Rand Sul-Africano' },
+  { code: 'USD', label: 'USD - Dólar Americano' },
+  { code: 'EUR', label: 'EUR - Euro' },
+  { code: 'AOA', label: 'AOA - Kwanza Angolano' },
+  { code: 'ZMW', label: 'ZMW - Kwacha Zambiano' },
+  { code: 'TZS', label: 'TZS - Xelim Tanzaniano' },
+  { code: 'BWP', label: 'BWP - Pula de Botswana' }
+];
+
+export const formatMoney = (val: number, currency: string = 'MZN') => {
+  const num = (val || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${num} ${currency}`;
+};
 
 
 // ===== src/config/domainRegistry.ts =====
@@ -6171,6 +6213,7 @@ export default DashboardPage;
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { formatMoney } from '../config/countriesCurrencies';
 import {
   Plus,
   AlertTriangle,
@@ -6289,10 +6332,63 @@ export const FuelPage: React.FC = () => {
     }
   };
 
+  // Preço de Referência e Moeda Dinâmica por Empresa / País
+  const [refData, setRefData] = useState<{
+    country: string;
+    currency: string;
+    prices: { Diesel: number; Gasolina: number };
+  }>({
+    country: 'Moçambique',
+    currency: 'MZN',
+    prices: { Diesel: 75.0, Gasolina: 86.25 }
+  });
+
+  const fetchReferencePrices = async () => {
+    try {
+      const response = await api.get('/fuel/reference-prices').catch(() => null);
+      if (response && response.data) {
+        setRefData({
+          country: response.data.country || 'Moçambique',
+          currency: response.data.currency || 'MZN',
+          prices: {
+            Diesel: response.data.prices?.Diesel ?? response.data.diesel_price ?? 75.0,
+            Gasolina: response.data.prices?.Gasolina ?? response.data.gasoline_price ?? 86.25
+          }
+        });
+      } else {
+        const savedPrices = localStorage.getItem('cmms_fuel_prices');
+        if (savedPrices) {
+          const parsed = JSON.parse(savedPrices);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setRefData({
+              country: parsed[0].country || 'Moçambique',
+              currency: parsed[0].currency || 'MZN',
+              prices: {
+                Diesel: parsed[0].diesel_price || 75.0,
+                Gasolina: parsed[0].gasoline_price || 86.25
+              }
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao carregar preços de referência:', err);
+    }
+  };
+
   useEffect(() => {
     fetchFuelLogs();
     fetchAssetsForDropdown();
+    fetchReferencePrices();
   }, []);
+
+  // Sugere automaticamente o preço por litro quando o modal abre ou muda o tipo de combustível
+  useEffect(() => {
+    if (isModalOpen && pricePerLiterMzn === '') {
+      const suggested = fuelType === 'Diesel' ? refData.prices.Diesel : refData.prices.Gasolina;
+      setPricePerLiterMzn(suggested);
+    }
+  }, [isModalOpen, fuelType, refData]);
 
   // Formatação de Moeda Padronizada em Meticais
   const formatMZN = (val?: number) => {
@@ -6467,14 +6563,17 @@ export const FuelPage: React.FC = () => {
       {/* Grid de Estatísticas Rápidas baseadas nos filtros */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white border border-slate-200 p-5 rounded-md shadow-none">
-          <span className="text-xs text-slate-500 block font-semibold uppercase tracking-wider mb-2">Preço de Referência em Moçambique</span>
+          <div className="mb-2">
+            <span className="text-xs text-slate-500 block font-semibold uppercase tracking-wider">PREÇO DE REFERÊNCIA</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5">Valores oficiais em vigor no país da empresa</span>
+          </div>
           <div className="flex justify-between items-center py-2 border-b border-slate-100">
-            <span className="text-slate-600 text-xs">Gasóleo (Diesel) / Litro</span>
-            <span className="font-mono font-bold text-slate-900 text-sm">{formatMZN(75.00)}</span>
+            <span className="text-slate-600 text-xs font-medium">Gasóleo (Diesel) / Litro</span>
+            <span className="font-mono font-bold text-slate-900 text-sm">{formatMoney(refData.prices.Diesel, refData.currency)}</span>
           </div>
           <div className="flex justify-between items-center py-2">
-            <span className="text-slate-600 text-xs">Gasolina / Litro</span>
-            <span className="font-mono font-bold text-slate-900 text-sm">{formatMZN(86.25)}</span>
+            <span className="text-slate-600 text-xs font-medium">Gasolina / Litro</span>
+            <span className="font-mono font-bold text-slate-900 text-sm">{formatMoney(refData.prices.Gasolina, refData.currency)}</span>
           </div>
         </div>
 
@@ -6492,7 +6591,7 @@ export const FuelPage: React.FC = () => {
           <div>
             <span className="text-xs text-slate-500 block font-semibold uppercase tracking-wider mb-1">Investimento Acumulado</span>
             <span className="text-2xl font-bold text-blue-700 font-mono tracking-tight block mt-1">
-              {loading ? '--- MZN' : formatMZN(totalCost)}
+              {loading ? `--- ${refData.currency}` : formatMoney(totalCost, refData.currency)}
             </span>
           </div>
           <span className="text-xs text-slate-500 block mt-2">Custo total dos abastecimentos faturados</span>
@@ -6742,7 +6841,7 @@ export const FuelPage: React.FC = () => {
                       </div>
                       <div>
                         <label htmlFor="priceInput" className="block text-xs font-medium text-slate-700 mb-1">
-                          Preço por Litro (MZN) *
+                          Preço por Litro ({refData.currency}) *
                         </label>
                         <div className="relative">
                           <input
@@ -6756,7 +6855,7 @@ export const FuelPage: React.FC = () => {
                             placeholder="ex: 75,00"
                             className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3.5 py-2 text-xs text-slate-900 font-mono focus:outline-none"
                           />
-                          <span className="absolute right-3 top-2 text-[11px] font-bold text-slate-500">MZN</span>
+                          <span className="absolute right-3 top-2 text-[11px] font-bold text-slate-500">{refData.currency}</span>
                         </div>
                       </div>
                     </div>
@@ -6818,7 +6917,7 @@ export const FuelPage: React.FC = () => {
                           Custo Total Calculado:
                         </span>
                         <span className="font-mono font-bold text-slate-900 text-sm">
-                          {formatMZN(Number(liters) * Number(pricePerLiterMzn))}
+                          {formatMoney(Number(liters) * Number(pricePerLiterMzn), refData.currency)}
                         </span>
                       </div>
                     )}
@@ -7903,30 +8002,63 @@ import {
   Wrench,
   Clock,
   Layers,
-  X
+  X,
+  User,
+  AlertCircle
 } from 'lucide-react';
 
-interface ChecklistItem {
+export interface Asset {
+  id: string;
+  code_tag?: string;
+  codeTag?: string;
+  name: string;
+  operational_scope?: string;
+  operationalScope?: string;
+}
+
+export interface Technician {
+  id: string;
+  fullName?: string;
+  full_name?: string;
+  email?: string;
+  specialty?: string;
+  role?: string;
+}
+
+export interface ChecklistItem {
   id: string;
   task: string;
 }
 
-interface MaintenancePlan {
+export interface MaintenancePlan {
   id: string;
-  code: string;
+  code?: string;
   title: string;
   asset_id: string;
   asset_name?: string;
+  assetName?: string;
   asset_code?: string;
+  assetCode?: string;
   trigger_type: 'time' | 'meter' | 'both';
+  triggerType?: 'time' | 'meter' | 'both';
   interval_days?: number;
+  intervalDays?: number;
   interval_meter?: number;
-  technician_id?: string;
+  intervalMeter?: number;
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  assigned_technician_id?: string;
+  assignedTechnicianId?: string;
   technician_name?: string;
-  checklist: ChecklistItem[];
-  status: 'active' | 'paused';
+  technicianName?: string;
+  checklist_items?: string[] | ChecklistItem[];
+  checklist?: ChecklistItem[];
+  is_active?: boolean;
+  isActive?: boolean;
+  status?: 'active' | 'paused';
   next_due_date?: string;
+  nextDueDate?: string;
   next_due_meter?: number;
+  nextDueMeter?: number;
   created_at?: string;
 }
 
@@ -7935,10 +8067,15 @@ export const MaintenancePlansPage: React.FC = () => {
   const domainConfig = useCurrentDomain();
   const { domain } = domainConfig;
 
+  // Estados sem qualquer dado mockado
   const [plans, setPlans] = useState<MaintenancePlan[]>([]);
-  const [assets, setAssets] = useState<any[]>([]);
-  const [technicians, setTechnicians] = useState<any[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadingFormData, setLoadingFormData] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Filtros e Notificações
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -7954,132 +8091,125 @@ export const MaintenancePlansPage: React.FC = () => {
   const [triggerType, setTriggerType] = useState<'time' | 'meter' | 'both'>('meter');
   const [intervalDays, setIntervalDays] = useState<number>(90);
   const [intervalMeter, setIntervalMeter] = useState<number>(10000);
-  const [technicianId, setTechnicianId] = useState<string>('');
+  const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('medium');
+  const [assignedTechnicianId, setAssignedTechnicianId] = useState<string>('');
   const [checklist, setChecklist] = useState<ChecklistItem[]>([
-    { id: '1', task: 'Verificar nível do óleo do motor e filtros' },
-    { id: '2', task: 'Inspecionar pressão e desgaste dos pneus / esteiras' },
-    { id: '3', task: 'Testar sistema de travagem e fluido de travão' }
+    { id: '1', task: 'Verificar nível de óleo e filtros principais' },
+    { id: '2', task: 'Inspecionar componentes de segurança e aperto geral' }
   ]);
   const [newTaskInput, setNewTaskInput] = useState<string>('');
 
-  const fetchPlansAndData = async () => {
+  // 1. Consumo de dados reais da API (/maintenance-plans)
+  const fetchPlans = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const [plansRes, assetsRes, usersRes] = await Promise.allSettled([
-        api.get('/maintenance-plans'),
-        api.get('/assets'),
-        api.get('/users')
-      ]);
-
-      // Ativos
-      let assetList: any[] = [];
-      if (assetsRes.status === 'fulfilled') {
-        assetList = Array.isArray(assetsRes.value.data)
-          ? assetsRes.value.data
-          : assetsRes.value.data?.assets || [];
-      }
-      setAssets(assetList);
-
-      // Técnicos
-      let userList: any[] = [];
-      if (usersRes.status === 'fulfilled') {
-        userList = Array.isArray(usersRes.value.data)
-          ? usersRes.value.data
-          : usersRes.value.data?.users || [];
-      }
-      const techList = userList.filter((u: any) => u.role === 'technician' || u.role === 'supervisor');
-      setTechnicians(techList);
-
-      // Planos
-      let planList: MaintenancePlan[] = [];
-      if (plansRes.status === 'fulfilled') {
-        planList = Array.isArray(plansRes.value.data)
-          ? plansRes.value.data
-          : plansRes.value.data?.plans || [];
-      } else {
-        // Fallback local caso a tabela esteja limpa ou endpoint indisponível
-        const saved = localStorage.getItem('cmms_maintenance_plans');
-        if (saved) {
-          planList = JSON.parse(saved);
-        } else {
-          // Exemplos iniciais
-          planList = [
-            {
-              id: 'pln-1',
-              code: 'PLN-001',
-              title: 'Revisão Sistemática dos 10.000 Km',
-              asset_id: assetList[0]?.id || 'ast-1',
-              asset_name: assetList[0]?.name || 'Camião Volvo FMX Basculante',
-              asset_code: assetList[0]?.code_tag || 'FLEET-001',
-              trigger_type: 'meter',
-              interval_meter: 10000,
-              interval_days: 90,
-              status: 'active',
-              checklist: [
-                { id: '1', task: 'Troca de óleo do motor e substituição do filtro' },
-                { id: '2', task: 'Substituição do filtro de combustível e ar' },
-                { id: '3', task: 'Inspeção geral dos travões e suspensão' }
-              ],
-              next_due_meter: 10000
-            },
-            {
-              id: 'pln-2',
-              code: 'PLN-002',
-              title: 'Manutenção Trimestral do Gerador Principal',
-              asset_id: assetList[1]?.id || 'ast-2',
-              asset_name: assetList[1]?.name || 'Gerador Cummins 500kVA',
-              asset_code: assetList[1]?.code_tag || 'PLANT-002',
-              trigger_type: 'time',
-              interval_days: 90,
-              status: 'active',
-              checklist: [
-                { id: '1', task: 'Teste de arranque em carga por 30 minutos' },
-                { id: '2', task: 'Verificação do estado das baterias de arranque' }
-              ],
-              next_due_date: new Date(Date.now() + 12 * 86400000).toISOString().split('T')[0]
-            }
-          ];
-          localStorage.setItem('cmms_maintenance_plans', JSON.stringify(planList));
-        }
-      }
-
-      setPlans(planList);
-    } catch (err) {
-      console.error('Erro ao carregar planos de manutenção:', err);
+      const res = await api.get('/maintenance-plans');
+      const data = Array.isArray(res.data)
+        ? res.data
+        : (res.data?.plans || res.data?.data || []);
+      setPlans(data);
+    } catch (err: any) {
+      console.error('Erro ao carregar planos preventivos:', err);
+      setPlans([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPlansAndData();
+    fetchPlans();
   }, []);
+
+  // 2. Carrega dependências reais do Modal (Ativos e Técnicos)
+  const loadModalDependencies = async () => {
+    setLoadingFormData(true);
+    try {
+      const [assetsRes, techsRes] = await Promise.allSettled([
+        api.get('/assets'),
+        api.get('/technicians')
+      ]);
+
+      if (assetsRes.status === 'fulfilled') {
+        const aData = Array.isArray(assetsRes.value.data)
+          ? assetsRes.value.data
+          : (assetsRes.value.data?.assets || assetsRes.value.data?.data || []);
+        
+        // Filtrar ativos do domínio ativo se especificado
+        const domainAssets = aData.filter((a: any) => {
+          if (domain === 'plant') {
+            return a.operational_scope === 'plant' || a.operationalScope === 'plant';
+          }
+          if (domain === 'fleet') {
+            return a.operational_scope === 'fleet' || a.operationalScope === 'fleet';
+          }
+          return true;
+        });
+
+        const activeAssetsList = domainAssets.length > 0 ? domainAssets : aData;
+        setAssets(activeAssetsList);
+
+        if (activeAssetsList.length > 0 && !assetId) {
+          setAssetId(activeAssetsList[0].id);
+        }
+      }
+
+      if (techsRes.status === 'fulfilled') {
+        const tData = Array.isArray(techsRes.value.data)
+          ? techsRes.value.data
+          : (techsRes.value.data?.technicians || techsRes.value.data?.data || []);
+        setTechnicians(tData);
+
+        if (tData.length > 0 && !assignedTechnicianId) {
+          setAssignedTechnicianId(tData[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao carregar dados do formulário:', err);
+    } finally {
+      setLoadingFormData(false);
+    }
+  };
 
   const handleOpenCreateModal = () => {
     setEditingPlan(null);
     setTitle('');
-    setAssetId(assets[0]?.id || '');
     setTriggerType('meter');
     setIntervalDays(90);
     setIntervalMeter(10000);
-    setTechnicianId(technicians[0]?.id || '');
+    setPriority('medium');
     setChecklist([
-      { id: '1', task: 'Verificar níveis de lubrificante e vedações' },
-      { id: '2', task: 'Inspecionar aperto de parafusos e conexões elétricas' }
+      { id: '1', task: 'Verificar nível de óleo e filtros de substituição' },
+      { id: '2', task: 'Inspeção técnica dos travões e fixações mecânicas' }
     ]);
     setIsModalOpen(true);
+    loadModalDependencies();
   };
 
   const handleOpenEditModal = (plan: MaintenancePlan) => {
     setEditingPlan(plan);
-    setTitle(plan.title);
-    setAssetId(plan.asset_id);
-    setTriggerType(plan.trigger_type);
-    setIntervalDays(plan.interval_days || 90);
-    setIntervalMeter(plan.interval_meter || 10000);
-    setTechnicianId(plan.technician_id || '');
-    setChecklist(plan.checklist || []);
+    setTitle(plan.title || '');
+    setAssetId(plan.asset_id || '');
+    setTriggerType(plan.trigger_type || plan.triggerType || 'meter');
+    setIntervalDays(plan.interval_days || plan.intervalDays || 90);
+    setIntervalMeter(plan.interval_meter || plan.intervalMeter || 10000);
+    setPriority(plan.priority || 'medium');
+    setAssignedTechnicianId(plan.assigned_technician_id || plan.assignedTechnicianId || '');
+
+    // Formatar checklist
+    if (Array.isArray(plan.checklist)) {
+      setChecklist(plan.checklist);
+    } else if (Array.isArray(plan.checklist_items)) {
+      const formatted = plan.checklist_items.map((item: any, idx) =>
+        typeof item === 'string' ? { id: String(idx + 1), task: item } : item
+      );
+      setChecklist(formatted);
+    } else {
+      setChecklist([]);
+    }
+
     setIsModalOpen(true);
+    loadModalDependencies();
   };
 
   const handleAddTask = () => {
@@ -8095,103 +8225,123 @@ export const MaintenancePlansPage: React.FC = () => {
     setChecklist(checklist.filter(item => item.id !== id));
   };
 
+  // 3. Salvar Plano via API (POST / PUT /maintenance-plans)
   const handleSavePlan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !assetId) return;
 
-    const selectedAsset = assets.find(a => a.id === assetId);
-    const selectedTech = technicians.find(t => t.id === technicianId);
-
-    const planData: MaintenancePlan = {
-      id: editingPlan ? editingPlan.id : `pln-${Date.now()}`,
-      code: editingPlan ? editingPlan.code : `PLN-${String(plans.length + 1).padStart(3, '0')}`,
+    const payload = {
       title,
       asset_id: assetId,
-      asset_name: selectedAsset?.name || 'Ativo Selecionado',
-      asset_code: selectedAsset?.code_tag || selectedAsset?.id || 'AST-001',
       trigger_type: triggerType,
       interval_days: Number(intervalDays),
       interval_meter: Number(intervalMeter),
-      technician_id: technicianId,
-      technician_name: selectedTech?.fullName || selectedTech?.full_name,
-      checklist,
-      status: editingPlan ? editingPlan.status : 'active',
-      next_due_date: new Date(Date.now() + intervalDays * 86400000).toISOString().split('T')[0],
-      next_due_meter: (selectedAsset?.current_meter || 0) + Number(intervalMeter)
+      priority,
+      assigned_technician_id: assignedTechnicianId || undefined,
+      checklist_items: checklist.map(c => c.task)
     };
 
     try {
       if (editingPlan) {
-        await api.put(`/maintenance-plans/${editingPlan.id}`, planData).catch(() => {});
+        await api.put(`/maintenance-plans/${editingPlan.id}`, payload);
+        setSuccessMessage('Plano preventivo atualizado com sucesso!');
       } else {
-        await api.post('/maintenance-plans', planData).catch(() => {});
+        await api.post('/maintenance-plans', payload);
+        setSuccessMessage('Novo plano de manutenção preventivo criado com sucesso!');
       }
-    } catch {
-      // Fallback local
-    } finally {
-      let updatedPlans: MaintenancePlan[];
-      if (editingPlan) {
-        updatedPlans = plans.map(p => (p.id === editingPlan.id ? planData : p));
-      } else {
-        updatedPlans = [planData, ...plans];
-      }
-      setPlans(updatedPlans);
-      localStorage.setItem('cmms_maintenance_plans', JSON.stringify(updatedPlans));
       setIsModalOpen(false);
-      setSuccessMessage(editingPlan ? 'Plano preventivo atualizado com sucesso!' : 'Novo plano preventivo criado com sucesso!');
+      fetchPlans();
       setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      console.error('Erro ao salvar plano preventivo:', err);
+      alert(err.response?.data?.message || err.message || 'Erro ao comunicar com a API ao guardar o plano.');
     }
   };
 
-  const handleToggleStatus = async (plan: MaintenancePlan) => {
-    const newStatus = plan.status === 'active' ? 'paused' : 'active';
-    const updated = plans.map(p => p.id === plan.id ? { ...p, status: newStatus as any } : p);
-    setPlans(updated);
-    localStorage.setItem('cmms_maintenance_plans', JSON.stringify(updated));
-    await api.patch(`/maintenance-plans/${plan.id}`, { status: newStatus }).catch(() => {});
+  // 4. Alternar Ativo/Pausado via API (PATCH /maintenance-plans/:id/toggle)
+  const handleToggleActive = async (plan: MaintenancePlan) => {
+    try {
+      try {
+        await api.patch(`/maintenance-plans/${plan.id}/toggle`);
+      } catch {
+        const currentActive = plan.is_active ?? plan.status === 'active';
+        await api.patch(`/maintenance-plans/${plan.id}`, { is_active: !currentActive, status: !currentActive ? 'active' : 'paused' });
+      }
+      fetchPlans();
+    } catch (err: any) {
+      console.error('Erro ao alterar estado do plano:', err);
+    }
   };
 
+  // 5. Gerar OS Preventiva Imediata via API (POST /maintenance-plans/:id/generate-wo)
   const handleGenerateWO = async (plan: MaintenancePlan) => {
     try {
-      await api.post('/work-orders', {
-        title: `[Preventiva] ${plan.title}`,
-        asset_id: plan.asset_id,
-        type: 'preventive',
-        priority: 'medium',
-        description: `Ordem de serviço preventiva gerada automaticamente a partir do plano ${plan.code}.\n\nChecklist de Inspeção:\n` +
-          plan.checklist.map((c, i) => `${i + 1}. [ ] ${c.task}`).join('\n')
-      }).catch(() => {});
-
-      setSuccessMessage(`Ordem de Serviço Preventiva gerada com sucesso para ${plan.code}!`);
+      try {
+        await api.post(`/maintenance-plans/${plan.id}/generate-wo`);
+      } catch {
+        // Fallback direto via POST /work-orders
+        await api.post('/work-orders', {
+          title: `[Preventiva] ${plan.title}`,
+          asset_id: plan.asset_id,
+          type: 'preventive',
+          priority: plan.priority || 'medium',
+          description: `Ordem de Serviço Preventiva gerada a partir do plano ${plan.code || plan.id}.\n\nChecklist:\n` +
+            (Array.isArray(plan.checklist)
+              ? plan.checklist.map((c, i) => `${i + 1}. [ ] ${c.task}`).join('\n')
+              : 'Verificação periódica')
+        });
+      }
+      setSuccessMessage(`Ordem de Serviço Preventiva gerada com sucesso!`);
       setTimeout(() => setSuccessMessage(null), 4000);
-    } catch {
-      alert('Erro ao gerar Ordem de Serviço Preventiva.');
+    } catch (err: any) {
+      console.error('Erro ao gerar Ordem de Serviço Preventiva:', err);
+      alert('Erro ao gerar Ordem de Serviço na API.');
     }
   };
 
+  // 6. Eliminar Plano via API (DELETE /maintenance-plans/:id)
   const handleDeletePlan = async (id: string) => {
-    if (!confirm('Tem a certeza que deseja eliminar este plano preventivo?')) return;
-    const updated = plans.filter(p => p.id !== id);
-    setPlans(updated);
-    localStorage.setItem('cmms_maintenance_plans', JSON.stringify(updated));
-    await api.delete(`/maintenance-plans/${id}`).catch(() => {});
+    if (!confirm('Tem a certeza que deseja eliminar definitivamente este plano preventivo?')) return;
+    try {
+      await api.delete(`/maintenance-plans/${id}`);
+      setSuccessMessage('Plano preventivo eliminado com sucesso.');
+      fetchPlans();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      console.error('Erro ao eliminar plano:', err);
+      alert('Erro ao eliminar plano na API.');
+    }
   };
 
-  // Métricas
-  const activePlansCount = plans.filter(p => p.status === 'active').length;
-  const pausedPlansCount = plans.filter(p => p.status === 'paused').length;
-  const upcomingCount = plans.filter(p => p.status === 'active').length; // Próximos nos limites
+  // Indicadores do Topo Calculados em Tempo Real (Zero Números Fixos)
+  const activePlansCount = plans.filter(p => p.is_active ?? p.status === 'active').length;
+  const pausedPlansCount = plans.filter(p => (p.is_active === false) || p.status === 'paused').length;
+
+  const upcomingCount = plans.filter(p => {
+    const isActive = p.is_active ?? p.status === 'active';
+    const dueDate = p.next_due_date || p.nextDueDate;
+    if (!dueDate || !isActive) return false;
+    const diffDays = Math.ceil((new Date(dueDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+    return diffDays >= 0 && diffDays <= 15;
+  }).length;
 
   // Filtros
   const filteredPlans = plans.filter(plan => {
     const q = searchQuery.toLowerCase();
+    const assetName = plan.asset_name || plan.assetName || '';
+    const code = plan.code || '';
+
     const matchesSearch =
       !searchQuery ||
       plan.title.toLowerCase().includes(q) ||
-      plan.code.toLowerCase().includes(q) ||
-      (plan.asset_name && plan.asset_name.toLowerCase().includes(q));
+      code.toLowerCase().includes(q) ||
+      assetName.toLowerCase().includes(q);
 
-    const matchesStatus = statusFilter === 'all' || plan.status === statusFilter;
+    const isActive = plan.is_active ?? plan.status === 'active';
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'active' && isActive) ||
+      (statusFilter === 'paused' && !isActive);
 
     return matchesSearch && matchesStatus;
   });
@@ -8204,7 +8354,7 @@ export const MaintenancePlansPage: React.FC = () => {
         <div className="fixed bottom-6 right-6 z-50 bg-white border border-slate-200 text-slate-900 p-4 rounded-md shadow-lg max-w-md flex gap-3 items-start animate-fade-in">
           <CheckCircle2 className="text-emerald-600 shrink-0 mt-0.5" size={18} />
           <div>
-            <span className="font-bold block text-sm text-slate-900">Sucesso</span>
+            <span className="font-bold block text-sm text-slate-900">Operação Concluída</span>
             <span className="text-xs text-slate-600">{successMessage}</span>
           </div>
         </div>
@@ -8225,9 +8375,9 @@ export const MaintenancePlansPage: React.FC = () => {
 
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={fetchPlansAndData}
+            onClick={fetchPlans}
             disabled={loading}
-            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer"
+            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer disabled:opacity-50"
             title="Recarregar"
           >
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -8245,7 +8395,7 @@ export const MaintenancePlansPage: React.FC = () => {
         </div>
       </div>
 
-      {/* MÉTRICAS RÁPIDAS (3 CARDS) */}
+      {/* MÉTRICAS RÁPIDAS NO TOPO (3 CARDS CALCULADOS EM TEMPO REAL) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white border border-slate-200 rounded-md p-5 flex items-center gap-4 shadow-none">
           <div className="w-10 h-10 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center shrink-0">
@@ -8262,8 +8412,8 @@ export const MaintenancePlansPage: React.FC = () => {
             <Clock size={20} />
           </div>
           <div>
-            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Revisões Próximas</span>
-            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : `${upcomingCount} ativas`}</span>
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Revisões Próximas (15 dias)</span>
+            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : upcomingCount}</span>
           </div>
         </div>
 
@@ -8306,24 +8456,33 @@ export const MaintenancePlansPage: React.FC = () => {
         </div>
       </div>
 
-      {/* TABELA DE PLANOS PREVENTIVOS */}
+      {/* TABELA DE PLANOS PREVENTIVOS OU ESTADO VAZIO REAL */}
       <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
         {loading ? (
           <div className="p-12 text-center">
             <Loader2 className="animate-spin text-blue-700 mx-auto" size={32} />
-            <p className="text-slate-500 text-xs mt-3">A carregar planos preventivos...</p>
+            <p className="text-slate-500 text-xs mt-3">A carregar planos preventivos da API...</p>
+          </div>
+        ) : plans.length === 0 ? (
+          /* ESTADO VAZIO REAL (EMPTY STATE) */
+          <div className="bg-white border border-slate-200 rounded-md p-12 text-center">
+            <CalendarClock size={36} className="text-slate-300 mx-auto mb-3" />
+            <h3 className="text-sm font-semibold text-slate-800">Nenhum Plano de Manutenção Preventiva</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+              Não existem planos preventivos configurados para esta empresa. Clique em "+ Novo Plano Preventivo" para programar revisões por calendário ou quilometragem.
+            </p>
           </div>
         ) : filteredPlans.length === 0 ? (
           <div className="p-12 text-center">
-            <CalendarClock className="text-slate-300 mx-auto" size={40} />
-            <h3 className="text-sm font-bold text-slate-700 mt-2">Nenhum plano preventivo cadastrado</h3>
+            <Search className="text-slate-300 mx-auto" size={36} />
+            <h3 className="text-sm font-semibold text-slate-800 mt-2">Nenhum plano encontrado</h3>
             <p className="text-slate-500 text-xs mt-1">
-              Clique em "+ Novo Plano Preventivo" para configurar revisões sistemáticas por tempo ou quilometragem.
+              Tente ajustar os critérios de pesquisa ou limpar os filtros.
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold text-[10px] tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Código & Título</th>
@@ -8335,109 +8494,123 @@ export const MaintenancePlansPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-800">
-                {filteredPlans.map((plan) => (
-                  <tr key={plan.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 font-medium">
-                      <span className="text-[10px] text-blue-700 font-mono font-bold block">{plan.code}</span>
-                      <span className="text-xs text-slate-900 font-semibold">{plan.title}</span>
-                    </td>
+                {filteredPlans.map((plan) => {
+                  const isActive = plan.is_active ?? plan.status === 'active';
+                  const tType = plan.trigger_type || plan.triggerType;
+                  const intDays = plan.interval_days || plan.intervalDays;
+                  const intMeter = plan.interval_meter || plan.intervalMeter;
+                  const assetName = plan.asset_name || plan.assetName || 'Ativo Corporativo';
+                  const assetCode = plan.asset_code || plan.assetCode || '';
+                  const checklistCount = Array.isArray(plan.checklist)
+                    ? plan.checklist.length
+                    : Array.isArray(plan.checklist_items)
+                    ? plan.checklist_items.length
+                    : 0;
 
-                    <td className="py-3 px-4">
-                      <span className="font-semibold text-slate-800 block">{plan.asset_name || 'Ativo Corporativo'}</span>
-                      {plan.asset_code && (
-                        <span className="text-[10px] text-slate-500 font-mono">{plan.asset_code}</span>
-                      )}
-                    </td>
+                  return (
+                    <tr key={plan.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-medium">
+                        <span className="text-[10px] text-blue-700 font-mono font-bold block">{plan.code || `PLN-${plan.id.substring(0, 5)}`}</span>
+                        <span className="text-xs text-slate-900 font-semibold">{plan.title}</span>
+                      </td>
 
-                    <td className="py-3 px-4">
-                      {plan.trigger_type === 'time' && (
-                        <span className="text-slate-700 font-medium block">A cada {plan.interval_days} dias</span>
-                      )}
-                      {plan.trigger_type === 'meter' && (
-                        <span className="text-slate-700 font-medium block">A cada {plan.interval_meter?.toLocaleString('pt-MZ')} km/hrs</span>
-                      )}
-                      {plan.trigger_type === 'both' && (
-                        <span className="text-slate-700 font-medium block">
-                          {plan.interval_days} dias ou {plan.interval_meter?.toLocaleString('pt-MZ')} km
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="py-3 px-4">
-                      <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">
-                        <CheckSquare size={12} />
-                        <span>{plan.checklist?.length || 0} itens</span>
-                      </span>
-                    </td>
-
-                    <td className="py-3 px-4">
-                      {plan.status === 'active' ? (
-                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-semibold">
-                          <CheckCircle2 size={12} />
-                          <span>Ativo</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">
-                          <Pause size={12} />
-                          <span>Pausado</span>
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleGenerateWO(plan)}
-                          className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2 py-1 rounded text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                          title="Gerar Ordem de Serviço Preventiva Imediata"
-                        >
-                          <Zap size={12} />
-                          <span>Gerar OS</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleToggleStatus(plan)}
-                          className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors cursor-pointer"
-                          title={plan.status === 'active' ? 'Pausar Plano' : 'Ativar Plano'}
-                        >
-                          {plan.status === 'active' ? <Pause size={14} /> : <Play size={14} />}
-                        </button>
-
-                        {!isTechnician && (
-                          <>
-                            <button
-                              onClick={() => handleOpenEditModal(plan)}
-                              className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors cursor-pointer"
-                              title="Editar Plano"
-                            >
-                              <Edit2 size={14} />
-                            </button>
-
-                            <button
-                              onClick={() => handleDeletePlan(plan.id)}
-                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
-                              title="Eliminar Plano"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </>
+                      <td className="py-3 px-4">
+                        <span className="font-semibold text-slate-800 block">{assetName}</span>
+                        {assetCode && (
+                          <span className="text-[10px] text-slate-500 font-mono">{assetCode}</span>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+
+                      <td className="py-3 px-4">
+                        {tType === 'time' && (
+                          <span className="text-slate-700 font-medium block">A cada {intDays} dias</span>
+                        )}
+                        {tType === 'meter' && (
+                          <span className="text-slate-700 font-medium block">A cada {intMeter?.toLocaleString('pt-MZ')} km/hrs</span>
+                        )}
+                        {tType === 'both' && (
+                          <span className="text-slate-700 font-medium block">
+                            {intDays} dias ou {intMeter?.toLocaleString('pt-MZ')} km
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">
+                          <CheckSquare size={12} />
+                          <span>{checklistCount} itens</span>
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        {isActive ? (
+                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-semibold">
+                            <CheckCircle2 size={12} />
+                            <span>Ativo</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">
+                            <Pause size={12} />
+                            <span>Pausado</span>
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleGenerateWO(plan)}
+                            className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2 py-1 rounded text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                            title="Gerar Ordem de Serviço Preventiva Imediata"
+                          >
+                            <Zap size={12} />
+                            <span>Gerar OS</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleToggleActive(plan)}
+                            className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                            title={isActive ? 'Pausar Plano' : 'Ativar Plano'}
+                          >
+                            {isActive ? <Pause size={14} /> : <Play size={14} />}
+                          </button>
+
+                          {!isTechnician && (
+                            <>
+                              <button
+                                onClick={() => handleOpenEditModal(plan)}
+                                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                                title="Editar Plano"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+
+                              <button
+                                onClick={() => handleDeletePlan(plan.id)}
+                                className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                                title="Eliminar Plano"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
+      {/* MODAL DE CRIAÇÃO / EDIÇÃO DE PLANO PREVENTIVO */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in">
           <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             
-            {/* Header */}
+            {/* Header do Modal */}
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <CalendarClock className="text-blue-700" size={20} />
@@ -8456,140 +8629,185 @@ export const MaintenancePlansPage: React.FC = () => {
             {/* Form */}
             <form onSubmit={handleSavePlan} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
               
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Título do Plano Preventivo *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="ex: Revisão Periódica dos 10.000 Km ou Inspeção Trimestral"
-                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Ativo / Viatura Alvo *
-                  </label>
-                  <select
-                    required
-                    value={assetId}
-                    onChange={(e) => setAssetId(e.target.value)}
-                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
-                  >
-                    <option value="">Selecione o ativo...</option>
-                    {assets.map((asset) => (
-                      <option key={asset.id} value={asset.id}>
-                        {asset.name} ({asset.code_tag || asset.id})
-                      </option>
-                    ))}
-                  </select>
+              {loadingFormData ? (
+                <div className="py-8 text-center">
+                  <Loader2 className="animate-spin text-blue-700 mx-auto" size={24} />
+                  <p className="text-slate-500 text-xs mt-2">A carregar ativos e técnicos...</p>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Tipo de Gatilho / Disparo *
-                  </label>
-                  <select
-                    value={triggerType}
-                    onChange={(e) => setTriggerType(e.target.value as any)}
-                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
-                  >
-                    <option value="meter">Por Odómetro / Horímetro (Contador)</option>
-                    <option value="time">Por Tempo (Dias / Calendário)</option>
-                    <option value="both">Ambos (O que ocorrer primeiro)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {(triggerType === 'time' || triggerType === 'both') && (
+              ) : (
+                <>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Intervalo de Tempo (Dias) *
+                      Título do Plano Preventivo *
                     </label>
                     <input
-                      type="number"
+                      type="text"
                       required
-                      min={1}
-                      value={intervalDays}
-                      onChange={(e) => setIntervalDays(Number(e.target.value))}
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="ex: Revisão Periódica dos 10.000 Km ou Inspeção Trimestral"
                       className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900"
                     />
                   </div>
-                )}
 
-                {(triggerType === 'meter' || triggerType === 'both') && (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Intervalo de Contador (Km / Horas) *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      value={intervalMeter}
-                      onChange={(e) => setIntervalMeter(Number(e.target.value))}
-                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Ativo / Viatura Alvo *
+                      </label>
+                      <select
+                        required
+                        value={assetId}
+                        onChange={(e) => setAssetId(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
+                      >
+                        <option value="">Selecione o ativo...</option>
+                        {assets.map((asset) => (
+                          <option key={asset.id} value={asset.id}>
+                            {asset.name} ({asset.code_tag || asset.codeTag || asset.id})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Tipo de Gatilho / Disparo *
+                      </label>
+                      <select
+                        value={triggerType}
+                        onChange={(e) => setTriggerType(e.target.value as any)}
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
+                      >
+                        <option value="meter">Por Odómetro / Horímetro (Contador)</option>
+                        <option value="time">Por Tempo (Dias / Calendário)</option>
+                        <option value="both">Ambos (O que ocorrer primeiro)</option>
+                      </select>
+                    </div>
                   </div>
-                )}
-              </div>
 
-              {/* CHECKLIST DINÂMICA DE INSPEÇÃO */}
-              <div className="pt-2 border-t border-slate-100">
-                <label className="block text-xs font-semibold text-slate-700 mb-2">
-                  Checklist de Inspeção do Plano
-                </label>
-                
-                <div className="flex gap-2 mb-3">
-                  <input
-                    type="text"
-                    placeholder="Adicionar tarefa de inspeção (ex: Verificar estado da bateria)..."
-                    value={newTaskInput}
-                    onChange={(e) => setNewTaskInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddTask();
-                      }
-                    }}
-                    className="flex-1 bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none focus:bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddTask}
-                    className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-md text-xs font-semibold cursor-pointer transition-colors"
-                  >
-                    Adicionar
-                  </button>
-                </div>
-
-                <div className="space-y-1.5 max-h-40 overflow-y-auto border border-slate-200 rounded-md p-2 bg-slate-50">
-                  {checklist.length === 0 ? (
-                    <p className="text-slate-400 text-center py-2 text-[11px]">Nenhum item adicionado à checklist.</p>
-                  ) : (
-                    checklist.map((item, idx) => (
-                      <div key={item.id} className="flex items-center justify-between bg-white border border-slate-200 rounded px-2.5 py-1.5">
-                        <span className="text-slate-800 text-[11px] font-medium">
-                          {idx + 1}. {item.task}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTask(item.id)}
-                          className="text-slate-400 hover:text-rose-600 cursor-pointer p-0.5"
-                        >
-                          <X size={14} />
-                        </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {(triggerType === 'time' || triggerType === 'both') && (
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Intervalo de Tempo (Dias) *
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          min={1}
+                          value={intervalDays}
+                          onChange={(e) => setIntervalDays(Number(e.target.value))}
+                          className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900"
+                        />
                       </div>
-                    ))
-                  )}
-                </div>
-              </div>
+                    )}
+
+                    {(triggerType === 'meter' || triggerType === 'both') && (
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Intervalo de Contador (Km / Horas) *
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          min={1}
+                          value={intervalMeter}
+                          onChange={(e) => setIntervalMeter(Number(e.target.value))}
+                          className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Prioridade da OS Gerada
+                      </label>
+                      <select
+                        value={priority}
+                        onChange={(e) => setPriority(e.target.value as any)}
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
+                      >
+                        <option value="low">Baixa</option>
+                        <option value="medium">Média</option>
+                        <option value="high">Alta</option>
+                        <option value="critical">Crítica</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Técnico Responsável Recomendado
+                      </label>
+                      <select
+                        value={assignedTechnicianId}
+                        onChange={(e) => setAssignedTechnicianId(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
+                      >
+                        <option value="">Atribuição automática / Ninguém</option>
+                        {technicians.map((tech) => (
+                          <option key={tech.id} value={tech.id}>
+                            {tech.fullName || tech.full_name || tech.email} ({tech.specialty || 'Geral'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* CHECKLIST DINÂMICA DE INSPEÇÃO */}
+                  <div className="pt-2 border-t border-slate-100">
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">
+                      Checklist de Inspeção do Plano
+                    </label>
+                    
+                    <div className="flex gap-2 mb-3">
+                      <input
+                        type="text"
+                        placeholder="Adicionar tarefa de inspeção (ex: Verificar aperto de terminais)..."
+                        value={newTaskInput}
+                        onChange={(e) => setNewTaskInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddTask();
+                          }
+                        }}
+                        className="flex-1 bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none focus:bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddTask}
+                        className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-md text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        Adicionar
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto border border-slate-200 rounded-md p-2 bg-slate-50">
+                      {checklist.length === 0 ? (
+                        <p className="text-slate-400 text-center py-2 text-[11px]">Nenhum item adicionado à checklist.</p>
+                      ) : (
+                        checklist.map((item, idx) => (
+                          <div key={item.id} className="flex items-center justify-between bg-white border border-slate-200 rounded px-2.5 py-1.5">
+                            <span className="text-slate-800 text-[11px] font-medium">
+                              {idx + 1}. {item.task}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTask(item.id)}
+                              className="text-slate-400 hover:text-rose-600 cursor-pointer p-0.5"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* FOOTER DO MODAL */}
               <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
@@ -8602,6 +8820,7 @@ export const MaintenancePlansPage: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={loadingFormData}
                   className="px-5 py-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-md text-xs cursor-pointer shadow-none"
                 >
                   {editingPlan ? 'Atualizar Plano' : 'Criar Plano Preventivo'}
@@ -8624,6 +8843,11 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
+  COUNTRIES_CURRENCIES,
+  ALL_CURRENCIES,
+  formatMoney
+} from '../config/countriesCurrencies';
+import {
   Plus,
   Building2,
   AlertTriangle,
@@ -8640,7 +8864,10 @@ import {
   Users,
   Pause,
   Play,
-  Trash2
+  Trash2,
+  Fuel,
+  Globe,
+  DollarSign
 } from 'lucide-react';
 
 interface Tenant {
@@ -8650,6 +8877,8 @@ interface Tenant {
   tradeName?: string;
   nuit: string;
   province: string;
+  country?: string;
+  currency?: string;
   max_assets_limit?: number;
   maxAssetsLimit?: number;
   max_users_limit?: number;
@@ -8663,13 +8892,29 @@ interface Tenant {
   created_at?: string;
 }
 
+interface FuelPriceRecord {
+  id: string;
+  country: string;
+  currency: string;
+  diesel_price: number;
+  gasoline_price: number;
+  scope_type: 'national' | 'company_exception';
+  tenant_id?: string;
+  tenant_name?: string;
+  updated_at?: string;
+}
+
 export const SuperAdminPage: React.FC = () => {
   const navigate = useNavigate();
+  
+  // Aba Ativa: 'tenants' ou 'fuel_pricing'
+  const [activeTab, setActiveTab] = useState<'tenants' | 'fuel_pricing'>('tenants');
+
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Estados de Controle de Modal e Submissão
+  // Modais do Tenant
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [editingTenantId, setEditingTenantId] = useState<string | null>(null);
@@ -8678,27 +8923,61 @@ export const SuperAdminPage: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingTenant, setDeletingTenant] = useState<Tenant | null>(null);
 
+  // Modal de Tabela de Preços de Combustível
+  const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
+  const [editingFuelPriceId, setEditingFuelPriceId] = useState<string | null>(null);
+
   useEscapeKey(() => setIsModalOpen(false), isModalOpen);
   useEscapeKey(() => setIsDeleteModalOpen(false), isDeleteModalOpen);
+  useEscapeKey(() => setIsFuelModalOpen(false), isFuelModalOpen);
 
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showAdminPassword, setShowAdminPassword] = useState(false);
 
-  // Campos do Formulário de Registro/Edição de Empresa
+  // Campos do Formulário de Empresa (Tenant)
   const [tenantName, setTenantName] = useState('');
   const [tradeName, setTradeName] = useState('');
   const [nuit, setNuit] = useState('');
   const [province, setProvince] = useState('');
+  const [country, setCountry] = useState('Moçambique');
+  const [currency, setCurrency] = useState('MZN');
   const [maxAssetsLimit, setMaxAssetsLimit] = useState<number>(50);
   const [maxUsersLimit, setMaxUsersLimit] = useState<number>(15);
   const [operationalScope, setOperationalScope] = useState<'fleet' | 'plant' | 'mixed'>('mixed');
 
-  // Campos do Administrador Inicial (apenas no cadastro)
+  // Campos do Administrador Inicial (no cadastro)
   const [adminFullName, setAdminFullName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminPhone, setAdminPhone] = useState('');
+
+  // Campos da Tabela de Preços de Combustível
+  const [fuelPrices, setFuelPrices] = useState<FuelPriceRecord[]>([]);
+  const [fpCountry, setFpCountry] = useState('Moçambique');
+  const [fpCurrency, setFpCurrency] = useState('MZN');
+  const [fpScopeType, setFpScopeType] = useState<'national' | 'company_exception'>('national');
+  const [fpTenantId, setFpTenantId] = useState('');
+  const [fpDieselPrice, setFpDieselPrice] = useState<number>(75.0);
+  const [fpGasolinePrice, setFpGasolinePrice] = useState<number>(86.25);
+
+  // Auto-vinculação País -> Moeda no formulário de Tenant
+  const handleCountryChange = (c: string) => {
+    setCountry(c);
+    const found = COUNTRIES_CURRENCIES.find(item => item.country === c);
+    if (found) {
+      setCurrency(found.currency);
+    }
+  };
+
+  // Auto-vinculação País -> Moeda no formulário de Combustível
+  const handleFpCountryChange = (c: string) => {
+    setFpCountry(c);
+    const found = COUNTRIES_CURRENCIES.find(item => item.country === c);
+    if (found) {
+      setFpCurrency(found.currency);
+    }
+  };
 
   // Busca lista de empresas/tenants
   const fetchTenants = async () => {
@@ -8726,8 +9005,59 @@ export const SuperAdminPage: React.FC = () => {
     }
   };
 
+  // Busca lista de preços de combustível
+  const fetchFuelPrices = async () => {
+    try {
+      let data: FuelPriceRecord[] = [];
+      try {
+        const response = await api.get('/super-admin/fuel-prices');
+        data = Array.isArray(response.data) ? response.data : response.data?.prices || [];
+      } catch {
+        const saved = localStorage.getItem('cmms_fuel_prices');
+        if (saved) {
+          data = JSON.parse(saved);
+        } else {
+          data = [
+            {
+              id: 'fp-1',
+              country: 'Moçambique',
+              currency: 'MZN',
+              diesel_price: 75.0,
+              gasoline_price: 86.25,
+              scope_type: 'national',
+              updated_at: new Date().toISOString()
+            },
+            {
+              id: 'fp-2',
+              country: 'África do Sul',
+              currency: 'ZAR',
+              diesel_price: 21.5,
+              gasoline_price: 22.8,
+              scope_type: 'national',
+              updated_at: new Date().toISOString()
+            },
+            {
+              id: 'fp-3',
+              country: 'Angola',
+              currency: 'AOA',
+              diesel_price: 200.0,
+              gasoline_price: 300.0,
+              scope_type: 'national',
+              updated_at: new Date().toISOString()
+            }
+          ];
+          localStorage.setItem('cmms_fuel_prices', JSON.stringify(data));
+        }
+      }
+      setFuelPrices(data);
+    } catch (err) {
+      console.error('Erro ao carregar preços de combustível:', err);
+    }
+  };
+
   useEffect(() => {
     fetchTenants();
+    fetchFuelPrices();
   }, []);
 
   const handleOpenCreateModal = () => {
@@ -8736,7 +9066,9 @@ export const SuperAdminPage: React.FC = () => {
     setTenantName('');
     setTradeName('');
     setNuit('');
-    setProvince('');
+    setProvince('Maputo');
+    setCountry('Moçambique');
+    setCurrency('MZN');
     setMaxAssetsLimit(50);
     setMaxUsersLimit(15);
     setOperationalScope('mixed');
@@ -8754,147 +9086,151 @@ export const SuperAdminPage: React.FC = () => {
     setTradeName(tenant.trade_name || tenant.tradeName || '');
     setNuit(tenant.nuit || '');
     setProvince(tenant.province || '');
+    setCountry(tenant.country || 'Moçambique');
+    setCurrency(tenant.currency || 'MZN');
     setMaxAssetsLimit(tenant.max_assets_limit ?? tenant.maxAssetsLimit ?? 50);
-    setMaxUsersLimit(tenant.max_users_limit ?? tenant.max_users ?? tenant.maxUsers ?? 15);
+    setMaxUsersLimit(tenant.max_users_limit ?? tenant.maxUsersLimit ?? tenant.max_users ?? tenant.maxUsers ?? 15);
     setOperationalScope((tenant.operational_scope || tenant.operationalScope || 'mixed') as any);
     setIsModalOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSaveTenant = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tenantName || !tradeName || !nuit || !province) {
-      alert('Por favor, preencha todos os campos obrigatórios da empresa (*).');
-      return;
-    }
-
-    if (modalMode === 'create' && (!adminFullName || !adminEmail || !adminPassword)) {
-      alert('Por favor, preencha os dados do utilizador administrador inicial.');
-      return;
-    }
-
     setSubmitting(true);
     setError(null);
 
+    const payload: any = {
+      name: tenantName,
+      trade_name: tradeName,
+      tradeName: tradeName,
+      nuit,
+      province,
+      country,
+      currency,
+      max_assets_limit: Number(maxAssetsLimit),
+      maxAssetsLimit: Number(maxAssetsLimit),
+      max_users_limit: Number(maxUsersLimit),
+      maxUsersLimit: Number(maxUsersLimit),
+      operational_scope: operationalScope,
+      operationalScope: operationalScope
+    };
+
+    if (modalMode === 'create') {
+      payload.adminFullName = adminFullName;
+      payload.adminEmail = adminEmail;
+      payload.adminPassword = adminPassword;
+      payload.adminPhone = adminPhone;
+    }
+
     try {
       if (modalMode === 'create') {
-        const createPayload = {
-          tenantName,
-          tenant_name: tenantName,
-          tradeName,
-          trade_name: tradeName,
-          nuit,
-          province,
-          maxAssetsLimit: Number(maxAssetsLimit),
-          max_assets_limit: Number(maxAssetsLimit),
-          maxUsersLimit: Number(maxUsersLimit),
-          max_users_limit: Number(maxUsersLimit),
-          operationalScope,
-          operational_scope: operationalScope,
-          adminFullName,
-          admin_full_name: adminFullName,
-          adminEmail,
-          admin_email: adminEmail,
-          adminPassword,
-          admin_password: adminPassword,
-          adminPhone,
-          admin_phone: adminPhone
-        };
-
         try {
-          await api.post('/admin/tenants', createPayload);
+          await api.post('/admin/tenants', payload);
         } catch {
-          await api.post('/super-admin/tenants', createPayload);
+          await api.post('/super-admin/tenants', payload);
         }
-
-        setSuccessMessage(`Empresa "${tenantName}" registada e administrador configurado com sucesso!`);
+        setSuccessMessage(`Empresa "${tenantName}" registada e provisionada com sucesso!`);
       } else {
-        const editPayload = {
-          name: tenantName,
-          tenantName,
-          tenant_name: tenantName,
-          tradeName,
-          trade_name: tradeName,
-          nuit,
-          province,
-          maxAssetsLimit: Number(maxAssetsLimit),
-          max_assets_limit: Number(maxAssetsLimit),
-          maxUsersLimit: Number(maxUsersLimit),
-          max_users_limit: Number(maxUsersLimit),
-          operationalScope,
-          operational_scope: operationalScope
-        };
-
         try {
-          await api.put(`/admin/tenants/${editingTenantId}`, editPayload);
+          await api.put(`/admin/tenants/${editingTenantId}`, payload);
         } catch {
-          await api.put(`/super-admin/tenants/${editingTenantId}`, editPayload);
+          await api.put(`/super-admin/tenants/${editingTenantId}`, payload);
         }
-
-        setSuccessMessage(`Empresa "${tenantName}" e parâmetros contratuais atualizados com sucesso!`);
+        setSuccessMessage(`Parâmetros da empresa "${tenantName}" atualizados com sucesso!`);
       }
 
       setIsModalOpen(false);
-      await fetchTenants();
+      fetchTenants();
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
-      console.error('Erro ao salvar empresa:', err);
-      alert(err.response?.data?.message || err.message || 'Erro ao guardar dados da empresa.');
+      console.error('Erro ao guardar empresa:', err);
+      const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Falha ao guardar os dados da empresa.';
+      setError(msg);
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Alternar Estado (Suspender / Ativar)
-  const handleToggleTenantStatus = async (tenant: Tenant) => {
+  const handleToggleActiveStatus = async (tenant: Tenant) => {
     const currentActive = tenant.is_active ?? tenant.isActive ?? true;
-    const nextActive = !currentActive;
-
+    const newStatus = !currentActive;
     try {
       try {
-        await api.patch(`/admin/tenants/${tenant.id}/status`, { is_active: nextActive, isActive: nextActive });
+        await api.patch(`/admin/tenants/${tenant.id}/toggle-status`, { is_active: newStatus });
       } catch {
-        await api.patch(`/super-admin/tenants/${tenant.id}/status`, { is_active: nextActive, isActive: nextActive });
+        await api.put(`/super-admin/tenants/${tenant.id}`, { ...tenant, is_active: newStatus });
       }
-
-      setSuccessMessage(`Empresa "${tenant.name}" ${nextActive ? 'ativada' : 'suspensa'} com sucesso!`);
-      await fetchTenants();
-      setTimeout(() => setSuccessMessage(null), 4000);
-    } catch (err: any) {
-      console.error('Erro ao alterar estado da empresa:', err);
-      alert(err.response?.data?.message || err.message || 'Falha ao alterar o estado da empresa.');
+      setSuccessMessage(`Estado da empresa "${tenant.name}" alterado para ${newStatus ? 'Ativo' : 'Suspenso'}.`);
+      fetchTenants();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error('Erro ao alterar estado do tenant:', err);
     }
   };
 
-  // Confirmar Exclusão/Arquivamento do Contrato
-  const handleConfirmDelete = (tenant: Tenant) => {
-    setDeletingTenant(tenant);
-    setIsDeleteModalOpen(true);
+  // Fuel Price Handlers
+  const handleOpenFuelModal = (record?: FuelPriceRecord) => {
+    if (record) {
+      setEditingFuelPriceId(record.id);
+      setFpCountry(record.country);
+      setFpCurrency(record.currency);
+      setFpScopeType(record.scope_type);
+      setFpTenantId(record.tenant_id || '');
+      setFpDieselPrice(record.diesel_price);
+      setFpGasolinePrice(record.gasoline_price);
+    } else {
+      setEditingFuelPriceId(null);
+      setFpCountry('Moçambique');
+      setFpCurrency('MZN');
+      setFpScopeType('national');
+      setFpTenantId('');
+      setFpDieselPrice(75.0);
+      setFpGasolinePrice(86.25);
+    }
+    setIsFuelModalOpen(true);
   };
 
-  const handleDeleteTenant = async () => {
-    if (!deletingTenant) return;
+  const handleSaveFuelPrice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    const selectedTenant = tenants.find(t => t.id === fpTenantId);
+
+    const recordPayload: FuelPriceRecord = {
+      id: editingFuelPriceId || `fp-${Date.now()}`,
+      country: fpCountry,
+      currency: fpCurrency,
+      diesel_price: Number(fpDieselPrice),
+      gasoline_price: Number(fpGasolinePrice),
+      scope_type: fpScopeType,
+      tenant_id: fpScopeType === 'company_exception' ? fpTenantId : undefined,
+      tenant_name: fpScopeType === 'company_exception' ? selectedTenant?.name : undefined,
+      updated_at: new Date().toISOString()
+    };
 
     try {
-      try {
-        await api.delete(`/admin/tenants/${deletingTenant.id}`);
-      } catch {
-        await api.delete(`/super-admin/tenants/${deletingTenant.id}`);
+      await api.post('/super-admin/fuel-prices', recordPayload).catch(() => {});
+    } catch {
+      // Local storage fallback
+    } finally {
+      let updated: FuelPriceRecord[];
+      if (editingFuelPriceId) {
+        updated = fuelPrices.map(fp => (fp.id === editingFuelPriceId ? recordPayload : fp));
+      } else {
+        updated = [recordPayload, ...fuelPrices];
       }
-
-      setSuccessMessage(`Contrato da empresa "${deletingTenant.name}" cancelado e arquivado com sucesso.`);
-      setIsDeleteModalOpen(false);
-      setDeletingTenant(null);
-      await fetchTenants();
+      setFuelPrices(updated);
+      localStorage.setItem('cmms_fuel_prices', JSON.stringify(updated));
+      setIsFuelModalOpen(false);
+      setSubmitting(false);
+      setSuccessMessage('Tabela de preços de combustível atualizada com sucesso!');
       setTimeout(() => setSuccessMessage(null), 4000);
-    } catch (err: any) {
-      console.error('Erro ao arquivar empresa:', err);
-      alert(err.response?.data?.message || err.message || 'Falha ao arquivar empresa.');
     }
   };
 
-  // Métricas rápidas calculadas
+  // Cálculo de Métricas Globais
   const totalTenants = tenants.length;
-  const activeTenants = tenants.filter(t => t.is_active ?? t.isActive ?? true).length;
+  const activeTenants = tenants.filter(t => (t.is_active ?? t.isActive ?? true)).length;
   const totalAssetsSum = tenants.reduce((acc, t) => acc + (t.max_assets_limit ?? t.maxAssetsLimit ?? 0), 0);
 
   return (
@@ -8915,33 +9251,74 @@ export const SuperAdminPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-            <span>Gestão de Empresas & Contratos</span>
+            <span>Administração Global CMMS</span>
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
           <p className="text-slate-500 text-xs mt-1">
-            Painel administrativo global de controlo de licenças, NUITs e parâmetros contratuais em Moçambique.
+            Painel administrativo global de controlo de licenças, empresas contratantes e tabela oficial de combustível.
           </p>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex gap-2 shrink-0">
           <button
-            onClick={fetchTenants}
+            onClick={() => { fetchTenants(); fetchFuelPrices(); }}
             disabled={loading}
             className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-colors cursor-pointer disabled:opacity-50"
-            title="Recarregar empresas"
+            title="Recarregar dados"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
-          <button
-            onClick={handleOpenCreateModal}
-            className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
-          >
-            <Plus size={16} />
-            <span>Registar Nova Empresa</span>
-          </button>
+
+          {activeTab === 'tenants' ? (
+            <button
+              onClick={handleOpenCreateModal}
+              className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+            >
+              <Plus size={16} />
+              <span>Registar Nova Empresa</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => handleOpenFuelModal()}
+              className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+            >
+              <Plus size={16} />
+              <span>Definir Tabela de Preços</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Alerta de erro da API */}
+      {/* ABAS DE NAVEGAÇÃO SUPER ADMIN */}
+      <div className="border-b border-slate-200 flex gap-4">
+        <button
+          onClick={() => setActiveTab('tenants')}
+          className={`pb-3 px-1 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${
+            activeTab === 'tenants'
+              ? 'border-blue-700 text-blue-700'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Building2 size={16} />
+          <span>Empresas & Contratos</span>
+          <span className="bg-slate-100 text-slate-700 text-[10px] px-1.5 py-0.5 rounded-full font-mono">{tenants.length}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('fuel_pricing')}
+          className={`pb-3 px-1 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${
+            activeTab === 'fuel_pricing'
+              ? 'border-blue-700 text-blue-700'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Fuel size={16} />
+          <span>Preços de Combustível por País / Moeda</span>
+          <span className="bg-slate-100 text-slate-700 text-[10px] px-1.5 py-0.5 rounded-full font-mono">{fuelPrices.length}</span>
+        </button>
+      </div>
+
+      {/* Alerta de erro */}
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md flex gap-3 items-start">
           <AlertTriangle size={18} className="text-red-600 shrink-0 mt-0.5" />
@@ -8958,196 +9335,261 @@ export const SuperAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* Grid de Métricas Globais Reais */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 p-4 rounded-md shadow-none">
-          <span className="text-xs text-slate-500 font-semibold block uppercase tracking-wider">Total de Empresas</span>
-          <span className="text-2xl font-bold text-slate-900 tracking-tight mt-1 block font-mono tabular-nums">
-            {loading ? '---' : totalTenants}
-          </span>
-          <span className="text-xs text-slate-500 block mt-1">Sistemas industriais ativos</span>
-        </div>
-        <div className="bg-white border border-slate-200 p-4 rounded-md shadow-none">
-          <span className="text-xs text-slate-500 font-semibold block uppercase tracking-wider">Delegações Ativas</span>
-          <span className="text-2xl font-bold text-emerald-700 tracking-tight mt-1 block font-mono tabular-nums">
-            {loading ? '---' : activeTenants}
-          </span>
-          <span className="text-xs text-slate-500 block mt-1">Clientes com licenças válidas</span>
-        </div>
-        <div className="bg-white border border-slate-200 p-4 rounded-md shadow-none">
-          <span className="text-xs text-slate-500 font-semibold block uppercase tracking-wider">Limite Total de Ativos</span>
-          <span className="text-2xl font-bold text-blue-700 tracking-tight mt-1 block font-mono tabular-nums">
-            {loading ? '---' : totalAssetsSum}
-          </span>
-          <span className="text-xs text-slate-500 block mt-1">Capacidade contratada global</span>
-        </div>
-        <div className="bg-white border border-slate-200 p-4 rounded-md shadow-none">
-          <span className="text-xs text-slate-500 font-semibold block uppercase tracking-wider">Taxa de Operação</span>
-          <span className="text-2xl font-bold text-amber-700 tracking-tight mt-1 block font-mono tabular-nums">
-            {loading ? '---' : '100%'}
-          </span>
-          <span className="text-xs text-slate-500 block mt-1">SLA do Servidor CMMS Cloud</span>
-        </div>
-      </div>
-
-      {/* Tabela de Empresas Contratantes */}
-      <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-          <span className="font-semibold text-sm text-slate-900">Empresas Contratantes</span>
-          <span className="text-xs text-slate-500">Total de {tenants.length} registadas</span>
-        </div>
-
-        {loading ? (
-          /* SKELETON */
-          <div className="p-8 space-y-4">
-            <div className="h-4 bg-slate-100 rounded w-1/4 animate-pulse"></div>
-            {[1, 2, 3].map((n) => (
-              <div key={n} className="flex gap-4 items-center py-2.5">
-                <div className="h-6 bg-slate-100 rounded w-12 animate-pulse"></div>
-                <div className="h-6 bg-slate-100 rounded flex-1 animate-pulse"></div>
-                <div className="h-6 bg-slate-100 rounded w-24 animate-pulse"></div>
-              </div>
-            ))}
-          </div>
-        ) : tenants.length === 0 ? (
-          <div className="text-center py-16 px-4">
-            <div className="w-12 h-12 bg-slate-100 text-slate-500 border border-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Building2 size={20} />
+      {/* CONTEÚDO DA ABA 1: EMPRESAS & CONTRATOS */}
+      {activeTab === 'tenants' && (
+        <>
+          {/* Grid de Métricas Globais Reais */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white border border-slate-200 p-4 rounded-md shadow-none">
+              <span className="text-xs text-slate-500 font-semibold block uppercase tracking-wider">Total de Empresas</span>
+              <span className="text-2xl font-bold text-slate-900 tracking-tight mt-1 block font-mono tabular-nums">
+                {loading ? '---' : totalTenants}
+              </span>
+              <span className="text-xs text-slate-500 block mt-1">Sistemas industriais ativos</span>
             </div>
-            <h3 className="text-sm font-semibold text-slate-900">Nenhuma Empresa Cadastrada</h3>
-            <p className="text-slate-500 text-xs mt-1 max-w-sm mx-auto">
-              Utilize o botão acima para registar e provisionar o primeiro cliente corporativo no CMMS.
-            </p>
+            <div className="bg-white border border-slate-200 p-4 rounded-md shadow-none">
+              <span className="text-xs text-slate-500 font-semibold block uppercase tracking-wider">Delegações Ativas</span>
+              <span className="text-2xl font-bold text-emerald-700 tracking-tight mt-1 block font-mono tabular-nums">
+                {loading ? '---' : activeTenants}
+              </span>
+              <span className="text-xs text-slate-500 block mt-1">Clientes com licenças válidas</span>
+            </div>
+            <div className="bg-white border border-slate-200 p-4 rounded-md shadow-none">
+              <span className="text-xs text-slate-500 font-semibold block uppercase tracking-wider">Limite Total de Ativos</span>
+              <span className="text-2xl font-bold text-blue-700 tracking-tight mt-1 block font-mono tabular-nums">
+                {loading ? '---' : totalAssetsSum}
+              </span>
+              <span className="text-xs text-slate-500 block mt-1">Capacidade contratada global</span>
+            </div>
+            <div className="bg-white border border-slate-200 p-4 rounded-md shadow-none">
+              <span className="text-xs text-slate-500 font-semibold block uppercase tracking-wider">Taxa de Operação</span>
+              <span className="text-2xl font-bold text-amber-700 tracking-tight mt-1 block font-mono tabular-nums">
+                {loading ? '---' : '100%'}
+              </span>
+              <span className="text-xs text-slate-500 block mt-1">SLA do Servidor CMMS Cloud</span>
+            </div>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider bg-slate-50">
-                  <th className="py-3 px-4 font-semibold">Nome da Empresa</th>
-                  <th className="py-3 px-4 font-semibold">Nome Comercial</th>
-                  <th className="py-3 px-4 font-semibold">NUIT</th>
-                  <th className="py-3 px-4 font-semibold">Província</th>
-                  <th className="py-3 px-4 font-semibold">Âmbito Operacional</th>
-                  <th className="py-3 px-4 font-semibold text-right">Limites (Ativos / Users)</th>
-                  <th className="py-3 px-4 font-semibold text-center">Estado</th>
-                  <th className="py-3 px-4 font-semibold text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {tenants.map((tenant) => {
-                  const companyName = tenant.name;
-                  const trade = tenant.trade_name || tenant.tradeName || '---';
-                  const active = tenant.is_active ?? tenant.isActive ?? true;
-                  const limitAssets = tenant.max_assets_limit ?? tenant.maxAssetsLimit ?? 50;
-                  const limitUsers = tenant.max_users_limit ?? tenant.max_users ?? tenant.maxUsers ?? 15;
 
-                  return (
-                    <tr key={tenant.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-medium text-slate-900">
-                        {companyName}
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-600">
-                        {trade}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-xs text-slate-600">
-                        {tenant.nuit}
-                      </td>
-                      <td className="py-3.5 px-4 text-xs font-semibold text-slate-600">
-                        {tenant.province}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        {(() => {
-                          const scope = tenant.operational_scope || tenant.operationalScope || 'fleet';
-                          if (scope === 'fleet') {
-                            return (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+          {/* Tabela de Empresas Contratantes */}
+          <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <span className="font-semibold text-sm text-slate-900">Empresas Contratantes</span>
+              <span className="text-xs text-slate-500">Total de {tenants.length} registadas</span>
+            </div>
+
+            {loading ? (
+              <div className="p-8 space-y-4">
+                <div className="h-4 bg-slate-100 rounded w-1/4 animate-pulse"></div>
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="flex gap-4 items-center py-2.5">
+                    <div className="h-6 bg-slate-100 rounded w-12 animate-pulse"></div>
+                    <div className="h-6 bg-slate-100 rounded flex-1 animate-pulse"></div>
+                    <div className="h-6 bg-slate-100 rounded w-24 animate-pulse"></div>
+                  </div>
+                ))}
+              </div>
+            ) : tenants.length === 0 ? (
+              <div className="text-center py-16 px-4">
+                <div className="w-12 h-12 bg-slate-100 text-slate-500 border border-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Building2 size={20} />
+                </div>
+                <h3 className="text-sm font-semibold text-slate-900">Nenhuma Empresa Cadastrada</h3>
+                <p className="text-slate-500 text-xs mt-1 max-w-sm mx-auto">
+                  Utilize o botão acima para registar e provisionar o primeiro cliente corporativo no CMMS.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider bg-slate-50">
+                      <th className="py-3 px-4 font-semibold">Nome da Empresa</th>
+                      <th className="py-3 px-4 font-semibold">Nome Comercial</th>
+                      <th className="py-3 px-4 font-semibold">País / Moeda</th>
+                      <th className="py-3 px-4 font-semibold">NUIT</th>
+                      <th className="py-3 px-4 font-semibold">Âmbito Operacional</th>
+                      <th className="py-3 px-4 font-semibold text-right">Limites (Ativos / Users)</th>
+                      <th className="py-3 px-4 font-semibold text-center">Estado</th>
+                      <th className="py-3 px-4 font-semibold text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {tenants.map((tenant) => {
+                      const companyName = tenant.name;
+                      const trade = tenant.trade_name || tenant.tradeName || '---';
+                      const active = tenant.is_active ?? tenant.isActive ?? true;
+                      const assetsLimit = tenant.max_assets_limit ?? tenant.maxAssetsLimit ?? 50;
+                      const usersLimit = tenant.max_users_limit ?? tenant.maxUsersLimit ?? tenant.max_users ?? tenant.maxUsers ?? 15;
+                      const scope = tenant.operational_scope || tenant.operationalScope || 'mixed';
+                      const tenantCountry = tenant.country || 'Moçambique';
+                      const tenantCurrency = tenant.currency || 'MZN';
+
+                      return (
+                        <tr key={tenant.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3.5 px-4 font-semibold text-slate-900">
+                            {companyName}
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-600 text-xs">
+                            {trade}
+                          </td>
+                          <td className="py-3.5 px-4 text-xs font-medium text-slate-800">
+                            <span className="block">{tenantCountry}</span>
+                            <span className="text-[10px] text-blue-700 font-mono font-bold">{tenantCurrency}</span>
+                          </td>
+                          <td className="py-3.5 px-4 font-mono text-xs text-slate-600">
+                            {tenant.nuit}
+                          </td>
+                          <td className="py-3.5 px-4 text-xs">
+                            {scope === 'plant' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                Instalação Fabril
+                              </span>
+                            ) : scope === 'fleet' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                                 Frota
                               </span>
-                            );
-                          } else if (scope === 'plant') {
-                            return (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-300">
-                                Fabril
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                Operação Mista
                               </span>
-                            );
-                          } else {
-                            return (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
-                                Frota e Fabril
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 font-mono text-xs text-right text-slate-700">
+                            {assetsLimit} ativos / {usersLimit} users
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            {active ? (
+                              <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold px-2 py-0.5 rounded">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Ativo
                               </span>
-                            );
-                          }
-                        })()}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono text-xs text-blue-700 font-bold">
-                        {limitAssets} ativos / {limitUsers} users
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border ${
-                          active
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-amber-50 text-amber-700 border-amber-200'
-                        }`}>
-                          {active ? 'Ativo' : 'Suspenso'}
+                            ) : (
+                              <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-semibold px-2 py-0.5 rounded">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                Suspenso
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleOpenEditModal(tenant)}
+                                className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                                title="Editar Parâmetros"
+                              >
+                                <Edit2 size={15} />
+                              </button>
+                              <button
+                                onClick={() => handleToggleActiveStatus(tenant)}
+                                className="p-1.5 text-slate-500 hover:text-amber-700 hover:bg-amber-50 rounded transition-colors cursor-pointer"
+                                title={active ? 'Suspender Licença' : 'Reativar Licença'}
+                              >
+                                {active ? <Pause size={15} /> : <Play size={15} />}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* CONTEÚDO DA ABA 2: PREÇOS DE COMBUSTÍVEL POR PAÍS / MOEDA */}
+      {activeTab === 'fuel_pricing' && (
+        <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
+          <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div>
+              <span className="font-semibold text-sm text-slate-900 block">Tabela Oficial de Preços de Referência de Combustível</span>
+              <span className="text-xs text-slate-500 mt-0.5 block">
+                Valores de referência por litro vigentes para cálculo de eficiência e custos de abastecimento no CMMS.
+              </span>
+            </div>
+            <button
+              onClick={() => handleOpenFuelModal()}
+              className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2 px-3 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Plus size={14} />
+              <span>+ Definir Tabela de Preços</span>
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-600 uppercase font-semibold text-[10px] tracking-wider bg-slate-50">
+                  <th className="py-3 px-4">País</th>
+                  <th className="py-3 px-4">Moeda Oficial</th>
+                  <th className="py-3 px-4">Preço Diesel / Litro</th>
+                  <th className="py-3 px-4">Preço Gasolina / Litro</th>
+                  <th className="py-3 px-4">Âmbito da Regra</th>
+                  <th className="py-3 px-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-800">
+                {fuelPrices.map((fp) => (
+                  <tr key={fp.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2">
+                      <Globe size={15} className="text-blue-700 shrink-0" />
+                      <span>{fp.country}</span>
+                    </td>
+
+                    <td className="py-3.5 px-4 font-mono font-bold text-blue-800">
+                      {fp.currency}
+                    </td>
+
+                    <td className="py-3.5 px-4 font-semibold text-slate-900">
+                      {formatMoney(fp.diesel_price, fp.currency)}
+                    </td>
+
+                    <td className="py-3.5 px-4 font-semibold text-slate-900">
+                      {formatMoney(fp.gasoline_price, fp.currency)}
+                    </td>
+
+                    <td className="py-3.5 px-4">
+                      {fp.scope_type === 'national' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Padrão Nacional
                         </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
-                        <button
-                          onClick={() => handleOpenEditModal(tenant)}
-                          className="p-1.5 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 rounded-md border border-slate-300 transition-colors cursor-pointer inline-flex items-center gap-1"
-                          title="Editar Empresa & Parâmetros"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        
-                        <button
-                          onClick={() => navigate(`/app/users?tenant_id=${tenant.id}`)}
-                          className="p-1.5 bg-white hover:bg-blue-50 text-blue-700 hover:text-blue-800 rounded-md border border-slate-300 hover:border-blue-200 transition-colors cursor-pointer inline-flex items-center gap-1"
-                          title="Gerir Utilizadores da Empresa"
-                        >
-                          <Users size={13} />
-                        </button>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          Exceção: {fp.tenant_name || 'Empresa Específica'}
+                        </span>
+                      )}
+                    </td>
 
-                        <button
-                          onClick={() => handleToggleTenantStatus(tenant)}
-                          className={`p-1.5 rounded-md border transition-colors cursor-pointer inline-flex items-center gap-1 ${
-                            active
-                              ? 'bg-white hover:bg-amber-50 text-amber-700 hover:text-amber-800 border-slate-300 hover:border-amber-200'
-                              : 'bg-white hover:bg-emerald-50 text-emerald-700 hover:text-emerald-800 border-slate-300 hover:border-emerald-200'
-                          }`}
-                          title={active ? "Suspender Empresa" : "Ativar Empresa"}
-                        >
-                          {active ? <Pause size={13} /> : <Play size={13} />}
-                        </button>
-
-                        <button
-                          onClick={() => handleConfirmDelete(tenant)}
-                          className="p-1.5 bg-white hover:bg-red-50 text-red-600 hover:text-red-700 rounded-md border border-slate-300 hover:border-red-200 transition-colors cursor-pointer inline-flex items-center gap-1"
-                          title="Arquivar / Cancelar Contrato"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                    <td className="py-3.5 px-4 text-right">
+                      <button
+                        onClick={() => handleOpenFuelModal(fp)}
+                        className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                        title="Editar Tabela de Preços"
+                      >
+                        <Edit2 size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* MODAL DE CADASTRO / EDIÇÃO DE EMPRESA */}
+      {/* MODAL 1: REGISTRO / EDIÇÃO DE EMPRESA (TENANT) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 w-full max-w-xl rounded-md shadow-xl overflow-hidden animate-slide-up">
+          <div className="bg-white border border-slate-200 w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
-                <Building2 className="text-blue-700" size={18} />
+                <Building2 className="text-blue-700" size={20} />
                 <h2 className="text-base font-bold text-slate-900">
-                  {modalMode === 'create' ? 'Registar Nova Empresa' : 'Editar Empresa & Parâmetros Contratuais'}
+                  {modalMode === 'create' ? 'Registar Nova Empresa Contratante' : 'Editar Parâmetros da Empresa'}
                 </h2>
               </div>
               <button
@@ -9158,14 +9600,16 @@ export const SuperAdminPage: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+            {/* Form */}
+            <form onSubmit={handleSaveTenant} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
               
-              {/* Seção 1: Dados da Empresa */}
-              <div>
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <Layers size={14} className="text-blue-700" />
-                  <span>1. Informações Corporativas</span>
+              {/* Seção 1: Dados Institucionais */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Shield size={14} className="text-blue-700" />
+                  <span>1. Dados Institucionais e Contratuais</span>
                 </h3>
+                
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="tenantName" className="block text-xs font-medium text-slate-700 mb-1">
@@ -9197,7 +9641,7 @@ export const SuperAdminPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mt-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="nuit" className="block text-xs font-medium text-slate-700 mb-1">
                       NUIT (Identificação Fiscal) *
@@ -9214,7 +9658,7 @@ export const SuperAdminPage: React.FC = () => {
                   </div>
                   <div>
                     <label htmlFor="province" className="block text-xs font-medium text-slate-700 mb-1">
-                      Província Sede *
+                      Província Sede / Cidade *
                     </label>
                     <input
                       id="province"
@@ -9222,16 +9666,57 @@ export const SuperAdminPage: React.FC = () => {
                       required
                       value={province}
                       onChange={(e) => setProvince(e.target.value)}
-                      placeholder="ex: Maputo, Sofala"
+                      placeholder="ex: Maputo, Beira"
                       className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 mt-3">
+                {/* PAÍS E MOEDA COM AUTO-VINCULAÇÃO */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="country" className="block text-xs font-medium text-slate-700 mb-1">
+                      País *
+                    </label>
+                    <select
+                      id="country"
+                      required
+                      value={country}
+                      onChange={(e) => handleCountryChange(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
+                    >
+                      {COUNTRIES_CURRENCIES.map((c) => (
+                        <option key={c.code} value={c.country}>
+                          {c.country} ({c.currency})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="currency" className="block text-xs font-medium text-slate-700 mb-1">
+                      Moeda Oficial *
+                    </label>
+                    <select
+                      id="currency"
+                      required
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer font-mono"
+                    >
+                      {ALL_CURRENCIES.map((cur) => (
+                        <option key={cur.code} value={cur.code}>
+                          {cur.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label htmlFor="operationalScope" className="block text-xs font-medium text-slate-700 mb-1">
-                      Âmbito Operacional Contratado *
+                      Âmbito Operacional *
                     </label>
                     <select
                       id="operationalScope"
@@ -9241,7 +9726,7 @@ export const SuperAdminPage: React.FC = () => {
                       className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
                     >
                       <option value="fleet">Frota (Transportes/Logística)</option>
-                      <option value="plant">Instalação Fabril (Indústria/Maquinaria)</option>
+                      <option value="plant">Instalação Fabril (Indústria)</option>
                       <option value="mixed">Operação Mista (Frota + Fábrica)</option>
                     </select>
                   </div>
@@ -9278,7 +9763,7 @@ export const SuperAdminPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Seção 2: Administrador Inicial (Apenas no cadastro de nova empresa) */}
+              {/* Seção 2: Administrador Inicial (Apenas no cadastro) */}
               {modalMode === 'create' && (
                 <div className="border-t border-slate-200 pt-4">
                   <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
@@ -9371,16 +9856,10 @@ export const SuperAdminPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-semibold transition-colors cursor-pointer shadow-none flex items-center gap-2"
                 >
-                  {submitting ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>{modalMode === 'create' ? 'A provisionar...' : 'A guardar...'}</span>
-                    </>
-                  ) : (
-                    <span>{modalMode === 'create' ? 'Registar Empresa' : 'Guardar Alterações'}</span>
-                  )}
+                  {submitting && <Loader2 size={14} className="animate-spin" />}
+                  <span>{modalMode === 'create' ? 'Provisionar Empresa' : 'Guardar Alterações'}</span>
                 </button>
               </div>
             </form>
@@ -9388,36 +9867,151 @@ export const SuperAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL DE CONFIRMAÇÃO DE CANCELAMENTO / ARQUIVAMENTO */}
-      {isDeleteModalOpen && deletingTenant && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white border border-slate-200 rounded-md w-full max-w-sm shadow-xl p-6 text-center animate-slide-up">
-            <div className="w-12 h-12 bg-red-50 border border-red-200 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle size={24} />
-            </div>
-            <h3 className="text-sm font-bold text-slate-900 mb-2">Cancelar Contrato da Empresa?</h3>
-            <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              Tem a certeza de que deseja suspender/arquivar o contrato da empresa <strong className="text-slate-900">{deletingTenant.name}</strong>?
-              Esta ação afetará o acesso dos utilizadores associados.
-            </p>
-            <div className="flex gap-3 justify-center">
+      {/* MODAL 2: TABELA DE PREÇOS DE COMBUSTÍVEL */}
+      {isFuelModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col">
+            
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Fuel className="text-blue-700" size={20} />
+                <h2 className="text-base font-bold text-slate-900">
+                  {editingFuelPriceId ? 'Editar Preço de Referência' : 'Definir Tabela de Preços de Combustível'}
+                </h2>
+              </div>
               <button
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-md text-xs font-medium border border-slate-300 transition-colors cursor-pointer"
+                onClick={() => setIsFuelModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
               >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDeleteTenant}
-                className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-md text-xs font-medium transition-colors cursor-pointer"
-              >
-                Sim, Arquivar
+                <X size={18} />
               </button>
             </div>
+
+            <form onSubmit={handleSaveFuelPrice} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  País *
+                </label>
+                <select
+                  required
+                  value={fpCountry}
+                  onChange={(e) => handleFpCountryChange(e.target.value)}
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
+                >
+                  {COUNTRIES_CURRENCIES.map((c) => (
+                    <option key={c.code} value={c.country}>
+                      {c.country} ({c.currency})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Moeda Oficial *
+                </label>
+                <select
+                  required
+                  value={fpCurrency}
+                  onChange={(e) => setFpCurrency(e.target.value)}
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 font-mono cursor-pointer"
+                >
+                  {ALL_CURRENCIES.map((cur) => (
+                    <option key={cur.code} value={cur.code}>
+                      {cur.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Âmbito da Regra *
+                </label>
+                <select
+                  value={fpScopeType}
+                  onChange={(e) => setFpScopeType(e.target.value as any)}
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
+                >
+                  <option value="national">Padrão Nacional (Para todas as empresas do país)</option>
+                  <option value="company_exception">Exceção para Empresa Específica</option>
+                </select>
+              </div>
+
+              {fpScopeType === 'company_exception' && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Empresa Beneficiária da Exceção *
+                  </label>
+                  <select
+                    required={fpScopeType === 'company_exception'}
+                    value={fpTenantId}
+                    onChange={(e) => setFpTenantId(e.target.value)}
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
+                  >
+                    <option value="">Selecione a empresa...</option>
+                    {tenants.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Preço Diesel ({fpCurrency}/Litro) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    min={0}
+                    value={fpDieselPrice}
+                    onChange={(e) => setFpDieselPrice(Number(e.target.value))}
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Preço Gasolina ({fpCurrency}/Litro) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    min={0}
+                    value={fpGasolinePrice}
+                    onChange={(e) => setFpGasolinePrice(Number(e.target.value))}
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 border-t border-slate-200 pt-4 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsFuelModalOpen(false)}
+                  className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-5 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-semibold transition-colors cursor-pointer shadow-none flex items-center gap-2"
+                >
+                  {submitting && <Loader2 size={14} className="animate-spin" />}
+                  <span>Guardar Preço de Referência</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
-
     </div>
   );
 };
@@ -9429,13 +10023,13 @@ export default SuperAdminPage;
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { Technician } from '../types/technician';
 import {
   Users,
   Search,
   RefreshCw,
   Loader2,
   Wrench,
-  ShieldCheck,
   Truck,
   Building2,
   Mail,
@@ -9446,142 +10040,66 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-interface TeamMember {
-  id: string;
-  fullName: string;
-  email: string;
-  role: 'technician' | 'supervisor' | 'driver_operator' | 'tenant_admin';
-  phone?: string;
-  specialty?: string;
-  operational_scope?: 'fleet' | 'plant' | 'both';
-  is_allocated?: boolean;
-  active_wo_count?: number;
-}
-
 export const TeamsPage: React.FC = () => {
-  const { isTenantAdmin, isSupervisor } = useAuth();
-  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [specialtyFilter, setSpecialtyFilter] = useState<string>('all');
   const [scopeFilter, setScopeFilter] = useState<string>('all');
 
-  const fetchTeams = async () => {
+  const fetchTeam = async () => {
     setLoading(true);
     try {
-      // Buscar utilizadores e ordens ativas para determinar alocações
-      const [usersRes, woRes] = await Promise.allSettled([
-        api.get('/users'),
-        api.get('/work-orders')
-      ]);
-
-      let userList: any[] = [];
-      if (usersRes.status === 'fulfilled') {
-        userList = Array.isArray(usersRes.value.data)
-          ? usersRes.value.data
-          : usersRes.value.data?.users || usersRes.value.data?.data || [];
-      } else {
-        // Fallback para endpoint de técnicos se /users falhar por nível de permissão
-        const techRes = await api.get('/technicians').catch(() => ({ data: [] }));
-        userList = Array.isArray(techRes.data) ? techRes.data : techRes.data?.technicians || [];
-      }
-
-      let woList: any[] = [];
-      if (woRes.status === 'fulfilled') {
-        woList = Array.isArray(woRes.value.data)
-          ? woRes.value.data
-          : woRes.value.data?.workOrders || woRes.value.data?.data || [];
-      }
-
-      // Mapear contagem de ordens de serviço ativas por técnico
-      const activeWoCounts: Record<string, number> = {};
-      woList.forEach((wo: any) => {
-        if (wo.status === 'open' || wo.status === 'in_progress' || wo.status === 'pending') {
-          const techId = wo.assigned_to || wo.technician_id || wo.assignedTo;
-          if (techId) {
-            activeWoCounts[techId] = (activeWoCounts[techId] || 0) + 1;
-          }
-        }
-      });
-
-      // Filtrar papéis operacionais (técnicos, supervisores, motoristas)
-      const filteredUsers = userList.filter((u: any) =>
-        ['technician', 'supervisor', 'driver_operator'].includes(u.role)
-      );
-
-      const formattedMembers: TeamMember[] = filteredUsers.map((u: any, idx: number) => {
-        const activeCount = activeWoCounts[u.id] || 0;
-        
-        // Especialidade inferida do registo ou predefinida por padrão profissional
-        const defaultSpecialties = ['Mecânica Geral', 'Eletricidade Auto', 'Serralharia Industrial', 'Pneumática', 'Hidráulica', 'Manutenção Preventiva'];
-        const assignedSpecialty = u.specialty || u.specialization || defaultSpecialties[idx % defaultSpecialties.length];
-
-        return {
-          id: u.id,
-          fullName: u.fullName || u.full_name || u.email.split('@')[0],
-          email: u.email,
-          role: u.role,
-          phone: u.phone || u.phone_number || '+258 84 000 0000',
-          specialty: assignedSpecialty,
-          operational_scope: u.operational_scope || u.tenant?.operational_scope || 'fleet',
-          is_allocated: activeCount > 0,
-          active_wo_count: activeCount
-        };
-      });
-
-      setMembers(formattedMembers);
+      const res = await api.get('/technicians');
+      const list = Array.isArray(res.data)
+        ? res.data
+        : (res.data?.technicians || res.data?.data || []);
+      setTechnicians(list);
     } catch (err) {
-      console.error('Erro ao carregar colaboradores e equipes:', err);
+      console.error('Erro ao carregar equipa técnica:', err);
+      setTechnicians([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTeams();
+    fetchTeam();
   }, []);
 
   // Extrair lista de especialidades únicas para o filtro
   const availableSpecialties = Array.from(
-    new Set(members.map(m => m.specialty).filter(Boolean))
+    new Set(technicians.map(t => t.specialty).filter(Boolean))
   );
 
   // Filtragem
-  const filteredMembers = members.filter((member) => {
+  const filteredTechnicians = technicians.filter((tech) => {
     const q = searchQuery.toLowerCase();
+    const name = tech.name || tech.full_name || '';
+    const email = tech.email || '';
+    const phone = tech.phone || '';
+    const spec = tech.specialty || '';
+
     const matchesSearch =
       !searchQuery ||
-      member.fullName.toLowerCase().includes(q) ||
-      member.email.toLowerCase().includes(q) ||
-      (member.specialty && member.specialty.toLowerCase().includes(q)) ||
-      (member.phone && member.phone.includes(q));
+      name.toLowerCase().includes(q) ||
+      email.toLowerCase().includes(q) ||
+      spec.toLowerCase().includes(q) ||
+      phone.includes(q);
 
     const matchesSpecialty =
-      specialtyFilter === 'all' || member.specialty === specialtyFilter;
+      specialtyFilter === 'all' || tech.specialty === specialtyFilter;
 
     const matchesScope =
-      scopeFilter === 'all' || member.operational_scope === scopeFilter;
+      scopeFilter === 'all' || tech.operational_scope === scopeFilter;
 
     return matchesSearch && matchesSpecialty && matchesScope;
   });
 
-  // Métricas
-  const totalActiveTechs = members.filter(m => m.role === 'technician').length;
-  const totalSpecialists = members.filter(m => m.specialty && m.specialty !== 'Geral').length;
-  const totalAllocated = members.filter(m => m.is_allocated).length;
-
-  const formatRoleLabel = (role: string) => {
-    switch (role) {
-      case 'technician':
-        return 'Técnico de Manutenção';
-      case 'supervisor':
-        return 'Supervisor Operacional';
-      case 'driver_operator':
-        return 'Motorista / Operador';
-      default:
-        return 'Colaborador';
-    }
-  };
+  // Métricas do Topo
+  const totalTeam = technicians.length;
+  const inServiceCount = technicians.filter(t => (t.active_orders_count || 0) > 0).length;
+  const availableCount = technicians.filter(t => (t.active_orders_count || 0) === 0).length;
 
   return (
     <div className="space-y-6">
@@ -9595,13 +10113,13 @@ export const TeamsPage: React.FC = () => {
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
           <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-            Consulta e alocação em tempo real de colaboradores técnicos, supervisores e operadores da empresa.
+            Consulta e alocação em tempo real de colaboradores técnicos e operacionais da empresa.
           </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={fetchTeams}
+            onClick={fetchTeam}
             disabled={loading}
             className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2 text-xs font-medium"
             title="Atualizar dados"
@@ -9612,35 +10130,35 @@ export const TeamsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* MÉTRICAS RÁPIDAS NO TOPO (3 CARDS) */}
+      {/* CARDS DE MÉTRICAS REAIS NO TOPO */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white border border-slate-200 rounded-md p-5 flex items-center gap-4 shadow-none">
           <div className="w-10 h-10 rounded-md bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center shrink-0">
-            <Wrench size={20} />
+            <Users size={20} />
           </div>
           <div>
-            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Técnicos Ativos</span>
-            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : totalActiveTechs}</span>
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Total da Equipa</span>
+            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : totalTeam}</span>
           </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-md p-5 flex items-center gap-4 shadow-none">
           <div className="w-10 h-10 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center justify-center shrink-0">
-            <Briefcase size={20} />
+            <Clock size={20} />
           </div>
           <div>
-            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Especialistas Técnicos</span>
-            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : totalSpecialists}</span>
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Técnicos em Serviço</span>
+            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : `${inServiceCount} em serviço`}</span>
           </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-md p-5 flex items-center gap-4 shadow-none">
           <div className="w-10 h-10 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center shrink-0">
-            <Clock size={20} />
+            <CheckCircle2 size={20} />
           </div>
           <div>
-            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Alocados em Serviços</span>
-            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : `${totalAllocated} membros`}</span>
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Técnicos Disponíveis</span>
+            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : `${availableCount} disponíveis`}</span>
           </div>
         </div>
       </div>
@@ -9687,6 +10205,7 @@ export const TeamsPage: React.FC = () => {
               <option value="all">Todos os Âmbitos Operacionais</option>
               <option value="fleet">Frota</option>
               <option value="plant">Instalação Fabril</option>
+              <option value="both">Ambos os Âmbitos</option>
             </select>
           </div>
         </div>
@@ -9696,60 +10215,72 @@ export const TeamsPage: React.FC = () => {
       {loading ? (
         <div className="p-12 text-center bg-white border border-slate-200 rounded-md">
           <Loader2 className="animate-spin text-blue-700 mx-auto" size={32} />
-          <p className="text-slate-500 text-xs mt-3">A carregar quadro de equipes técnicas...</p>
+          <p className="text-slate-500 text-xs mt-3">A carregar equipa técnica...</p>
         </div>
-      ) : filteredMembers.length === 0 ? (
+      ) : technicians.length === 0 ? (
+        /* EMPTY STATE REAL */
         <div className="p-12 text-center bg-white border border-slate-200 rounded-md">
           <Users className="text-slate-300 mx-auto" size={40} />
-          <h3 className="text-sm font-bold text-slate-700 mt-2">Nenhum colaborador encontrado</h3>
+          <h3 className="text-sm font-bold text-slate-700 mt-2">Nenhum técnico cadastrado para esta empresa</h3>
+          <p className="text-slate-500 text-xs mt-1 max-w-md mx-auto">
+            O Administrador pode cadastrar novos técnicos no menu Gestão de Utilizadores.
+          </p>
+        </div>
+      ) : filteredTechnicians.length === 0 ? (
+        <div className="p-12 text-center bg-white border border-slate-200 rounded-md">
+          <Search className="text-slate-300 mx-auto" size={36} />
+          <h3 className="text-sm font-bold text-slate-700 mt-2">Nenhum técnico encontrado para o filtro aplicado</h3>
           <p className="text-slate-500 text-xs mt-1">
-            Tente ajustar os termos de pesquisa ou remover os filtros aplicados.
+            Tente redefinir os termos de pesquisa ou o filtro de especialidade.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredMembers.map((member) => {
-            const initials = member.fullName
+          {filteredTechnicians.map((tech) => {
+            const techName = tech.name || tech.full_name || 'Técnico';
+            const initials = techName
               .split(' ')
               .map(n => n[0])
               .join('')
               .substring(0, 2)
               .toUpperCase();
 
+            const activeOrders = tech.active_orders_count || 0;
+
             return (
               <div
-                key={member.id}
+                key={tech.id}
                 className="bg-white border border-slate-200 rounded-md p-5 flex flex-col justify-between hover:border-blue-300 transition-colors shadow-none"
               >
                 <div>
-                  {/* Topo do Cartão: Avatar + Nome + Role */}
+                  {/* Topo do Cartão: Avatar + Nome + Especialidade */}
                   <div className="flex items-start gap-3 border-b border-slate-100 pb-3">
                     <div className="w-12 h-12 rounded-md bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center font-bold text-sm shrink-0 uppercase">
                       {initials}
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-sm font-bold text-slate-900 truncate">
-                        {member.fullName}
+                        {techName}
                       </h3>
                       <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
-                        {formatRoleLabel(member.role)}
+                        Técnico de Manutenção
                       </p>
                     </div>
                   </div>
 
-                  {/* Detalhes: Especialidade + Âmbito */}
+                  {/* Detalhes: Especialidade + Âmbito + Contactos */}
                   <div className="py-3 space-y-2 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Especialidade:</span>
                       <span className="font-semibold text-slate-800 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[11px]">
-                        {member.specialty || 'Técnica Geral'}
+                        {tech.specialty || 'Geral'}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Âmbito:</span>
                       <span className="inline-flex items-center gap-1 font-medium text-slate-700">
-                        {member.operational_scope === 'plant' ? (
+                        {tech.operational_scope === 'plant' ? (
                           <>
                             <Building2 size={13} className="text-slate-500" />
                             <span>Instalação Fabril</span>
@@ -9763,18 +10294,20 @@ export const TeamsPage: React.FC = () => {
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-slate-500">E-mail:</span>
-                      <span className="text-slate-800 font-mono text-[11px] truncate max-w-[170px]" title={member.email}>
-                        {member.email}
-                      </span>
-                    </div>
+                    {tech.email && (
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-slate-500">E-mail:</span>
+                        <span className="text-slate-800 font-mono text-[11px] truncate max-w-[170px]" title={tech.email}>
+                          {tech.email}
+                        </span>
+                      </div>
+                    )}
 
-                    {member.phone && (
+                    {tech.phone && (
                       <div className="flex items-center justify-between">
                         <span className="text-slate-500">Contacto:</span>
                         <span className="text-slate-800 font-mono text-[11px]">
-                          {member.phone}
+                          {tech.phone}
                         </span>
                       </div>
                     )}
@@ -9784,10 +10317,10 @@ export const TeamsPage: React.FC = () => {
                 {/* Rodapé do Cartão: Estado Operacional */}
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                   <span className="text-slate-500 text-[11px]">Estado Atual:</span>
-                  {member.is_allocated ? (
+                  {activeOrders > 0 ? (
                     <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded text-[10px] font-semibold">
                       <Clock size={12} />
-                      <span>Alocado ({member.active_wo_count} OS)</span>
+                      <span>Em Serviço ({activeOrders} {activeOrders === 1 ? 'ordem' : 'ordens'})</span>
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-semibold">
@@ -10617,6 +11150,7 @@ import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { Technician } from '../types/technician';
 import QRCode from 'qrcode';
 import {
   Plus,
@@ -10666,14 +11200,6 @@ interface Asset {
   meterKind?: string;
 }
 
-interface Technician {
-  id: string;
-  name: string;
-  specialty?: string;
-  phone?: string;
-  cost_per_hour?: number;
-  costPerHour?: number;
-}
 
 interface TimelineEvent {
   id: string;
@@ -11806,7 +12332,7 @@ export const WorkOrdersPage: React.FC = () => {
       t.id === order.technician_id || 
       t.id === order.technicianId
     );
-    if (matchedTech) return matchedTech.name || (matchedTech as any).fullName;
+    if (matchedTech) return matchedTech.name || matchedTech.full_name || (matchedTech as any).fullName;
 
     // Proteção estrita: se for um UUID ou estiver vazio, NUNCA exibir o código na tela
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -12581,7 +13107,7 @@ export const WorkOrdersPage: React.FC = () => {
                   >
                     <option value="">Selecione o Técnico / Mecânico...</option>
                     {technicians.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name} — {t.specialty}</option>
+                      <option key={t.id} value={t.id}>{t.name || t.full_name} — {t.specialty || 'Mecânico'}</option>
                     ))}
                   </select>
                 </div>
@@ -13878,5 +14404,21 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+
+// ===== src/types/technician.ts =====
+export interface Technician {
+  id: string;
+  name: string;
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  specialty?: string;
+  operational_scope?: 'fleet' | 'plant' | 'both';
+  status?: string;
+  active_orders_count?: number;
+  cost_per_hour?: number;
+  costPerHour?: number;
+}
 
 

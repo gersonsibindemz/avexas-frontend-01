@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { formatMoney } from '../config/countriesCurrencies';
 import {
   Plus,
   AlertTriangle,
@@ -119,10 +120,63 @@ export const FuelPage: React.FC = () => {
     }
   };
 
+  // Preço de Referência e Moeda Dinâmica por Empresa / País
+  const [refData, setRefData] = useState<{
+    country: string;
+    currency: string;
+    prices: { Diesel: number; Gasolina: number };
+  }>({
+    country: 'Moçambique',
+    currency: 'MZN',
+    prices: { Diesel: 75.0, Gasolina: 86.25 }
+  });
+
+  const fetchReferencePrices = async () => {
+    try {
+      const response = await api.get('/fuel/reference-prices').catch(() => null);
+      if (response && response.data) {
+        setRefData({
+          country: response.data.country || 'Moçambique',
+          currency: response.data.currency || 'MZN',
+          prices: {
+            Diesel: response.data.prices?.Diesel ?? response.data.diesel_price ?? 75.0,
+            Gasolina: response.data.prices?.Gasolina ?? response.data.gasoline_price ?? 86.25
+          }
+        });
+      } else {
+        const savedPrices = localStorage.getItem('cmms_fuel_prices');
+        if (savedPrices) {
+          const parsed = JSON.parse(savedPrices);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setRefData({
+              country: parsed[0].country || 'Moçambique',
+              currency: parsed[0].currency || 'MZN',
+              prices: {
+                Diesel: parsed[0].diesel_price || 75.0,
+                Gasolina: parsed[0].gasoline_price || 86.25
+              }
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao carregar preços de referência:', err);
+    }
+  };
+
   useEffect(() => {
     fetchFuelLogs();
     fetchAssetsForDropdown();
+    fetchReferencePrices();
   }, []);
+
+  // Sugere automaticamente o preço por litro quando o modal abre ou muda o tipo de combustível
+  useEffect(() => {
+    if (isModalOpen && pricePerLiterMzn === '') {
+      const suggested = fuelType === 'Diesel' ? refData.prices.Diesel : refData.prices.Gasolina;
+      setPricePerLiterMzn(suggested);
+    }
+  }, [isModalOpen, fuelType, refData]);
 
   // Formatação de Moeda Padronizada em Meticais
   const formatMZN = (val?: number) => {
@@ -297,14 +351,17 @@ export const FuelPage: React.FC = () => {
       {/* Grid de Estatísticas Rápidas baseadas nos filtros */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white border border-slate-200 p-5 rounded-md shadow-none">
-          <span className="text-xs text-slate-500 block font-semibold uppercase tracking-wider mb-2">Preço de Referência em Moçambique</span>
+          <div className="mb-2">
+            <span className="text-xs text-slate-500 block font-semibold uppercase tracking-wider">PREÇO DE REFERÊNCIA</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5">Valores oficiais em vigor no país da empresa</span>
+          </div>
           <div className="flex justify-between items-center py-2 border-b border-slate-100">
-            <span className="text-slate-600 text-xs">Gasóleo (Diesel) / Litro</span>
-            <span className="font-mono font-bold text-slate-900 text-sm">{formatMZN(75.00)}</span>
+            <span className="text-slate-600 text-xs font-medium">Gasóleo (Diesel) / Litro</span>
+            <span className="font-mono font-bold text-slate-900 text-sm">{formatMoney(refData.prices.Diesel, refData.currency)}</span>
           </div>
           <div className="flex justify-between items-center py-2">
-            <span className="text-slate-600 text-xs">Gasolina / Litro</span>
-            <span className="font-mono font-bold text-slate-900 text-sm">{formatMZN(86.25)}</span>
+            <span className="text-slate-600 text-xs font-medium">Gasolina / Litro</span>
+            <span className="font-mono font-bold text-slate-900 text-sm">{formatMoney(refData.prices.Gasolina, refData.currency)}</span>
           </div>
         </div>
 
@@ -322,7 +379,7 @@ export const FuelPage: React.FC = () => {
           <div>
             <span className="text-xs text-slate-500 block font-semibold uppercase tracking-wider mb-1">Investimento Acumulado</span>
             <span className="text-2xl font-bold text-blue-700 font-mono tracking-tight block mt-1">
-              {loading ? '--- MZN' : formatMZN(totalCost)}
+              {loading ? `--- ${refData.currency}` : formatMoney(totalCost, refData.currency)}
             </span>
           </div>
           <span className="text-xs text-slate-500 block mt-2">Custo total dos abastecimentos faturados</span>
@@ -572,7 +629,7 @@ export const FuelPage: React.FC = () => {
                       </div>
                       <div>
                         <label htmlFor="priceInput" className="block text-xs font-medium text-slate-700 mb-1">
-                          Preço por Litro (MZN) *
+                          Preço por Litro ({refData.currency}) *
                         </label>
                         <div className="relative">
                           <input
@@ -586,7 +643,7 @@ export const FuelPage: React.FC = () => {
                             placeholder="ex: 75,00"
                             className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3.5 py-2 text-xs text-slate-900 font-mono focus:outline-none"
                           />
-                          <span className="absolute right-3 top-2 text-[11px] font-bold text-slate-500">MZN</span>
+                          <span className="absolute right-3 top-2 text-[11px] font-bold text-slate-500">{refData.currency}</span>
                         </div>
                       </div>
                     </div>
@@ -648,7 +705,7 @@ export const FuelPage: React.FC = () => {
                           Custo Total Calculado:
                         </span>
                         <span className="font-mono font-bold text-slate-900 text-sm">
-                          {formatMZN(Number(liters) * Number(pricePerLiterMzn))}
+                          {formatMoney(Number(liters) * Number(pricePerLiterMzn), refData.currency)}
                         </span>
                       </div>
                     )}

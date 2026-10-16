@@ -3,6 +3,7 @@ import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { Technician } from '../types/technician';
 import QRCode from 'qrcode';
 import {
   Plus,
@@ -52,14 +53,6 @@ interface Asset {
   meterKind?: string;
 }
 
-interface Technician {
-  id: string;
-  name: string;
-  specialty?: string;
-  phone?: string;
-  cost_per_hour?: number;
-  costPerHour?: number;
-}
 
 interface TimelineEvent {
   id: string;
@@ -1192,7 +1185,7 @@ export const WorkOrdersPage: React.FC = () => {
       t.id === order.technician_id || 
       t.id === order.technicianId
     );
-    if (matchedTech) return matchedTech.name || (matchedTech as any).fullName;
+    if (matchedTech) return matchedTech.name || matchedTech.full_name || (matchedTech as any).fullName;
 
     // Proteção estrita: se for um UUID ou estiver vazio, NUNCA exibir o código na tela
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1967,7 +1960,7 @@ export const WorkOrdersPage: React.FC = () => {
                   >
                     <option value="">Selecione o Técnico / Mecânico...</option>
                     {technicians.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name} — {t.specialty}</option>
+                      <option key={t.id} value={t.id}>{t.name || t.full_name} — {t.specialty || 'Mecânico'}</option>
                     ))}
                   </select>
                 </div>

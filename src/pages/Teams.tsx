@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { Technician } from '../types/technician';
 import {
   Users,
   Search,
   RefreshCw,
   Loader2,
   Wrench,
-  ShieldCheck,
   Truck,
   Building2,
   Mail,
@@ -18,142 +18,66 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-interface TeamMember {
-  id: string;
-  fullName: string;
-  email: string;
-  role: 'technician' | 'supervisor' | 'driver_operator' | 'tenant_admin';
-  phone?: string;
-  specialty?: string;
-  operational_scope?: 'fleet' | 'plant' | 'both';
-  is_allocated?: boolean;
-  active_wo_count?: number;
-}
-
 export const TeamsPage: React.FC = () => {
-  const { isTenantAdmin, isSupervisor } = useAuth();
-  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [specialtyFilter, setSpecialtyFilter] = useState<string>('all');
   const [scopeFilter, setScopeFilter] = useState<string>('all');
 
-  const fetchTeams = async () => {
+  const fetchTeam = async () => {
     setLoading(true);
     try {
-      // Buscar utilizadores e ordens ativas para determinar alocações
-      const [usersRes, woRes] = await Promise.allSettled([
-        api.get('/users'),
-        api.get('/work-orders')
-      ]);
-
-      let userList: any[] = [];
-      if (usersRes.status === 'fulfilled') {
-        userList = Array.isArray(usersRes.value.data)
-          ? usersRes.value.data
-          : usersRes.value.data?.users || usersRes.value.data?.data || [];
-      } else {
-        // Fallback para endpoint de técnicos se /users falhar por nível de permissão
-        const techRes = await api.get('/technicians').catch(() => ({ data: [] }));
-        userList = Array.isArray(techRes.data) ? techRes.data : techRes.data?.technicians || [];
-      }
-
-      let woList: any[] = [];
-      if (woRes.status === 'fulfilled') {
-        woList = Array.isArray(woRes.value.data)
-          ? woRes.value.data
-          : woRes.value.data?.workOrders || woRes.value.data?.data || [];
-      }
-
-      // Mapear contagem de ordens de serviço ativas por técnico
-      const activeWoCounts: Record<string, number> = {};
-      woList.forEach((wo: any) => {
-        if (wo.status === 'open' || wo.status === 'in_progress' || wo.status === 'pending') {
-          const techId = wo.assigned_to || wo.technician_id || wo.assignedTo;
-          if (techId) {
-            activeWoCounts[techId] = (activeWoCounts[techId] || 0) + 1;
-          }
-        }
-      });
-
-      // Filtrar papéis operacionais (técnicos, supervisores, motoristas)
-      const filteredUsers = userList.filter((u: any) =>
-        ['technician', 'supervisor', 'driver_operator'].includes(u.role)
-      );
-
-      const formattedMembers: TeamMember[] = filteredUsers.map((u: any, idx: number) => {
-        const activeCount = activeWoCounts[u.id] || 0;
-        
-        // Especialidade inferida do registo ou predefinida por padrão profissional
-        const defaultSpecialties = ['Mecânica Geral', 'Eletricidade Auto', 'Serralharia Industrial', 'Pneumática', 'Hidráulica', 'Manutenção Preventiva'];
-        const assignedSpecialty = u.specialty || u.specialization || defaultSpecialties[idx % defaultSpecialties.length];
-
-        return {
-          id: u.id,
-          fullName: u.fullName || u.full_name || u.email.split('@')[0],
-          email: u.email,
-          role: u.role,
-          phone: u.phone || u.phone_number || '+258 84 000 0000',
-          specialty: assignedSpecialty,
-          operational_scope: u.operational_scope || u.tenant?.operational_scope || 'fleet',
-          is_allocated: activeCount > 0,
-          active_wo_count: activeCount
-        };
-      });
-
-      setMembers(formattedMembers);
+      const res = await api.get('/technicians');
+      const list = Array.isArray(res.data)
+        ? res.data
+        : (res.data?.technicians || res.data?.data || []);
+      setTechnicians(list);
     } catch (err) {
-      console.error('Erro ao carregar colaboradores e equipes:', err);
+      console.error('Erro ao carregar equipa técnica:', err);
+      setTechnicians([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTeams();
+    fetchTeam();
   }, []);
 
   // Extrair lista de especialidades únicas para o filtro
   const availableSpecialties = Array.from(
-    new Set(members.map(m => m.specialty).filter(Boolean))
+    new Set(technicians.map(t => t.specialty).filter(Boolean))
   );
 
   // Filtragem
-  const filteredMembers = members.filter((member) => {
+  const filteredTechnicians = technicians.filter((tech) => {
     const q = searchQuery.toLowerCase();
+    const name = tech.name || tech.full_name || '';
+    const email = tech.email || '';
+    const phone = tech.phone || '';
+    const spec = tech.specialty || '';
+
     const matchesSearch =
       !searchQuery ||
-      member.fullName.toLowerCase().includes(q) ||
-      member.email.toLowerCase().includes(q) ||
-      (member.specialty && member.specialty.toLowerCase().includes(q)) ||
-      (member.phone && member.phone.includes(q));
+      name.toLowerCase().includes(q) ||
+      email.toLowerCase().includes(q) ||
+      spec.toLowerCase().includes(q) ||
+      phone.includes(q);
 
     const matchesSpecialty =
-      specialtyFilter === 'all' || member.specialty === specialtyFilter;
+      specialtyFilter === 'all' || tech.specialty === specialtyFilter;
 
     const matchesScope =
-      scopeFilter === 'all' || member.operational_scope === scopeFilter;
+      scopeFilter === 'all' || tech.operational_scope === scopeFilter;
 
     return matchesSearch && matchesSpecialty && matchesScope;
   });
 
-  // Métricas
-  const totalActiveTechs = members.filter(m => m.role === 'technician').length;
-  const totalSpecialists = members.filter(m => m.specialty && m.specialty !== 'Geral').length;
-  const totalAllocated = members.filter(m => m.is_allocated).length;
-
-  const formatRoleLabel = (role: string) => {
-    switch (role) {
-      case 'technician':
-        return 'Técnico de Manutenção';
-      case 'supervisor':
-        return 'Supervisor Operacional';
-      case 'driver_operator':
-        return 'Motorista / Operador';
-      default:
-        return 'Colaborador';
-    }
-  };
+  // Métricas do Topo
+  const totalTeam = technicians.length;
+  const inServiceCount = technicians.filter(t => (t.active_orders_count || 0) > 0).length;
+  const availableCount = technicians.filter(t => (t.active_orders_count || 0) === 0).length;
 
   return (
     <div className="space-y-6">
@@ -167,13 +91,13 @@ export const TeamsPage: React.FC = () => {
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
           <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-            Consulta e alocação em tempo real de colaboradores técnicos, supervisores e operadores da empresa.
+            Consulta e alocação em tempo real de colaboradores técnicos e operacionais da empresa.
           </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={fetchTeams}
+            onClick={fetchTeam}
             disabled={loading}
             className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2 text-xs font-medium"
             title="Atualizar dados"
@@ -184,35 +108,35 @@ export const TeamsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* MÉTRICAS RÁPIDAS NO TOPO (3 CARDS) */}
+      {/* CARDS DE MÉTRICAS REAIS NO TOPO */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white border border-slate-200 rounded-md p-5 flex items-center gap-4 shadow-none">
           <div className="w-10 h-10 rounded-md bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center shrink-0">
-            <Wrench size={20} />
+            <Users size={20} />
           </div>
           <div>
-            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Técnicos Ativos</span>
-            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : totalActiveTechs}</span>
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Total da Equipa</span>
+            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : totalTeam}</span>
           </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-md p-5 flex items-center gap-4 shadow-none">
           <div className="w-10 h-10 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center justify-center shrink-0">
-            <Briefcase size={20} />
+            <Clock size={20} />
           </div>
           <div>
-            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Especialistas Técnicos</span>
-            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : totalSpecialists}</span>
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Técnicos em Serviço</span>
+            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : `${inServiceCount} em serviço`}</span>
           </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-md p-5 flex items-center gap-4 shadow-none">
           <div className="w-10 h-10 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center shrink-0">
-            <Clock size={20} />
+            <CheckCircle2 size={20} />
           </div>
           <div>
-            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Alocados em Serviços</span>
-            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : `${totalAllocated} membros`}</span>
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Técnicos Disponíveis</span>
+            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : `${availableCount} disponíveis`}</span>
           </div>
         </div>
       </div>
@@ -259,6 +183,7 @@ export const TeamsPage: React.FC = () => {
               <option value="all">Todos os Âmbitos Operacionais</option>
               <option value="fleet">Frota</option>
               <option value="plant">Instalação Fabril</option>
+              <option value="both">Ambos os Âmbitos</option>
             </select>
           </div>
         </div>
@@ -268,60 +193,72 @@ export const TeamsPage: React.FC = () => {
       {loading ? (
         <div className="p-12 text-center bg-white border border-slate-200 rounded-md">
           <Loader2 className="animate-spin text-blue-700 mx-auto" size={32} />
-          <p className="text-slate-500 text-xs mt-3">A carregar quadro de equipes técnicas...</p>
+          <p className="text-slate-500 text-xs mt-3">A carregar equipa técnica...</p>
         </div>
-      ) : filteredMembers.length === 0 ? (
+      ) : technicians.length === 0 ? (
+        /* EMPTY STATE REAL */
         <div className="p-12 text-center bg-white border border-slate-200 rounded-md">
           <Users className="text-slate-300 mx-auto" size={40} />
-          <h3 className="text-sm font-bold text-slate-700 mt-2">Nenhum colaborador encontrado</h3>
+          <h3 className="text-sm font-bold text-slate-700 mt-2">Nenhum técnico cadastrado para esta empresa</h3>
+          <p className="text-slate-500 text-xs mt-1 max-w-md mx-auto">
+            O Administrador pode cadastrar novos técnicos no menu Gestão de Utilizadores.
+          </p>
+        </div>
+      ) : filteredTechnicians.length === 0 ? (
+        <div className="p-12 text-center bg-white border border-slate-200 rounded-md">
+          <Search className="text-slate-300 mx-auto" size={36} />
+          <h3 className="text-sm font-bold text-slate-700 mt-2">Nenhum técnico encontrado para o filtro aplicado</h3>
           <p className="text-slate-500 text-xs mt-1">
-            Tente ajustar os termos de pesquisa ou remover os filtros aplicados.
+            Tente redefinir os termos de pesquisa ou o filtro de especialidade.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredMembers.map((member) => {
-            const initials = member.fullName
+          {filteredTechnicians.map((tech) => {
+            const techName = tech.name || tech.full_name || 'Técnico';
+            const initials = techName
               .split(' ')
               .map(n => n[0])
               .join('')
               .substring(0, 2)
               .toUpperCase();
 
+            const activeOrders = tech.active_orders_count || 0;
+
             return (
               <div
-                key={member.id}
+                key={tech.id}
                 className="bg-white border border-slate-200 rounded-md p-5 flex flex-col justify-between hover:border-blue-300 transition-colors shadow-none"
               >
                 <div>
-                  {/* Topo do Cartão: Avatar + Nome + Role */}
+                  {/* Topo do Cartão: Avatar + Nome + Especialidade */}
                   <div className="flex items-start gap-3 border-b border-slate-100 pb-3">
                     <div className="w-12 h-12 rounded-md bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center font-bold text-sm shrink-0 uppercase">
                       {initials}
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-sm font-bold text-slate-900 truncate">
-                        {member.fullName}
+                        {techName}
                       </h3>
                       <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
-                        {formatRoleLabel(member.role)}
+                        Técnico de Manutenção
                       </p>
                     </div>
                   </div>
 
-                  {/* Detalhes: Especialidade + Âmbito */}
+                  {/* Detalhes: Especialidade + Âmbito + Contactos */}
                   <div className="py-3 space-y-2 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Especialidade:</span>
                       <span className="font-semibold text-slate-800 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[11px]">
-                        {member.specialty || 'Técnica Geral'}
+                        {tech.specialty || 'Geral'}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Âmbito:</span>
                       <span className="inline-flex items-center gap-1 font-medium text-slate-700">
-                        {member.operational_scope === 'plant' ? (
+                        {tech.operational_scope === 'plant' ? (
                           <>
                             <Building2 size={13} className="text-slate-500" />
                             <span>Instalação Fabril</span>
@@ -335,18 +272,20 @@ export const TeamsPage: React.FC = () => {
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-slate-500">E-mail:</span>
-                      <span className="text-slate-800 font-mono text-[11px] truncate max-w-[170px]" title={member.email}>
-                        {member.email}
-                      </span>
-                    </div>
+                    {tech.email && (
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-slate-500">E-mail:</span>
+                        <span className="text-slate-800 font-mono text-[11px] truncate max-w-[170px]" title={tech.email}>
+                          {tech.email}
+                        </span>
+                      </div>
+                    )}
 
-                    {member.phone && (
+                    {tech.phone && (
                       <div className="flex items-center justify-between">
                         <span className="text-slate-500">Contacto:</span>
                         <span className="text-slate-800 font-mono text-[11px]">
-                          {member.phone}
+                          {tech.phone}
                         </span>
                       </div>
                     )}
@@ -356,10 +295,10 @@ export const TeamsPage: React.FC = () => {
                 {/* Rodapé do Cartão: Estado Operacional */}
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                   <span className="text-slate-500 text-[11px]">Estado Atual:</span>
-                  {member.is_allocated ? (
+                  {activeOrders > 0 ? (
                     <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded text-[10px] font-semibold">
                       <Clock size={12} />
-                      <span>Alocado ({member.active_wo_count} OS)</span>
+                      <span>Em Serviço ({activeOrders} {activeOrders === 1 ? 'ordem' : 'ordens'})</span>
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-semibold">

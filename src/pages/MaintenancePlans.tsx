@@ -20,30 +20,63 @@ import {
   Wrench,
   Clock,
   Layers,
-  X
+  X,
+  User,
+  AlertCircle
 } from 'lucide-react';
 
-interface ChecklistItem {
+export interface Asset {
+  id: string;
+  code_tag?: string;
+  codeTag?: string;
+  name: string;
+  operational_scope?: string;
+  operationalScope?: string;
+}
+
+export interface Technician {
+  id: string;
+  fullName?: string;
+  full_name?: string;
+  email?: string;
+  specialty?: string;
+  role?: string;
+}
+
+export interface ChecklistItem {
   id: string;
   task: string;
 }
 
-interface MaintenancePlan {
+export interface MaintenancePlan {
   id: string;
-  code: string;
+  code?: string;
   title: string;
   asset_id: string;
   asset_name?: string;
+  assetName?: string;
   asset_code?: string;
+  assetCode?: string;
   trigger_type: 'time' | 'meter' | 'both';
+  triggerType?: 'time' | 'meter' | 'both';
   interval_days?: number;
+  intervalDays?: number;
   interval_meter?: number;
-  technician_id?: string;
+  intervalMeter?: number;
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  assigned_technician_id?: string;
+  assignedTechnicianId?: string;
   technician_name?: string;
-  checklist: ChecklistItem[];
-  status: 'active' | 'paused';
+  technicianName?: string;
+  checklist_items?: string[] | ChecklistItem[];
+  checklist?: ChecklistItem[];
+  is_active?: boolean;
+  isActive?: boolean;
+  status?: 'active' | 'paused';
   next_due_date?: string;
+  nextDueDate?: string;
   next_due_meter?: number;
+  nextDueMeter?: number;
   created_at?: string;
 }
 
@@ -52,10 +85,15 @@ export const MaintenancePlansPage: React.FC = () => {
   const domainConfig = useCurrentDomain();
   const { domain } = domainConfig;
 
+  // Estados sem qualquer dado mockado
   const [plans, setPlans] = useState<MaintenancePlan[]>([]);
-  const [assets, setAssets] = useState<any[]>([]);
-  const [technicians, setTechnicians] = useState<any[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadingFormData, setLoadingFormData] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Filtros e Notificações
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -71,132 +109,125 @@ export const MaintenancePlansPage: React.FC = () => {
   const [triggerType, setTriggerType] = useState<'time' | 'meter' | 'both'>('meter');
   const [intervalDays, setIntervalDays] = useState<number>(90);
   const [intervalMeter, setIntervalMeter] = useState<number>(10000);
-  const [technicianId, setTechnicianId] = useState<string>('');
+  const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('medium');
+  const [assignedTechnicianId, setAssignedTechnicianId] = useState<string>('');
   const [checklist, setChecklist] = useState<ChecklistItem[]>([
-    { id: '1', task: 'Verificar nível do óleo do motor e filtros' },
-    { id: '2', task: 'Inspecionar pressão e desgaste dos pneus / esteiras' },
-    { id: '3', task: 'Testar sistema de travagem e fluido de travão' }
+    { id: '1', task: 'Verificar nível de óleo e filtros principais' },
+    { id: '2', task: 'Inspecionar componentes de segurança e aperto geral' }
   ]);
   const [newTaskInput, setNewTaskInput] = useState<string>('');
 
-  const fetchPlansAndData = async () => {
+  // 1. Consumo de dados reais da API (/maintenance-plans)
+  const fetchPlans = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const [plansRes, assetsRes, usersRes] = await Promise.allSettled([
-        api.get('/maintenance-plans'),
-        api.get('/assets'),
-        api.get('/users')
-      ]);
-
-      // Ativos
-      let assetList: any[] = [];
-      if (assetsRes.status === 'fulfilled') {
-        assetList = Array.isArray(assetsRes.value.data)
-          ? assetsRes.value.data
-          : assetsRes.value.data?.assets || [];
-      }
-      setAssets(assetList);
-
-      // Técnicos
-      let userList: any[] = [];
-      if (usersRes.status === 'fulfilled') {
-        userList = Array.isArray(usersRes.value.data)
-          ? usersRes.value.data
-          : usersRes.value.data?.users || [];
-      }
-      const techList = userList.filter((u: any) => u.role === 'technician' || u.role === 'supervisor');
-      setTechnicians(techList);
-
-      // Planos
-      let planList: MaintenancePlan[] = [];
-      if (plansRes.status === 'fulfilled') {
-        planList = Array.isArray(plansRes.value.data)
-          ? plansRes.value.data
-          : plansRes.value.data?.plans || [];
-      } else {
-        // Fallback local caso a tabela esteja limpa ou endpoint indisponível
-        const saved = localStorage.getItem('cmms_maintenance_plans');
-        if (saved) {
-          planList = JSON.parse(saved);
-        } else {
-          // Exemplos iniciais
-          planList = [
-            {
-              id: 'pln-1',
-              code: 'PLN-001',
-              title: 'Revisão Sistemática dos 10.000 Km',
-              asset_id: assetList[0]?.id || 'ast-1',
-              asset_name: assetList[0]?.name || 'Camião Volvo FMX Basculante',
-              asset_code: assetList[0]?.code_tag || 'FLEET-001',
-              trigger_type: 'meter',
-              interval_meter: 10000,
-              interval_days: 90,
-              status: 'active',
-              checklist: [
-                { id: '1', task: 'Troca de óleo do motor e substituição do filtro' },
-                { id: '2', task: 'Substituição do filtro de combustível e ar' },
-                { id: '3', task: 'Inspeção geral dos travões e suspensão' }
-              ],
-              next_due_meter: 10000
-            },
-            {
-              id: 'pln-2',
-              code: 'PLN-002',
-              title: 'Manutenção Trimestral do Gerador Principal',
-              asset_id: assetList[1]?.id || 'ast-2',
-              asset_name: assetList[1]?.name || 'Gerador Cummins 500kVA',
-              asset_code: assetList[1]?.code_tag || 'PLANT-002',
-              trigger_type: 'time',
-              interval_days: 90,
-              status: 'active',
-              checklist: [
-                { id: '1', task: 'Teste de arranque em carga por 30 minutos' },
-                { id: '2', task: 'Verificação do estado das baterias de arranque' }
-              ],
-              next_due_date: new Date(Date.now() + 12 * 86400000).toISOString().split('T')[0]
-            }
-          ];
-          localStorage.setItem('cmms_maintenance_plans', JSON.stringify(planList));
-        }
-      }
-
-      setPlans(planList);
-    } catch (err) {
-      console.error('Erro ao carregar planos de manutenção:', err);
+      const res = await api.get('/maintenance-plans');
+      const data = Array.isArray(res.data)
+        ? res.data
+        : (res.data?.plans || res.data?.data || []);
+      setPlans(data);
+    } catch (err: any) {
+      console.error('Erro ao carregar planos preventivos:', err);
+      setPlans([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPlansAndData();
+    fetchPlans();
   }, []);
+
+  // 2. Carrega dependências reais do Modal (Ativos e Técnicos)
+  const loadModalDependencies = async () => {
+    setLoadingFormData(true);
+    try {
+      const [assetsRes, techsRes] = await Promise.allSettled([
+        api.get('/assets'),
+        api.get('/technicians')
+      ]);
+
+      if (assetsRes.status === 'fulfilled') {
+        const aData = Array.isArray(assetsRes.value.data)
+          ? assetsRes.value.data
+          : (assetsRes.value.data?.assets || assetsRes.value.data?.data || []);
+        
+        // Filtrar ativos do domínio ativo se especificado
+        const domainAssets = aData.filter((a: any) => {
+          if (domain === 'plant') {
+            return a.operational_scope === 'plant' || a.operationalScope === 'plant';
+          }
+          if (domain === 'fleet') {
+            return a.operational_scope === 'fleet' || a.operationalScope === 'fleet';
+          }
+          return true;
+        });
+
+        const activeAssetsList = domainAssets.length > 0 ? domainAssets : aData;
+        setAssets(activeAssetsList);
+
+        if (activeAssetsList.length > 0 && !assetId) {
+          setAssetId(activeAssetsList[0].id);
+        }
+      }
+
+      if (techsRes.status === 'fulfilled') {
+        const tData = Array.isArray(techsRes.value.data)
+          ? techsRes.value.data
+          : (techsRes.value.data?.technicians || techsRes.value.data?.data || []);
+        setTechnicians(tData);
+
+        if (tData.length > 0 && !assignedTechnicianId) {
+          setAssignedTechnicianId(tData[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao carregar dados do formulário:', err);
+    } finally {
+      setLoadingFormData(false);
+    }
+  };
 
   const handleOpenCreateModal = () => {
     setEditingPlan(null);
     setTitle('');
-    setAssetId(assets[0]?.id || '');
     setTriggerType('meter');
     setIntervalDays(90);
     setIntervalMeter(10000);
-    setTechnicianId(technicians[0]?.id || '');
+    setPriority('medium');
     setChecklist([
-      { id: '1', task: 'Verificar níveis de lubrificante e vedações' },
-      { id: '2', task: 'Inspecionar aperto de parafusos e conexões elétricas' }
+      { id: '1', task: 'Verificar nível de óleo e filtros de substituição' },
+      { id: '2', task: 'Inspeção técnica dos travões e fixações mecânicas' }
     ]);
     setIsModalOpen(true);
+    loadModalDependencies();
   };
 
   const handleOpenEditModal = (plan: MaintenancePlan) => {
     setEditingPlan(plan);
-    setTitle(plan.title);
-    setAssetId(plan.asset_id);
-    setTriggerType(plan.trigger_type);
-    setIntervalDays(plan.interval_days || 90);
-    setIntervalMeter(plan.interval_meter || 10000);
-    setTechnicianId(plan.technician_id || '');
-    setChecklist(plan.checklist || []);
+    setTitle(plan.title || '');
+    setAssetId(plan.asset_id || '');
+    setTriggerType(plan.trigger_type || plan.triggerType || 'meter');
+    setIntervalDays(plan.interval_days || plan.intervalDays || 90);
+    setIntervalMeter(plan.interval_meter || plan.intervalMeter || 10000);
+    setPriority(plan.priority || 'medium');
+    setAssignedTechnicianId(plan.assigned_technician_id || plan.assignedTechnicianId || '');
+
+    // Formatar checklist
+    if (Array.isArray(plan.checklist)) {
+      setChecklist(plan.checklist);
+    } else if (Array.isArray(plan.checklist_items)) {
+      const formatted = plan.checklist_items.map((item: any, idx) =>
+        typeof item === 'string' ? { id: String(idx + 1), task: item } : item
+      );
+      setChecklist(formatted);
+    } else {
+      setChecklist([]);
+    }
+
     setIsModalOpen(true);
+    loadModalDependencies();
   };
 
   const handleAddTask = () => {
@@ -212,103 +243,123 @@ export const MaintenancePlansPage: React.FC = () => {
     setChecklist(checklist.filter(item => item.id !== id));
   };
 
+  // 3. Salvar Plano via API (POST / PUT /maintenance-plans)
   const handleSavePlan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !assetId) return;
 
-    const selectedAsset = assets.find(a => a.id === assetId);
-    const selectedTech = technicians.find(t => t.id === technicianId);
-
-    const planData: MaintenancePlan = {
-      id: editingPlan ? editingPlan.id : `pln-${Date.now()}`,
-      code: editingPlan ? editingPlan.code : `PLN-${String(plans.length + 1).padStart(3, '0')}`,
+    const payload = {
       title,
       asset_id: assetId,
-      asset_name: selectedAsset?.name || 'Ativo Selecionado',
-      asset_code: selectedAsset?.code_tag || selectedAsset?.id || 'AST-001',
       trigger_type: triggerType,
       interval_days: Number(intervalDays),
       interval_meter: Number(intervalMeter),
-      technician_id: technicianId,
-      technician_name: selectedTech?.fullName || selectedTech?.full_name,
-      checklist,
-      status: editingPlan ? editingPlan.status : 'active',
-      next_due_date: new Date(Date.now() + intervalDays * 86400000).toISOString().split('T')[0],
-      next_due_meter: (selectedAsset?.current_meter || 0) + Number(intervalMeter)
+      priority,
+      assigned_technician_id: assignedTechnicianId || undefined,
+      checklist_items: checklist.map(c => c.task)
     };
 
     try {
       if (editingPlan) {
-        await api.put(`/maintenance-plans/${editingPlan.id}`, planData).catch(() => {});
+        await api.put(`/maintenance-plans/${editingPlan.id}`, payload);
+        setSuccessMessage('Plano preventivo atualizado com sucesso!');
       } else {
-        await api.post('/maintenance-plans', planData).catch(() => {});
+        await api.post('/maintenance-plans', payload);
+        setSuccessMessage('Novo plano de manutenção preventivo criado com sucesso!');
       }
-    } catch {
-      // Fallback local
-    } finally {
-      let updatedPlans: MaintenancePlan[];
-      if (editingPlan) {
-        updatedPlans = plans.map(p => (p.id === editingPlan.id ? planData : p));
-      } else {
-        updatedPlans = [planData, ...plans];
-      }
-      setPlans(updatedPlans);
-      localStorage.setItem('cmms_maintenance_plans', JSON.stringify(updatedPlans));
       setIsModalOpen(false);
-      setSuccessMessage(editingPlan ? 'Plano preventivo atualizado com sucesso!' : 'Novo plano preventivo criado com sucesso!');
+      fetchPlans();
       setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      console.error('Erro ao salvar plano preventivo:', err);
+      alert(err.response?.data?.message || err.message || 'Erro ao comunicar com a API ao guardar o plano.');
     }
   };
 
-  const handleToggleStatus = async (plan: MaintenancePlan) => {
-    const newStatus = plan.status === 'active' ? 'paused' : 'active';
-    const updated = plans.map(p => p.id === plan.id ? { ...p, status: newStatus as any } : p);
-    setPlans(updated);
-    localStorage.setItem('cmms_maintenance_plans', JSON.stringify(updated));
-    await api.patch(`/maintenance-plans/${plan.id}`, { status: newStatus }).catch(() => {});
+  // 4. Alternar Ativo/Pausado via API (PATCH /maintenance-plans/:id/toggle)
+  const handleToggleActive = async (plan: MaintenancePlan) => {
+    try {
+      try {
+        await api.patch(`/maintenance-plans/${plan.id}/toggle`);
+      } catch {
+        const currentActive = plan.is_active ?? plan.status === 'active';
+        await api.patch(`/maintenance-plans/${plan.id}`, { is_active: !currentActive, status: !currentActive ? 'active' : 'paused' });
+      }
+      fetchPlans();
+    } catch (err: any) {
+      console.error('Erro ao alterar estado do plano:', err);
+    }
   };
 
+  // 5. Gerar OS Preventiva Imediata via API (POST /maintenance-plans/:id/generate-wo)
   const handleGenerateWO = async (plan: MaintenancePlan) => {
     try {
-      await api.post('/work-orders', {
-        title: `[Preventiva] ${plan.title}`,
-        asset_id: plan.asset_id,
-        type: 'preventive',
-        priority: 'medium',
-        description: `Ordem de serviço preventiva gerada automaticamente a partir do plano ${plan.code}.\n\nChecklist de Inspeção:\n` +
-          plan.checklist.map((c, i) => `${i + 1}. [ ] ${c.task}`).join('\n')
-      }).catch(() => {});
-
-      setSuccessMessage(`Ordem de Serviço Preventiva gerada com sucesso para ${plan.code}!`);
+      try {
+        await api.post(`/maintenance-plans/${plan.id}/generate-wo`);
+      } catch {
+        // Fallback direto via POST /work-orders
+        await api.post('/work-orders', {
+          title: `[Preventiva] ${plan.title}`,
+          asset_id: plan.asset_id,
+          type: 'preventive',
+          priority: plan.priority || 'medium',
+          description: `Ordem de Serviço Preventiva gerada a partir do plano ${plan.code || plan.id}.\n\nChecklist:\n` +
+            (Array.isArray(plan.checklist)
+              ? plan.checklist.map((c, i) => `${i + 1}. [ ] ${c.task}`).join('\n')
+              : 'Verificação periódica')
+        });
+      }
+      setSuccessMessage(`Ordem de Serviço Preventiva gerada com sucesso!`);
       setTimeout(() => setSuccessMessage(null), 4000);
-    } catch {
-      alert('Erro ao gerar Ordem de Serviço Preventiva.');
+    } catch (err: any) {
+      console.error('Erro ao gerar Ordem de Serviço Preventiva:', err);
+      alert('Erro ao gerar Ordem de Serviço na API.');
     }
   };
 
+  // 6. Eliminar Plano via API (DELETE /maintenance-plans/:id)
   const handleDeletePlan = async (id: string) => {
-    if (!confirm('Tem a certeza que deseja eliminar este plano preventivo?')) return;
-    const updated = plans.filter(p => p.id !== id);
-    setPlans(updated);
-    localStorage.setItem('cmms_maintenance_plans', JSON.stringify(updated));
-    await api.delete(`/maintenance-plans/${id}`).catch(() => {});
+    if (!confirm('Tem a certeza que deseja eliminar definitivamente este plano preventivo?')) return;
+    try {
+      await api.delete(`/maintenance-plans/${id}`);
+      setSuccessMessage('Plano preventivo eliminado com sucesso.');
+      fetchPlans();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      console.error('Erro ao eliminar plano:', err);
+      alert('Erro ao eliminar plano na API.');
+    }
   };
 
-  // Métricas
-  const activePlansCount = plans.filter(p => p.status === 'active').length;
-  const pausedPlansCount = plans.filter(p => p.status === 'paused').length;
-  const upcomingCount = plans.filter(p => p.status === 'active').length; // Próximos nos limites
+  // Indicadores do Topo Calculados em Tempo Real (Zero Números Fixos)
+  const activePlansCount = plans.filter(p => p.is_active ?? p.status === 'active').length;
+  const pausedPlansCount = plans.filter(p => (p.is_active === false) || p.status === 'paused').length;
+
+  const upcomingCount = plans.filter(p => {
+    const isActive = p.is_active ?? p.status === 'active';
+    const dueDate = p.next_due_date || p.nextDueDate;
+    if (!dueDate || !isActive) return false;
+    const diffDays = Math.ceil((new Date(dueDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+    return diffDays >= 0 && diffDays <= 15;
+  }).length;
 
   // Filtros
   const filteredPlans = plans.filter(plan => {
     const q = searchQuery.toLowerCase();
+    const assetName = plan.asset_name || plan.assetName || '';
+    const code = plan.code || '';
+
     const matchesSearch =
       !searchQuery ||
       plan.title.toLowerCase().includes(q) ||
-      plan.code.toLowerCase().includes(q) ||
-      (plan.asset_name && plan.asset_name.toLowerCase().includes(q));
+      code.toLowerCase().includes(q) ||
+      assetName.toLowerCase().includes(q);
 
-    const matchesStatus = statusFilter === 'all' || plan.status === statusFilter;
+    const isActive = plan.is_active ?? plan.status === 'active';
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'active' && isActive) ||
+      (statusFilter === 'paused' && !isActive);
 
     return matchesSearch && matchesStatus;
   });
@@ -321,7 +372,7 @@ export const MaintenancePlansPage: React.FC = () => {
         <div className="fixed bottom-6 right-6 z-50 bg-white border border-slate-200 text-slate-900 p-4 rounded-md shadow-lg max-w-md flex gap-3 items-start animate-fade-in">
           <CheckCircle2 className="text-emerald-600 shrink-0 mt-0.5" size={18} />
           <div>
-            <span className="font-bold block text-sm text-slate-900">Sucesso</span>
+            <span className="font-bold block text-sm text-slate-900">Operação Concluída</span>
             <span className="text-xs text-slate-600">{successMessage}</span>
           </div>
         </div>
@@ -342,9 +393,9 @@ export const MaintenancePlansPage: React.FC = () => {
 
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={fetchPlansAndData}
+            onClick={fetchPlans}
             disabled={loading}
-            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer"
+            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer disabled:opacity-50"
             title="Recarregar"
           >
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -362,7 +413,7 @@ export const MaintenancePlansPage: React.FC = () => {
         </div>
       </div>
 
-      {/* MÉTRICAS RÁPIDAS (3 CARDS) */}
+      {/* MÉTRICAS RÁPIDAS NO TOPO (3 CARDS CALCULADOS EM TEMPO REAL) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white border border-slate-200 rounded-md p-5 flex items-center gap-4 shadow-none">
           <div className="w-10 h-10 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center shrink-0">
@@ -379,8 +430,8 @@ export const MaintenancePlansPage: React.FC = () => {
             <Clock size={20} />
           </div>
           <div>
-            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Revisões Próximas</span>
-            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : `${upcomingCount} ativas`}</span>
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Revisões Próximas (15 dias)</span>
+            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : upcomingCount}</span>
           </div>
         </div>
 
@@ -423,24 +474,33 @@ export const MaintenancePlansPage: React.FC = () => {
         </div>
       </div>
 
-      {/* TABELA DE PLANOS PREVENTIVOS */}
+      {/* TABELA DE PLANOS PREVENTIVOS OU ESTADO VAZIO REAL */}
       <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
         {loading ? (
           <div className="p-12 text-center">
             <Loader2 className="animate-spin text-blue-700 mx-auto" size={32} />
-            <p className="text-slate-500 text-xs mt-3">A carregar planos preventivos...</p>
+            <p className="text-slate-500 text-xs mt-3">A carregar planos preventivos da API...</p>
+          </div>
+        ) : plans.length === 0 ? (
+          /* ESTADO VAZIO REAL (EMPTY STATE) */
+          <div className="bg-white border border-slate-200 rounded-md p-12 text-center">
+            <CalendarClock size={36} className="text-slate-300 mx-auto mb-3" />
+            <h3 className="text-sm font-semibold text-slate-800">Nenhum Plano de Manutenção Preventiva</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+              Não existem planos preventivos configurados para esta empresa. Clique em "+ Novo Plano Preventivo" para programar revisões por calendário ou quilometragem.
+            </p>
           </div>
         ) : filteredPlans.length === 0 ? (
           <div className="p-12 text-center">
-            <CalendarClock className="text-slate-300 mx-auto" size={40} />
-            <h3 className="text-sm font-bold text-slate-700 mt-2">Nenhum plano preventivo cadastrado</h3>
+            <Search className="text-slate-300 mx-auto" size={36} />
+            <h3 className="text-sm font-semibold text-slate-800 mt-2">Nenhum plano encontrado</h3>
             <p className="text-slate-500 text-xs mt-1">
-              Clique em "+ Novo Plano Preventivo" para configurar revisões sistemáticas por tempo ou quilometragem.
+              Tente ajustar os critérios de pesquisa ou limpar os filtros.
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold text-[10px] tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Código & Título</th>
@@ -452,109 +512,123 @@ export const MaintenancePlansPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-800">
-                {filteredPlans.map((plan) => (
-                  <tr key={plan.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 font-medium">
-                      <span className="text-[10px] text-blue-700 font-mono font-bold block">{plan.code}</span>
-                      <span className="text-xs text-slate-900 font-semibold">{plan.title}</span>
-                    </td>
+                {filteredPlans.map((plan) => {
+                  const isActive = plan.is_active ?? plan.status === 'active';
+                  const tType = plan.trigger_type || plan.triggerType;
+                  const intDays = plan.interval_days || plan.intervalDays;
+                  const intMeter = plan.interval_meter || plan.intervalMeter;
+                  const assetName = plan.asset_name || plan.assetName || 'Ativo Corporativo';
+                  const assetCode = plan.asset_code || plan.assetCode || '';
+                  const checklistCount = Array.isArray(plan.checklist)
+                    ? plan.checklist.length
+                    : Array.isArray(plan.checklist_items)
+                    ? plan.checklist_items.length
+                    : 0;
 
-                    <td className="py-3 px-4">
-                      <span className="font-semibold text-slate-800 block">{plan.asset_name || 'Ativo Corporativo'}</span>
-                      {plan.asset_code && (
-                        <span className="text-[10px] text-slate-500 font-mono">{plan.asset_code}</span>
-                      )}
-                    </td>
+                  return (
+                    <tr key={plan.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-medium">
+                        <span className="text-[10px] text-blue-700 font-mono font-bold block">{plan.code || `PLN-${plan.id.substring(0, 5)}`}</span>
+                        <span className="text-xs text-slate-900 font-semibold">{plan.title}</span>
+                      </td>
 
-                    <td className="py-3 px-4">
-                      {plan.trigger_type === 'time' && (
-                        <span className="text-slate-700 font-medium block">A cada {plan.interval_days} dias</span>
-                      )}
-                      {plan.trigger_type === 'meter' && (
-                        <span className="text-slate-700 font-medium block">A cada {plan.interval_meter?.toLocaleString('pt-MZ')} km/hrs</span>
-                      )}
-                      {plan.trigger_type === 'both' && (
-                        <span className="text-slate-700 font-medium block">
-                          {plan.interval_days} dias ou {plan.interval_meter?.toLocaleString('pt-MZ')} km
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="py-3 px-4">
-                      <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">
-                        <CheckSquare size={12} />
-                        <span>{plan.checklist?.length || 0} itens</span>
-                      </span>
-                    </td>
-
-                    <td className="py-3 px-4">
-                      {plan.status === 'active' ? (
-                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-semibold">
-                          <CheckCircle2 size={12} />
-                          <span>Ativo</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">
-                          <Pause size={12} />
-                          <span>Pausado</span>
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleGenerateWO(plan)}
-                          className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2 py-1 rounded text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                          title="Gerar Ordem de Serviço Preventiva Imediata"
-                        >
-                          <Zap size={12} />
-                          <span>Gerar OS</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleToggleStatus(plan)}
-                          className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors cursor-pointer"
-                          title={plan.status === 'active' ? 'Pausar Plano' : 'Ativar Plano'}
-                        >
-                          {plan.status === 'active' ? <Pause size={14} /> : <Play size={14} />}
-                        </button>
-
-                        {!isTechnician && (
-                          <>
-                            <button
-                              onClick={() => handleOpenEditModal(plan)}
-                              className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors cursor-pointer"
-                              title="Editar Plano"
-                            >
-                              <Edit2 size={14} />
-                            </button>
-
-                            <button
-                              onClick={() => handleDeletePlan(plan.id)}
-                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
-                              title="Eliminar Plano"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </>
+                      <td className="py-3 px-4">
+                        <span className="font-semibold text-slate-800 block">{assetName}</span>
+                        {assetCode && (
+                          <span className="text-[10px] text-slate-500 font-mono">{assetCode}</span>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+
+                      <td className="py-3 px-4">
+                        {tType === 'time' && (
+                          <span className="text-slate-700 font-medium block">A cada {intDays} dias</span>
+                        )}
+                        {tType === 'meter' && (
+                          <span className="text-slate-700 font-medium block">A cada {intMeter?.toLocaleString('pt-MZ')} km/hrs</span>
+                        )}
+                        {tType === 'both' && (
+                          <span className="text-slate-700 font-medium block">
+                            {intDays} dias ou {intMeter?.toLocaleString('pt-MZ')} km
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">
+                          <CheckSquare size={12} />
+                          <span>{checklistCount} itens</span>
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        {isActive ? (
+                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-semibold">
+                            <CheckCircle2 size={12} />
+                            <span>Ativo</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">
+                            <Pause size={12} />
+                            <span>Pausado</span>
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleGenerateWO(plan)}
+                            className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2 py-1 rounded text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                            title="Gerar Ordem de Serviço Preventiva Imediata"
+                          >
+                            <Zap size={12} />
+                            <span>Gerar OS</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleToggleActive(plan)}
+                            className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                            title={isActive ? 'Pausar Plano' : 'Ativar Plano'}
+                          >
+                            {isActive ? <Pause size={14} /> : <Play size={14} />}
+                          </button>
+
+                          {!isTechnician && (
+                            <>
+                              <button
+                                onClick={() => handleOpenEditModal(plan)}
+                                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                                title="Editar Plano"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+
+                              <button
+                                onClick={() => handleDeletePlan(plan.id)}
+                                className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                                title="Eliminar Plano"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
+      {/* MODAL DE CRIAÇÃO / EDIÇÃO DE PLANO PREVENTIVO */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in">
           <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             
-            {/* Header */}
+            {/* Header do Modal */}
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <CalendarClock className="text-blue-700" size={20} />
@@ -573,140 +647,185 @@ export const MaintenancePlansPage: React.FC = () => {
             {/* Form */}
             <form onSubmit={handleSavePlan} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
               
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Título do Plano Preventivo *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="ex: Revisão Periódica dos 10.000 Km ou Inspeção Trimestral"
-                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Ativo / Viatura Alvo *
-                  </label>
-                  <select
-                    required
-                    value={assetId}
-                    onChange={(e) => setAssetId(e.target.value)}
-                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
-                  >
-                    <option value="">Selecione o ativo...</option>
-                    {assets.map((asset) => (
-                      <option key={asset.id} value={asset.id}>
-                        {asset.name} ({asset.code_tag || asset.id})
-                      </option>
-                    ))}
-                  </select>
+              {loadingFormData ? (
+                <div className="py-8 text-center">
+                  <Loader2 className="animate-spin text-blue-700 mx-auto" size={24} />
+                  <p className="text-slate-500 text-xs mt-2">A carregar ativos e técnicos...</p>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Tipo de Gatilho / Disparo *
-                  </label>
-                  <select
-                    value={triggerType}
-                    onChange={(e) => setTriggerType(e.target.value as any)}
-                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
-                  >
-                    <option value="meter">Por Odómetro / Horímetro (Contador)</option>
-                    <option value="time">Por Tempo (Dias / Calendário)</option>
-                    <option value="both">Ambos (O que ocorrer primeiro)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {(triggerType === 'time' || triggerType === 'both') && (
+              ) : (
+                <>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Intervalo de Tempo (Dias) *
+                      Título do Plano Preventivo *
                     </label>
                     <input
-                      type="number"
+                      type="text"
                       required
-                      min={1}
-                      value={intervalDays}
-                      onChange={(e) => setIntervalDays(Number(e.target.value))}
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="ex: Revisão Periódica dos 10.000 Km ou Inspeção Trimestral"
                       className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900"
                     />
                   </div>
-                )}
 
-                {(triggerType === 'meter' || triggerType === 'both') && (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Intervalo de Contador (Km / Horas) *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      value={intervalMeter}
-                      onChange={(e) => setIntervalMeter(Number(e.target.value))}
-                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Ativo / Viatura Alvo *
+                      </label>
+                      <select
+                        required
+                        value={assetId}
+                        onChange={(e) => setAssetId(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
+                      >
+                        <option value="">Selecione o ativo...</option>
+                        {assets.map((asset) => (
+                          <option key={asset.id} value={asset.id}>
+                            {asset.name} ({asset.code_tag || asset.codeTag || asset.id})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Tipo de Gatilho / Disparo *
+                      </label>
+                      <select
+                        value={triggerType}
+                        onChange={(e) => setTriggerType(e.target.value as any)}
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
+                      >
+                        <option value="meter">Por Odómetro / Horímetro (Contador)</option>
+                        <option value="time">Por Tempo (Dias / Calendário)</option>
+                        <option value="both">Ambos (O que ocorrer primeiro)</option>
+                      </select>
+                    </div>
                   </div>
-                )}
-              </div>
 
-              {/* CHECKLIST DINÂMICA DE INSPEÇÃO */}
-              <div className="pt-2 border-t border-slate-100">
-                <label className="block text-xs font-semibold text-slate-700 mb-2">
-                  Checklist de Inspeção do Plano
-                </label>
-                
-                <div className="flex gap-2 mb-3">
-                  <input
-                    type="text"
-                    placeholder="Adicionar tarefa de inspeção (ex: Verificar estado da bateria)..."
-                    value={newTaskInput}
-                    onChange={(e) => setNewTaskInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddTask();
-                      }
-                    }}
-                    className="flex-1 bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none focus:bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddTask}
-                    className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-md text-xs font-semibold cursor-pointer transition-colors"
-                  >
-                    Adicionar
-                  </button>
-                </div>
-
-                <div className="space-y-1.5 max-h-40 overflow-y-auto border border-slate-200 rounded-md p-2 bg-slate-50">
-                  {checklist.length === 0 ? (
-                    <p className="text-slate-400 text-center py-2 text-[11px]">Nenhum item adicionado à checklist.</p>
-                  ) : (
-                    checklist.map((item, idx) => (
-                      <div key={item.id} className="flex items-center justify-between bg-white border border-slate-200 rounded px-2.5 py-1.5">
-                        <span className="text-slate-800 text-[11px] font-medium">
-                          {idx + 1}. {item.task}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTask(item.id)}
-                          className="text-slate-400 hover:text-rose-600 cursor-pointer p-0.5"
-                        >
-                          <X size={14} />
-                        </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {(triggerType === 'time' || triggerType === 'both') && (
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Intervalo de Tempo (Dias) *
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          min={1}
+                          value={intervalDays}
+                          onChange={(e) => setIntervalDays(Number(e.target.value))}
+                          className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900"
+                        />
                       </div>
-                    ))
-                  )}
-                </div>
-              </div>
+                    )}
+
+                    {(triggerType === 'meter' || triggerType === 'both') && (
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Intervalo de Contador (Km / Horas) *
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          min={1}
+                          value={intervalMeter}
+                          onChange={(e) => setIntervalMeter(Number(e.target.value))}
+                          className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Prioridade da OS Gerada
+                      </label>
+                      <select
+                        value={priority}
+                        onChange={(e) => setPriority(e.target.value as any)}
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
+                      >
+                        <option value="low">Baixa</option>
+                        <option value="medium">Média</option>
+                        <option value="high">Alta</option>
+                        <option value="critical">Crítica</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Técnico Responsável Recomendado
+                      </label>
+                      <select
+                        value={assignedTechnicianId}
+                        onChange={(e) => setAssignedTechnicianId(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
+                      >
+                        <option value="">Atribuição automática / Ninguém</option>
+                        {technicians.map((tech) => (
+                          <option key={tech.id} value={tech.id}>
+                            {tech.fullName || tech.full_name || tech.email} ({tech.specialty || 'Geral'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* CHECKLIST DINÂMICA DE INSPEÇÃO */}
+                  <div className="pt-2 border-t border-slate-100">
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">
+                      Checklist de Inspeção do Plano
+                    </label>
+                    
+                    <div className="flex gap-2 mb-3">
+                      <input
+                        type="text"
+                        placeholder="Adicionar tarefa de inspeção (ex: Verificar aperto de terminais)..."
+                        value={newTaskInput}
+                        onChange={(e) => setNewTaskInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddTask();
+                          }
+                        }}
+                        className="flex-1 bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none focus:bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddTask}
+                        className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-md text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        Adicionar
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto border border-slate-200 rounded-md p-2 bg-slate-50">
+                      {checklist.length === 0 ? (
+                        <p className="text-slate-400 text-center py-2 text-[11px]">Nenhum item adicionado à checklist.</p>
+                      ) : (
+                        checklist.map((item, idx) => (
+                          <div key={item.id} className="flex items-center justify-between bg-white border border-slate-200 rounded px-2.5 py-1.5">
+                            <span className="text-slate-800 text-[11px] font-medium">
+                              {idx + 1}. {item.task}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTask(item.id)}
+                              className="text-slate-400 hover:text-rose-600 cursor-pointer p-0.5"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* FOOTER DO MODAL */}
               <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
@@ -719,6 +838,7 @@ export const MaintenancePlansPage: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={loadingFormData}
                   className="px-5 py-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-md text-xs cursor-pointer shadow-none"
                 >
                   {editingPlan ? 'Atualizar Plano' : 'Criar Plano Preventivo'}

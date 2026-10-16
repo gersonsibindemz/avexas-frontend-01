@@ -102,7 +102,7 @@ export const Layout: React.FC = () => {
   });
 
   // Estado para o submenu sanfona de Manutenção
-  const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(true);
+  const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
 
   // Estado para controlar o menu hambúrguer em dispositivos móveis
   const [isMobileOpen, setIsMobileOpen] = useState(false);
