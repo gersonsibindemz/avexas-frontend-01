@@ -184,8 +184,38 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* LINHA SUPERIOR - 3 CARDS DE KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* LINHA SUPERIOR - 4 CARDS DE KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        {/* KPI 1: DISPONIBILIDADE OPERACIONAL & ATIVOS */}
+        <div className="bg-white border border-slate-200 rounded-md p-5 shadow-none flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Disponibilidade</span>
+            <div className="w-8 h-8 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center">
+              <Activity size={18} />
+            </div>
+          </div>
+
+          <div className="my-3">
+            <div className="text-2xl font-bold text-slate-900 tracking-tight">
+              {availabilityRate}%
+            </div>
+
+            {/* Badges de Ativos Operacionais vs Imobilizados */}
+            <div className="flex items-center gap-1.5 mt-2">
+              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold px-2 py-0.5 rounded">
+                {opAssets} operacionais
+              </span>
+              <span className="bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-semibold px-2 py-0.5 rounded">
+                {totalAssets - opAssets} imobilizados
+              </span>
+            </div>
+          </div>
+
+          <Link to="/app/assets" className="text-[11px] text-[#0066FF] hover:underline font-semibold flex items-center gap-1">
+            Gerir parque de ativos <ArrowRight size={12} />
+          </Link>
+        </div>
 
         {/* KPI 2: ORDENS DE SERVIÇO EM CURSO / PENDENTES */}
         <div className="bg-white border border-slate-200 rounded-md p-5 shadow-none flex flex-col justify-between">
