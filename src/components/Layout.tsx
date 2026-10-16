@@ -311,8 +311,7 @@ export const Layout: React.FC = () => {
     }
 
     const items: any[] = [];
-    const scope = user.operational_scope || user.tenant?.operational_scope || user.tenant?.operationalScope;
-    const isPlantUser = scope === 'plant';
+    const isPlantView = currentScope === 'plant';
 
     // Primeiro elemento para todos os utilizadores operacionais
     items.push({
@@ -324,10 +323,10 @@ export const Layout: React.FC = () => {
 
     // Todos os escopos têm acesso aos Ativos
     items.push({
-      name: isPlantUser ? 'Equipamentos Fabris' : 'Frota',
+      name: isPlantView ? 'Equipamentos Fabris' : 'Frota',
       path: '/app/assets',
-      icon: isPlantUser ? Wrench : Truck,
-      description: isPlantUser ? 'Equipamentos industriais' : 'Registo e frotas de viaturas'
+      icon: isPlantView ? Wrench : Truck,
+      description: isPlantView ? 'Equipamentos industriais' : 'Registo e frotas de viaturas'
     });
 
     // Grupo Manutenção (Acordeão com Ordens de Serviço, Equipes e Plano de Manutenção)
@@ -355,7 +354,7 @@ export const Layout: React.FC = () => {
     });
 
     // Combustível disponível para tenant_admin e supervisor apenas se NÃO for plant
-    if ((user.role === 'tenant_admin' || user.role === 'supervisor') && !isPlantUser) {
+    if ((user.role === 'tenant_admin' || user.role === 'supervisor') && !isPlantView) {
       items.push({
         name: 'Combustível',
         path: '/app/fuel',
@@ -724,7 +723,7 @@ export const Layout: React.FC = () => {
           <div className="flex items-center gap-3">
             
             {/* Alternador de Escopo de Negócio ('both') */}
-            {(user.operational_scope === 'both' || user.tenant?.operational_scope === 'both' || user.tenant?.operationalScope === 'both') && (
+            {(user.operational_scope === 'both' || user.operational_scope === 'mixed' || user.tenant?.operational_scope === 'both' || user.tenant?.operational_scope === 'mixed' || user.tenant?.operationalScope === 'both' || user.tenant?.operationalScope === 'mixed') && (
               <div className="flex bg-slate-100 p-1 rounded-md border border-slate-200">
                 <button
                   onClick={() => setCurrentScope('fleet')}

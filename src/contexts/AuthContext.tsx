@@ -10,14 +10,15 @@ export interface User {
   role: UserRole;
   tenantName: string;
   tenantId: string;
-  operational_scope?: 'fleet' | 'plant' | 'both';
+  operational_scope?: 'fleet' | 'plant' | 'both' | 'mixed';
+  operationalScope?: 'fleet' | 'plant' | 'both' | 'mixed';
   tenant?: {
     id: string;
     name: string;
     max_users?: number;
     maxUsers?: number;
-    operational_scope?: 'fleet' | 'plant' | 'both';
-    operationalScope?: 'fleet' | 'plant' | 'both';
+    operational_scope?: 'fleet' | 'plant' | 'both' | 'mixed';
+    operationalScope?: 'fleet' | 'plant' | 'both' | 'mixed';
   };
 }
 
