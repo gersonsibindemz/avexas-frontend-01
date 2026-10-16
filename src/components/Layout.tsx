@@ -69,7 +69,7 @@ const formatTimeAgo = (dateStr?: string) => {
 
 export const Layout: React.FC = () => {
   // Ativa a proteção contra recarregamento acidental de página (F5 e fechar aba)
-  usePreventRefresh(true);
+  usePreventRefresh(false);
   const { hasNewVersion, updateApp } = useVersionCheck();
 
   const {

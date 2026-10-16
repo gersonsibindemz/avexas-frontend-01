@@ -46,17 +46,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentScope, setCurrentScope] = useState<'fleet' | 'plant'>('fleet');
 
   const fetchProfile = async () => {
-    const token = sessionStorage.getItem('cmms_auth_token');
-    if (!token) {
-      setUser(null);
-      setLoading(false);
-      return;
-    }
-
     try {
       const response = await api.get('/auth/me');
       const userData = response.data?.user || response.data;
-      if (userData && userData.id && userData.role) {
+      if (userData && (userData.id || userData.email) && userData.role) {
         setUser(userData);
         // Inicializar o escopo padrão do utilizador
         const scope = userData.operational_scope || userData.tenant?.operational_scope || userData.tenant?.operationalScope;
@@ -79,9 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchProfile();
 
     const handleWindowFocus = () => {
-      if (sessionStorage.getItem('cmms_auth_token')) {
-        fetchProfile();
-      }
+      fetchProfile();
     };
     window.addEventListener('focus', handleWindowFocus);
 
@@ -105,10 +96,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await api.post('/auth/login', { email, password });
       
-      if (response.data?.token) {
-        sessionStorage.setItem('cmms_auth_token', response.data.token);
-      } else if (response.data?.accessToken) {
-        sessionStorage.setItem('cmms_auth_token', response.data.accessToken);
+      const token = response.data?.token || response.data?.accessToken;
+      if (token) {
+        sessionStorage.setItem('cmms_auth_token', token);
+        localStorage.setItem('cmms_auth_token', token);
       }
 
       const userData = response.data?.user || response.data;
@@ -140,6 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Erro ao efetuar logout no servidor', err);
     } finally {
       sessionStorage.removeItem('cmms_auth_token');
+      localStorage.removeItem('cmms_auth_token');
       setUser(null);
       setLoading(false);
     }

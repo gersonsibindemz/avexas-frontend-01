@@ -6,7 +6,7 @@ import { useEffect } from 'react';
  *
  * @param enabled Define se a proteção contra recarregamento está ativa (padrão: true)
  */
-export const usePreventRefresh = (enabled: boolean = true) => {
+export const usePreventRefresh = (enabled: boolean = false) => {
   useEffect(() => {
     if (!enabled) return;
 

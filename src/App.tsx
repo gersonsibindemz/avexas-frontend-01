@@ -42,9 +42,19 @@ const formatMZN = (val: number) => {
 // ==========================================
 // PÁGINA DE PERFIL DO UTILIZADOR
 // ==========================================
+const LoadingFallback: React.FC = () => (
+  <div className="flex items-center justify-center min-h-screen bg-slate-50 text-slate-900">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-8 h-8 border-3 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+      <p className="text-xs text-slate-600 font-medium animate-pulse">A verificar sessão...</p>
+    </div>
+  </div>
+);
+
 const ProfilePage: React.FC = () => {
-  const { user } = useAuth();
-  if (!user) return null;
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingFallback />;
+  if (!user) return <Navigate to="/login" replace />;
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -58,10 +68,10 @@ const ProfilePage: React.FC = () => {
       <div className="bg-white border border-slate-200 rounded-md p-6 space-y-6 shadow-none">
         <div className="flex items-center gap-4 border-b border-slate-100 pb-6">
           <div className="w-16 h-16 bg-blue-50 text-blue-700 border border-blue-200 rounded-md flex items-center justify-center font-bold text-2xl uppercase">
-            {user.fullName.substring(0, 2)}
+            {user.fullName ? user.fullName.substring(0, 2) : 'US'}
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900">{user.fullName}</h2>
+            <h2 className="text-lg font-bold text-slate-900">{user.fullName || user.email}</h2>
             <p className="text-slate-500 text-xs">{user.email}</p>
           </div>
         </div>
@@ -101,8 +111,6 @@ const ProfilePage: React.FC = () => {
   );
 };
 
-
-
 // ==========================================
 // ROTEAMENTO PRINCIPAL E PROTEÇÃO
 // ==========================================
@@ -110,11 +118,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requiresSuperAdmin?:
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50 text-slate-900">
-        <p className="text-xs text-slate-600 font-medium animate-pulse">A verificar credenciais...</p>
-      </div>
-    );
+    return <LoadingFallback />;
   }
 
   if (!user) {
@@ -132,7 +136,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requiresSuperAdmin?:
 const DashboardGuard: React.FC = () => {
   const { user, loading } = useAuth();
 
-  if (loading) return null;
+  if (loading) return <LoadingFallback />;
 
   if (user?.role === 'super_admin') {
     return <Navigate to="/super-admin" replace />;
@@ -145,7 +149,7 @@ const DashboardGuard: React.FC = () => {
 const RootRedirect: React.FC = () => {
   const { user, loading } = useAuth();
 
-  if (loading) return null;
+  if (loading) return <LoadingFallback />;
   if (!user) return <Navigate to="/login" replace />;
 
   if (user.role === 'super_admin') {
@@ -159,7 +163,7 @@ const RootRedirect: React.FC = () => {
 const SuperAdminUsersGuard: React.FC = () => {
   const { user, loading } = useAuth();
 
-  if (loading) return null;
+  if (loading) return <LoadingFallback />;
 
   if (user?.role !== 'super_admin') {
     return <Navigate to="/app/dashboard" replace />;

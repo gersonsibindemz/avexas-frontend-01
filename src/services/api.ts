@@ -6,9 +6,9 @@ export const api = axios.create({
   withCredentials: true,
 });
 
-// Interceptor de requisição para injetar o token JWT da aba atual (sessionStorage)
+// Interceptor de requisição para injetar o token JWT da aba atual (sessionStorage ou localStorage)
 api.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem('cmms_auth_token');
+  const token = sessionStorage.getItem('cmms_auth_token') || localStorage.getItem('cmms_auth_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
