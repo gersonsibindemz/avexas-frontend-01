@@ -24,17 +24,19 @@ import {
 
 interface Part {
   id: string;
-  oem_reference: string;
+  oem_reference?: string;
   oemReference?: string;
+  part_number?: string;
   name: string;
   category: 'mechanical' | 'electrical' | 'hydraulic' | 'pneumatic' | 'lubricants' | 'tires_wheels' | 'other' | string;
-  warehouse_location: string;
+  location?: string;
+  warehouse_location?: string;
   warehouseLocation?: string;
-  current_stock: number;
+  current_stock?: number;
   currentStock?: number;
-  min_stock: number;
+  min_stock?: number;
   minStock?: number;
-  unit_cost: number;
+  unit_cost?: number;
   unitCost?: number;
   created_at?: string;
 }
@@ -157,10 +159,10 @@ export const InventoryPage: React.FC = () => {
   const handleOpenEditModal = (part: Part) => {
     setPartModalMode('edit');
     setEditingPartId(part.id);
-    setFormOemReference(part.oem_reference || part.oemReference || '');
+    setFormOemReference(part.part_number || part.oem_reference || part.oemReference || '');
     setFormName(part.name || '');
     setFormCategory(part.category || 'mechanical');
-    setFormWarehouseLocation(part.warehouse_location || part.warehouseLocation || '');
+    setFormWarehouseLocation(part.location || part.warehouse_location || part.warehouseLocation || '');
     setFormCurrentStock(part.current_stock ?? part.currentStock ?? 0);
     setFormMinStock(part.min_stock ?? part.minStock ?? 0);
     setFormUnitCost(part.unit_cost ?? part.unitCost ?? 0);
@@ -286,8 +288,8 @@ export const InventoryPage: React.FC = () => {
   // Filtragem
   const filteredParts = parts.filter(p => {
     const name = (p.name || '').toLowerCase();
-    const ref = (p.oem_reference || p.oemReference || '').toLowerCase();
-    const loc = (p.warehouse_location || p.warehouseLocation || '').toLowerCase();
+    const ref = (p.part_number || p.oem_reference || p.oemReference || '').toLowerCase();
+    const loc = (p.location || p.warehouse_location || p.warehouseLocation || '').toLowerCase();
     const query = searchQuery.toLowerCase();
 
     const matchesSearch = name.includes(query) || ref.includes(query) || loc.includes(query);
@@ -473,14 +475,17 @@ export const InventoryPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredParts.map((part) => {
+                  const oemRef = part.part_number || part.oem_reference || part.oemReference || 'S/N';
+                  const loc = part.location || part.warehouse_location || part.warehouseLocation || 'Geral';
                   const currentStock = Number(part.current_stock ?? part.currentStock ?? 0);
                   const minStock = Number(part.min_stock ?? part.minStock ?? 0);
+                  const unitCost = Number(part.unit_cost ?? part.unitCost ?? 0);
                   const isLowStock = currentStock <= minStock;
                   
                   return (
                     <tr key={part.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3.5 px-4 font-mono font-semibold text-blue-700">
-                        {part.oem_reference || part.oemReference}
+                        {oemRef}
                       </td>
                       <td className="py-3.5 px-4">
                         <span className="text-slate-900 font-medium block">{part.name}</span>
@@ -491,7 +496,7 @@ export const InventoryPage: React.FC = () => {
                       <td className="py-3.5 px-4 text-slate-600">
                         <div className="flex items-center gap-1.5">
                           <MapPin size={12} className="text-slate-400" />
-                          <span>{part.warehouse_location || part.warehouseLocation || 'Geral'}</span>
+                          <span>{loc}</span>
                         </div>
                       </td>
                       <td className="py-3.5 px-4 text-center">
@@ -507,7 +512,7 @@ export const InventoryPage: React.FC = () => {
                         )}
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono text-slate-900 font-bold">
-                        {formatMZN(part.unit_cost ?? part.unitCost)}
+                        {formatMZN(unitCost)}
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-2">
@@ -724,8 +729,8 @@ export const InventoryPage: React.FC = () => {
             <form onSubmit={handleStockUpdateSubmit} className="p-5 space-y-4">
               <div className="bg-slate-50 border border-slate-200 p-3 rounded-md text-xs space-y-1 text-slate-600">
                 <div><span className="font-semibold text-slate-700">Peça:</span> <span className="text-slate-900 font-bold">{selectedStockPart.name}</span></div>
-                <div><span className="font-semibold text-slate-700">OEM / Ref:</span> <span className="font-mono text-blue-700 font-bold">{selectedStockPart.oem_reference || selectedStockPart.oemReference}</span></div>
-                <div><span className="font-semibold text-slate-700">Localização:</span> <span className="text-slate-800">{selectedStockPart.warehouse_location || selectedStockPart.warehouseLocation}</span></div>
+                <div><span className="font-semibold text-slate-700">OEM / Ref:</span> <span className="font-mono text-blue-700 font-bold">{selectedStockPart.part_number || selectedStockPart.oem_reference || selectedStockPart.oemReference || 'S/N'}</span></div>
+                <div><span className="font-semibold text-slate-700">Localização:</span> <span className="text-slate-800">{selectedStockPart.location || selectedStockPart.warehouse_location || selectedStockPart.warehouseLocation || 'Geral'}</span></div>
                 <div><span className="font-semibold text-slate-700">Stock Disponível:</span> <span className="text-slate-900 font-bold">{selectedStockPart.current_stock ?? selectedStockPart.currentStock ?? 0} un</span></div>
               </div>
 
@@ -824,7 +829,7 @@ export const InventoryPage: React.FC = () => {
             <div>
               <h3 className="text-base font-bold text-slate-900">Eliminar Artigo do Inventário</h3>
               <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
-                Tem a certeza que deseja eliminar a peça <span className="font-bold text-slate-900 font-mono">{deletingPart.oem_reference}</span> - <span className="font-bold text-slate-900">{deletingPart.name}</span>? 
+                Tem a certeza que deseja eliminar a peça <span className="font-bold text-slate-900 font-mono">{deletingPart.part_number || deletingPart.oem_reference || deletingPart.oemReference || 'S/N'}</span> - <span className="font-bold text-slate-900">{deletingPart.name}</span>?
                 Esta ação apagará as informações do armazém de forma irreversível.
               </p>
             </div>

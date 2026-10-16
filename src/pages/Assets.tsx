@@ -354,9 +354,10 @@ export const AssetsPage: React.FC = () => {
     return true;
   };
 
-  const handleNextStep = () => {
+  const handleNextStep = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
     if (validateStep(currentStep)) {
-      setCurrentStep((prev) => prev + 1);
+      setCurrentStep((prev) => Math.min(prev + 1, modalMode === 'create' ? 4 : 3));
     }
   };
 
@@ -861,14 +862,11 @@ export const AssetsPage: React.FC = () => {
     const matchesCategory = categoryFilter === 'all' || asset.category === categoryFilter;
 
     // Filtro baseado no escopo ativo ('fleet' ou 'plant')
-    const isAssetPlantType = asset.category === 'generator' || asset.category === 'machinery';
-    const isAssetFleetType = asset.category === 'vehicle_light' || asset.category === 'vehicle_heavy';
-    
     let matchesScope = true;
     if (currentScope === 'plant') {
-      matchesScope = isAssetPlantType;
+      matchesScope = asset.category !== 'vehicle_light' && asset.category !== 'vehicle_heavy';
     } else if (currentScope === 'fleet') {
-      matchesScope = isAssetFleetType;
+      matchesScope = asset.category !== 'generator' && asset.category !== 'machinery';
     }
 
     return matchesSearch && matchesCategory && matchesScope;
@@ -935,6 +933,7 @@ export const AssetsPage: React.FC = () => {
                 onClick={() => {
                   resetWizardForm();
                   setModalOpenMode('create');
+                  setCurrentStep(1);
                   setIsModalOpen(true);
                 }}
                 className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
@@ -1552,8 +1551,8 @@ export const AssetsPage: React.FC = () => {
               {/* ETAPA 4: ANEXOS DOCUMENTAIS (Apenas na criação) */}
               {currentStep === 4 && modalMode === 'create' && (
                 <div className="space-y-4">
-                  <span className="text-xs font-semibold text-slate-600 block mb-2 uppercase tracking-wide">
-                    Carregar Ficha Técnica Inicial (PDF, PNG ou JPEG até 20MB)
+                  <span className="text-xs font-semibold text-slate-700 block uppercase tracking-wide">
+                    4. Anexos e Ficha Técnica Inicial (PDF, PNG ou JPEG até 20MB)
                   </span>
 
                   <div
@@ -1594,7 +1593,7 @@ export const AssetsPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Botões do Assistente */}
+              {/* Botões de Ação do Wizard */}
               <div className="flex justify-between items-center border-t border-slate-200 pt-5 mt-2">
                 <div>
                   {currentStep > 1 && (
@@ -1615,12 +1614,12 @@ export const AssetsPage: React.FC = () => {
                     type="button"
                     onClick={() => setIsModalOpen(false)}
                     disabled={submitting}
-                    className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium transition-all"
+                    className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium transition-all cursor-pointer"
                   >
                     Cancelar
                   </button>
 
-                  {/* Verifica se deve mostrar botão "Avançar" ou "Submeter" */}
+                  {/* Só a última etapa de cada modo submete o formulário. */}
                   {((modalMode === 'create' && currentStep < 4) || (modalMode === 'edit' && currentStep < 3)) ? (
                     <button
                       type="button"

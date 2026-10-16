@@ -20,7 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  CalendarClock,
+  Calendar,
   Bell,
   User,
   Settings,
@@ -349,7 +349,7 @@ export const Layout: React.FC = () => {
         {
           name: 'Plano de Manutenção',
           path: '/app/maintenance-plans',
-          icon: CalendarClock
+          icon: Calendar
         }
       ]
     });
@@ -409,7 +409,7 @@ export const Layout: React.FC = () => {
                   draggable={false}
                   onContextMenu={(e) => e.preventDefault()}
                   onDragStart={(e) => e.preventDefault()}
-                  className="h-10 sm:h-11 w-auto max-w-[170px] object-contain transition-all duration-200 select-none pointer-events-none"
+                  className="h-10 sm:h-11 w-auto max-w-[170px] object-contain transition-all duration-200"
                   style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
                 />
               </div>
@@ -432,7 +432,7 @@ export const Layout: React.FC = () => {
                   draggable={false}
                   onContextMenu={(e) => e.preventDefault()}
                   onDragStart={(e) => e.preventDefault()}
-                  className="h-8 w-8 object-contain mx-auto select-none pointer-events-none"
+                  className="h-8 w-8 object-contain mx-auto"
                   style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
                 />
               </div>
@@ -495,7 +495,7 @@ export const Layout: React.FC = () => {
                   </button>
 
                   {isMaintenanceOpen && (
-                    <div className="pl-6 border-l border-white/10 ml-4 space-y-1 my-1">
+                    <div className="pl-9 border-l border-white/10 ml-4 space-y-1 my-1">
                       {item.subItems.map((sub: any) => {
                         const SubIcon = sub.icon;
                         return (
@@ -589,7 +589,7 @@ export const Layout: React.FC = () => {
               draggable={false}
               onContextMenu={(e) => e.preventDefault()}
               onDragStart={(e) => e.preventDefault()}
-              className="h-10 w-auto object-contain select-none pointer-events-none"
+              className="h-10 w-auto object-contain"
               style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
             />
           </div>
@@ -627,7 +627,7 @@ export const Layout: React.FC = () => {
                   </button>
 
                   {isMaintenanceOpen && (
-                    <div className="pl-6 border-l border-white/10 ml-4 space-y-1 my-1">
+                    <div className="pl-9 border-l border-white/10 ml-4 space-y-1 my-1">
                       {item.subItems.map((sub: any) => {
                         const SubIcon = sub.icon;
                         return (

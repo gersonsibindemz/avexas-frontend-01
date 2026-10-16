@@ -38,6 +38,7 @@ interface FuelLog {
   asset_id: string;
   assetId?: string;
   asset_name?: string;
+  asset_code_tag?: string;
   asset?: {
     code_tag?: string;
     name?: string;
@@ -261,7 +262,7 @@ export const FuelPage: React.FC = () => {
 
   // Filtros aplicados localmente
   const filteredLogs = logs.filter((log) => {
-    const code = (log.asset?.code_tag || log.asset_id || '').toLowerCase();
+    const code = (log.asset_code_tag || log.asset?.code_tag || log.asset_id?.substring(0, 8) || '').toLowerCase();
     const name = (log.asset_name || log.asset?.name || '').toLowerCase();
     const station = (log.station_name || log.stationName || '').toLowerCase();
     const receipt = (log.receipt_doc_ref || log.receiptDocRef || '').toLowerCase();
@@ -281,8 +282,12 @@ export const FuelPage: React.FC = () => {
   });
 
   // Métricas rápidas calculadas
-  const totalLiters = filteredLogs.reduce((acc, log) => acc + (log.liters ?? 0), 0);
-  const totalCost = filteredLogs.reduce((acc, log) => acc + (log.total_cost_mzn ?? log.totalCostMzn ?? 0), 0);
+  const totalLiters = filteredLogs.reduce((acc, log) => acc + Number(log.liters || 0), 0);
+  const totalCost = filteredLogs.reduce((acc, log) => {
+    const liters = Number(log.liters || 0);
+    const cost = Number(log.total_cost_mzn || log.totalCostMzn || (liters * Number(log.price_per_liter_mzn || log.pricePerLiterMzn || 0)));
+    return acc + cost;
+  }, 0);
 
   return (
     <div className="space-y-6">
@@ -455,7 +460,7 @@ export const FuelPage: React.FC = () => {
                 {filteredLogs.map((log) => {
                   const matchingAsset = assets.find(a => a.id === log.asset_id || a.id === log.assetId);
                   
-                  let assetCode = log.asset?.code_tag || log.asset_id;
+                  let assetCode = log.asset_code_tag || log.asset?.code_tag || log.asset_id?.substring(0, 8) || '---';
                   let assetLabel = log.asset_name || log.asset?.name || 'Equipamento';
                   if (matchingAsset) {
                     assetCode = matchingAsset.code_tag || matchingAsset.codeTag || assetCode;
@@ -464,9 +469,9 @@ export const FuelPage: React.FC = () => {
 
                   const loggedDate = log.logged_at || log.loggedAt;
                   const fuelKind = log.fuel_type || log.fuelType || 'Diesel';
-                  const logLiters = log.liters ?? 0;
-                  const price = log.price_per_liter_mzn ?? log.pricePerLiterMzn ?? 0;
-                  const total = log.total_cost_mzn ?? log.totalCostMzn ?? 0;
+                  const liters = Number(log.liters || 0);
+                  const price = Number(log.price_per_liter_mzn || log.pricePerLiterMzn || 0);
+                  const cost = Number(log.total_cost_mzn || log.totalCostMzn || (liters * Number(log.price_per_liter_mzn || log.pricePerLiterMzn || 0)));
                   const odometer = log.current_meter ?? log.currentMeter ?? 0;
                   const station = log.station_name || log.stationName || 'Não especificado';
                   const receipt = log.receipt_doc_ref || log.receiptDocRef || 'Sem ref';
@@ -486,13 +491,13 @@ export const FuelPage: React.FC = () => {
                         {fuelKind}
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-xs text-slate-700">
-                        {formatLiters(logLiters)}
+                        {formatLiters(liters)}
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-xs text-slate-500">
                         {formatMZN(price)}
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-xs text-blue-700 font-bold">
-                        {formatMZN(total)}
+                        {formatMZN(cost)}
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-xs text-slate-700 tabular-nums">
                         {odometer.toLocaleString('pt-MZ')} km

@@ -36,6 +36,7 @@ export interface Asset {
 
 export interface Technician {
   id: string;
+  name?: string;
   fullName?: string;
   full_name?: string;
   email?: string;
@@ -176,10 +177,16 @@ export const MaintenancePlansPage: React.FC = () => {
         const tData = Array.isArray(techsRes.value.data)
           ? techsRes.value.data
           : (techsRes.value.data?.technicians || techsRes.value.data?.data || []);
-        setTechnicians(tData);
+        const uniqueTechs = Array.from(
+          new Map<string, Technician>(tData.map((t: Technician) => {
+            const key = t.email?.toLowerCase() || t.name?.toLowerCase() || t.fullName?.toLowerCase() || t.full_name?.toLowerCase() || t.id;
+            return [key, t];
+          })).values()
+        );
+        setTechnicians(uniqueTechs);
 
-        if (tData.length > 0 && !assignedTechnicianId) {
-          setAssignedTechnicianId(tData[0].id);
+        if (uniqueTechs.length > 0 && !assignedTechnicianId) {
+          setAssignedTechnicianId(uniqueTechs[0].id);
         }
       }
     } catch (err) {

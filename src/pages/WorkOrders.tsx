@@ -74,6 +74,8 @@ interface WorkOrder {
   description?: string;
   asset_id: string;
   assetId?: string;
+  domain?: string;
+  operational_scope?: string;
   asset_name?: string;
   asset?: {
     code_tag?: string;
@@ -104,7 +106,7 @@ interface WorkOrder {
 }
 
 export const WorkOrdersPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, currentScope } = useAuth();
   const { counterLabel, failureCauses, technicianSpecialties, domain } = useCurrentDomain();
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -374,7 +376,13 @@ export const WorkOrdersPage: React.FC = () => {
       const data = Array.isArray(response.data)
         ? response.data
         : response.data?.technicians || response.data?.data || [];
-      setTechnicians(data);
+      const uniqueTechs = Array.from(
+        new Map<string, Technician>(data.map((t: Technician) => {
+          const key = t.email?.toLowerCase() || t.name?.toLowerCase() || t.full_name?.toLowerCase() || t.id;
+          return [key, t];
+        })).values()
+      );
+      setTechnicians(uniqueTechs);
     } catch (err) {
       console.error('Erro ao buscar técnicos:', err);
     } finally {
@@ -1207,30 +1215,12 @@ export const WorkOrdersPage: React.FC = () => {
     return `${num.toLocaleString('pt-MZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} horas`;
   };
 
-  // Filtro defensivo de isolamento de domínio (fleet vs plant)
+  // Filtro de isolamento de escopo (fleet vs plant)
   const domainFilteredOrders = orders.filter((order) => {
-    const matchingAsset = assets.find(a => a.id === order.asset_id || a.id === order.assetId);
-    
-    if (domain === 'plant') {
-      const orderAssetType = (order as any).asset_type || (order as any).assetType;
-      const orderMeterType = (order as any).meter_type || (order as any).meterType || (order as any).meter_kind || (order as any).meterKind;
-      if (orderAssetType === 'fleet') return false;
-      if (orderMeterType === 'kms' || orderMeterType === 'odometer_km') return false;
-      if (matchingAsset) {
-        const isPlantCategory = matchingAsset.category === 'generator' || matchingAsset.category === 'machinery' || (matchingAsset as any).category_type === 'plant' || (matchingAsset as any).type === 'plant';
-        const isFleetCategory = matchingAsset.category === 'vehicle_light' || matchingAsset.category === 'vehicle_heavy' || (matchingAsset as any).category_type === 'fleet' || (matchingAsset as any).type === 'fleet';
-        if (isFleetCategory && !isPlantCategory) return false;
-      }
-    } else if (domain === 'fleet') {
-      const orderAssetType = (order as any).asset_type || (order as any).assetType;
-      const orderMeterType = (order as any).meter_type || (order as any).meterType || (order as any).meter_kind || (order as any).meterKind;
-      if (orderAssetType === 'plant') return false;
-      if (orderMeterType === 'hours' || orderMeterType === 'hourmeter') return false;
-      if (matchingAsset) {
-        const isPlantCategory = matchingAsset.category === 'generator' || matchingAsset.category === 'machinery' || (matchingAsset as any).category_type === 'plant' || (matchingAsset as any).type === 'plant';
-        const isFleetCategory = matchingAsset.category === 'vehicle_light' || matchingAsset.category === 'vehicle_heavy' || (matchingAsset as any).category_type === 'fleet' || (matchingAsset as any).type === 'fleet';
-        if (isPlantCategory && !isFleetCategory) return false;
-      }
+    const scope = order.domain || order.operational_scope;
+    if (scope && currentScope) {
+      if (currentScope === 'fleet' && scope === 'plant') return false;
+      if (currentScope === 'plant' && scope === 'fleet') return false;
     }
     return true;
   });

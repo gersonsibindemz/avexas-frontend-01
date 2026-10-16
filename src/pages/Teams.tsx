@@ -32,7 +32,13 @@ export const TeamsPage: React.FC = () => {
       const list = Array.isArray(res.data)
         ? res.data
         : (res.data?.technicians || res.data?.data || []);
-      setTechnicians(list);
+      const uniqueTechs = Array.from(
+        new Map<string, Technician>(list.map((t: Technician) => {
+          const key = t.email?.toLowerCase() || t.name?.toLowerCase() || t.full_name?.toLowerCase() || t.id;
+          return [key, t];
+        })).values()
+      );
+      setTechnicians(uniqueTechs);
     } catch (err) {
       console.error('Erro ao carregar equipa técnica:', err);
       setTechnicians([]);
