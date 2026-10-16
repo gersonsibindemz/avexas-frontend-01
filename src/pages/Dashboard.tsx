@@ -17,7 +17,6 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
-import { MaintenanceNotificationModal } from '../components/MaintenanceNotificationModal';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 
 const formatMZN = (val: number) => {
@@ -35,8 +34,6 @@ export const DashboardPage: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
-  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
-  useEscapeKey(() => setIsNotificationModalOpen(false), isNotificationModalOpen);
 
   const fetchStats = async () => {
     setLoading(true);
@@ -175,13 +172,6 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 self-start md:self-auto">
-          <button
-            onClick={() => setIsNotificationModalOpen(true)}
-            className="bg-white border border-blue-600 text-blue-700 hover:bg-blue-50 px-3.5 py-2.5 rounded-md text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-none transition-colors"
-          >
-            <Wrench size={15} />
-            <span>Reportar Avaria (Notificação)</span>
-          </button>
           <button
             onClick={fetchStats}
             disabled={loading}
@@ -391,12 +381,6 @@ export const DashboardPage: React.FC = () => {
         )}
       </div>
 
-      {/* MODAL DE NOTIFICAÇÃO DE MANUTENÇÃO */}
-      <MaintenanceNotificationModal
-        isOpen={isNotificationModalOpen}
-        onClose={() => setIsNotificationModalOpen(false)}
-        onSuccess={() => fetchStats()}
-      />
     </div>
   );
 };
