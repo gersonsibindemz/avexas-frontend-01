@@ -406,7 +406,11 @@ export const Layout: React.FC = () => {
                 <img
                   src="https://i.postimg.cc/QxqWHtpg/avexas-logo-white.png"
                   alt="Avexas CMMS"
-                  className="h-10 sm:h-11 w-auto max-w-[170px] object-contain transition-all duration-200"
+                  draggable={false}
+                  onContextMenu={(e) => e.preventDefault()}
+                  onDragStart={(e) => e.preventDefault()}
+                  className="h-10 sm:h-11 w-auto max-w-[170px] object-contain transition-all duration-200 select-none pointer-events-none"
+                  style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
                 />
               </div>
 
@@ -425,7 +429,11 @@ export const Layout: React.FC = () => {
                 <img
                   src="https://i.postimg.cc/GtJrMZ6H/avexasfavico.png"
                   alt="Avexas"
-                  className="h-8 w-8 object-contain mx-auto"
+                  draggable={false}
+                  onContextMenu={(e) => e.preventDefault()}
+                  onDragStart={(e) => e.preventDefault()}
+                  className="h-8 w-8 object-contain mx-auto select-none pointer-events-none"
+                  style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
                 />
               </div>
 
@@ -578,7 +586,11 @@ export const Layout: React.FC = () => {
             <img
               src="https://i.postimg.cc/QxqWHtpg/avexas-logo-white.png"
               alt="Avexas CMMS"
-              className="h-10 w-auto object-contain"
+              draggable={false}
+              onContextMenu={(e) => e.preventDefault()}
+              onDragStart={(e) => e.preventDefault()}
+              className="h-10 w-auto object-contain select-none pointer-events-none"
+              style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
             />
           </div>
           <button

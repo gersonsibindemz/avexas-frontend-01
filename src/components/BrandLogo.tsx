@@ -22,7 +22,11 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
     <img
       src={logoSrc}
       alt={alt}
-      className={`object-contain ${className}`}
+      draggable={false}
+      onContextMenu={(e) => e.preventDefault()}
+      onDragStart={(e) => e.preventDefault()}
+      className={`object-contain select-none pointer-events-none ${className}`}
+      style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
     />
   );
 };

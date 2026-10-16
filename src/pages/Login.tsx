@@ -58,7 +58,11 @@ export const LoginPage: React.FC = () => {
         <img
           src="https://i.postimg.cc/NfvHTQTR/avexas-logo-transp-copy.png"
           alt="Avexas CMMS"
-          className="h-10 w-auto object-contain"
+          draggable={false}
+          onContextMenu={(e) => e.preventDefault()}
+          onDragStart={(e) => e.preventDefault()}
+          className="h-10 w-auto object-contain select-none pointer-events-none"
+          style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
         />
       </div>
 
