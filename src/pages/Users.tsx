@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Lock,
+  Unlock,
   Mail,
   User as UserIcon,
   Layers,
@@ -33,6 +34,8 @@ interface TenantUser {
   operationalScope?: 'fleet' | 'plant' | 'both' | 'mixed';
   specialty?: string;
   created_at?: string;
+  is_active: boolean;
+  is_suspended?: boolean;
 }
 
 interface TenantItem {
@@ -138,20 +141,19 @@ export const UsersPage: React.FC = () => {
         ? response.data
         : response.data?.users || response.data?.data || [];
 
-      // Adaptando nomes dos atributos vindos do backend e filtrando defensivamente is_active === false
-      const activeData = data.filter((u: any) => u.is_active !== false && u.isActive !== false);
-
-      const normalizedUsers = activeData.map((u: any) => ({
+      // Normaliza utilizadores sem remover contas suspensas da lista.
+      const normalizedUsers = data.map((u: any) => ({
         id: u.id,
         fullName: u.fullName || u.fullName_ || u.full_name || u.name || 'Utilizador Técnico',
         email: u.email,
         role: u.role,
         operational_scope: u.operational_scope || u.operationalScope || 'fleet',
         specialty: u.specialty || u.technical_specialty || u.specialization || '',
-        is_active: u.is_active ?? u.isActive ?? true
+        is_active: u.is_active ?? u.isActive ?? !(u.is_suspended ?? u.isSuspended ?? u.status === 'suspended'),
+        is_suspended: u.is_suspended ?? u.isSuspended ?? u.status === 'suspended'
       }));
 
-      setUsers(normalizedUsers.filter((u: any) => u.is_active !== false));
+      setUsers(normalizedUsers);
     } catch (err: any) {
       console.error('Erro ao carregar utilizadores:', err);
       setError(
@@ -329,7 +331,9 @@ export const UsersPage: React.FC = () => {
     setIsSuspending(true);
     try {
       await api.patch('/users/' + targetUserId + '/suspend', { reason: suspensionReason.trim() });
-      setUsers((prev) => prev.filter((user) => user.id !== targetUserId));
+      setUsers((prev) => prev.map((user) => user.id === targetUserId
+        ? { ...user, is_active: false, is_suspended: true }
+        : user));
       setSuccessMessage('Utilizador suspenso com sucesso.');
       setIsSuspendModalOpen(false);
       setSuspendingUser(null);
@@ -340,6 +344,22 @@ export const UsersPage: React.FC = () => {
       alert(err.response?.data?.message || err.message || 'Erro ao suspender utilizador.');
     } finally {
       setIsSuspending(false);
+    }
+  };
+
+  const handleReactivateUser = async (targetUser: TenantUser) => {
+    if (checkSuspension()) return;
+
+    try {
+      await api.patch(`/users/${targetUser.id}/reactivate`);
+      setUsers((previous) => previous.map((user) => user.id === targetUser.id
+        ? { ...user, is_active: true, is_suspended: false }
+        : user));
+      setSuccessMessage('Utilizador reativado com sucesso.');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      console.error('Erro ao reativar utilizador:', err);
+      alert(err.response?.data?.message || err.message || 'Erro ao reativar utilizador.');
     }
   };
 
@@ -583,17 +603,20 @@ export const UsersPage: React.FC = () => {
                   <th className="py-3 px-4">E-mail</th>
                   <th className="py-3 px-4">Nível de Acesso (Cargo)</th>
                   <th className="py-3 px-4">Escopo Operacional</th>
+                  <th className="py-3 px-4">Estado</th>
                   <th className="py-3 px-4 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
                 {filteredUsers.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4 font-semibold text-slate-900 flex items-center gap-2.5">
+                  <tr key={u.id} className={`hover:bg-slate-50/80 transition-colors ${u.is_active ? '' : 'opacity-60'}`}>
+                    <td className="py-3.5 px-4 font-semibold text-slate-900">
+                      <div className="flex items-center gap-2.5">
                       <div className="w-7 h-7 rounded-md bg-blue-50 text-blue-700 font-bold flex items-center justify-center text-xs border border-blue-200">
                         {u.fullName.substring(0, 2).toUpperCase()}
                       </div>
                       {u.fullName}
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 font-mono text-slate-600">{u.email}</td>
                     <td className="py-3.5 px-4">
@@ -609,6 +632,15 @@ export const UsersPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-slate-600">{formatScopeName(u.operational_scope)}</td>
+                    <td className="py-3.5 px-4">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                        u.is_active
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-slate-100 text-slate-600 border-slate-300'
+                      }`}>
+                        {u.is_active ? 'Ativo' : 'Suspenso'}
+                      </span>
+                    </td>
                     <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
                       <button
                         onClick={() => handleActionClick(() => handleOpenEditModal(u))}
@@ -617,13 +649,23 @@ export const UsersPage: React.FC = () => {
                       >
                         <Edit2 size={13} />
                       </button>
-                      <button
-                        onClick={() => handleActionClick(() => handleConfirmSuspend(u))}
-                        className="p-1.5 bg-white hover:bg-amber-50 text-amber-600 hover:text-amber-700 rounded-md border border-slate-300 hover:border-amber-200 transition-colors cursor-pointer"
-                        title="Suspender Utilizador"
-                      >
-                        <Lock size={13} />
-                      </button>
+                      {u.is_active ? (
+                        <button
+                          onClick={() => handleActionClick(() => handleConfirmSuspend(u))}
+                          className="p-1.5 bg-white hover:bg-amber-50 text-amber-600 hover:text-amber-700 rounded-md border border-slate-300 hover:border-amber-200 transition-colors cursor-pointer"
+                          title="Suspender Utilizador"
+                        >
+                          <Lock size={13} />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleActionClick(() => handleReactivateUser(u))}
+                          className="p-1.5 bg-white hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 rounded-md border border-slate-300 hover:border-emerald-200 transition-colors cursor-pointer"
+                          title="Reativar Utilizador"
+                        >
+                          <Unlock size={13} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
