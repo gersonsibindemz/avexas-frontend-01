@@ -240,7 +240,126 @@ export const WorkOrdersPage: React.FC = () => {
   const [printOrder, setPrintOrder] = useState<WorkOrder | null>(null);
   const [printQrDataUrl, setPrintQrDataUrl] = useState('');
 
-  const openPrintModal = async (order: WorkOrder, autoPrint: boolean = false) => {
+  const handlePrintWorkOrder = (order: WorkOrder, parts?: any[]) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Não foi possível abrir a janela de impressão. Verifique se o navegador bloqueou pop-ups.');
+      return;
+    }
+
+    const escapeHtml = (value: unknown) => String(value ?? '—').replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[character] || character));
+    const assetId = order.asset_id || order.assetId || '';
+    const asset = assets.find((item) => item.id === assetId);
+    const technicianId = order.technician_id || order.technicianId || order.assigned_to || order.assignedTo || '';
+    const technician = technicians.find((item) => item.id === technicianId);
+    const technicianName = (order as any).assigned_technician_name || order.technician_name ||
+      technician?.name || technician?.full_name || '—';
+    const printableParts = parts ?? (Array.isArray((order as any).parts) ? (order as any).parts : usedParts);
+    const partRows = printableParts.length > 0
+      ? printableParts.map((part: any) => `
+          <tr>
+            <td>${escapeHtml(part.oem_reference || part.part_number || part.partNumber || '—')}</td>
+            <td>${escapeHtml(part.name || part.description || '—')}</td>
+            <td class="center">${escapeHtml(part.quantity ?? '—')}</td>
+          </tr>`).join('')
+      : '<tr><td colspan="3" class="center muted">Nenhuma peça requisitada para esta Ordem de Serviço.</td></tr>';
+    const openedAt = order.opened_at || order.openedAt || new Date().toISOString();
+    const description = escapeHtml(order.description || '—').replace(/\r?\n/g, '<br>');
+    const html = `<!doctype html>
+      <html lang="pt">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>Ordem de Serviço - AVEXAS CMMS</title>
+          <style>
+            @page { size: A4; margin: 15mm; }
+            * { box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; color: #1e293b; font-size: 12px; line-height: 1.4; margin: 0; }
+            .print-container { width: 100%; max-width: 190mm; margin: 0 auto; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 14px; }
+            .brand { font-size: 18px; font-weight: 800; letter-spacing: 1px; color: #0f172a; }
+            .brand-subtitle { display: block; color: #64748b; font-size: 9px; font-weight: 500; letter-spacing: 0; margin-top: 2px; }
+            h1 { font-size: 19px; text-align: right; margin: 0 0 4px; text-transform: uppercase; }
+            .order-number { text-align: right; color: #1d4ed8; font-size: 13px; font-weight: 700; }
+            .block-title { background: #f1f5f9; font-weight: bold; padding: 6px 8px; border: 1px solid #cbd5e1; margin-top: 10px; text-transform: uppercase; font-size: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+            th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; }
+            th { background: #f8fafc; text-transform: uppercase; font-size: 9px; }
+            .details td { width: 50%; }
+            .label { color: #64748b; display: block; font-size: 9px; font-weight: 700; margin-bottom: 3px; text-transform: uppercase; }
+            .value { color: #0f172a; font-weight: 600; overflow-wrap: anywhere; }
+            .description { border: 1px solid #cbd5e1; min-height: 62px; padding: 9px; white-space: normal; }
+            .center { text-align: center; }
+            .muted { color: #64748b; }
+            .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 28px; }
+            .signature { border-top: 1px solid #64748b; padding-top: 6px; text-align: center; font-size: 10px; }
+            .footer { border-top: 1px solid #cbd5e1; color: #64748b; font-size: 9px; margin-top: 18px; padding-top: 6px; text-align: center; }
+            tr, .block-title, .description, .signatures { break-inside: avoid; }
+          </style>
+        </head>
+        <body>
+          <main class="print-container">
+            <header class="header">
+              <div><div class="brand">AVEXAS<span class="brand-subtitle">CMMS · Gestão de Manutenção</span></div></div>
+              <div>
+                <h1>Ordem de Serviço</h1>
+                <div class="order-number">OS N.º ${escapeHtml(order.wo_number || order.woNumber || order.id)}</div>
+              </div>
+            </header>
+
+            <div class="block-title">1. Equipamento / Ativo</div>
+            <table class="details"><tbody>
+              <tr><td><span class="label">Código / Tag</span><span class="value">${escapeHtml(order.asset?.code_tag || asset?.code_tag || asset?.codeTag || '—')}</span></td><td><span class="label">Descrição do ativo</span><span class="value">${escapeHtml(order.asset_name || order.asset?.name || asset?.name || '—')}</span></td></tr>
+              <tr><td><span class="label">Marca / Modelo</span><span class="value">${escapeHtml(`${(asset as any)?.brand || ''} ${(asset as any)?.model || ''}`.trim() || '—')}</span></td><td><span class="label">Contador no atendimento</span><span class="value">${escapeHtml(order.meter_at_service ?? order.meterAtService ?? '—')} ${escapeHtml(counterLabel)}</span></td></tr>
+            </tbody></table>
+
+            <div class="block-title">2. Dados da Ordem</div>
+            <table class="details"><tbody>
+              <tr><td><span class="label">Data de abertura</span><span class="value">${escapeHtml(new Date(openedAt).toLocaleString('pt-MZ'))}</span></td><td><span class="label">Tipo de manutenção</span><span class="value">${escapeHtml(order.order_type || order.orderType || 'corrective')}</span></td></tr>
+              <tr><td><span class="label">Prioridade</span><span class="value">${escapeHtml(order.priority || '—')}</span></td><td><span class="label">Estado</span><span class="value">${escapeHtml(order.status || 'open')}</span></td></tr>
+            </tbody></table>
+
+            <div class="block-title">3. Descrição Técnica / Avaria</div>
+            <div class="description"><strong>${escapeHtml(order.title || 'Ordem de Serviço')}</strong><br /><br />${description}</div>
+
+            <div class="block-title">4. Técnico Responsável</div>
+            <table><tbody><tr><td><span class="label">Técnico atribuído</span><span class="value">${escapeHtml(technicianName)}</span></td></tr></tbody></table>
+
+            <div class="block-title">5. Peças e Materiais</div>
+            <table>
+              <thead><tr><th>Código / Referência</th><th>Descrição</th><th class="center">Quantidade</th></tr></thead>
+              <tbody>${partRows}</tbody>
+            </table>
+
+            <div class="block-title">6. Execução e Aprovação</div>
+            <div class="signatures">
+              <div class="signature">Técnico responsável</div>
+              <div class="signature">Supervisor / Cliente</div>
+            </div>
+            <footer class="footer">Documento gerado pelo AVEXAS CMMS · ${escapeHtml(new Date().toLocaleString('pt-MZ'))}</footer>
+          </main>
+          <script>
+            window.addEventListener('load', function () {
+              window.focus();
+              window.print();
+            });
+            window.addEventListener('afterprint', function () { window.close(); });
+          </script>
+        </body>
+      </html>`;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  const openPrintModal = async (order: WorkOrder) => {
     setPrintOrder(order);
     try {
       const tagOrNumber = order.wo_number || order.woNumber || order.id;
@@ -250,11 +369,6 @@ export const WorkOrdersPage: React.FC = () => {
       console.error('Erro ao gerar QR code:', err);
     }
     setIsPrintModalOpen(true);
-    if (autoPrint) {
-      setTimeout(() => {
-        window.print();
-      }, 500);
-    }
   };
 
   // Modal de Cancelamento de OS
@@ -911,7 +1025,7 @@ export const WorkOrdersPage: React.FC = () => {
         setIsFormModalOpen(false);
         await fetchWorkOrders();
         await fetchMaintenanceRequests();
-        openPrintModal(createdWO, true);
+        openPrintModal(createdWO);
       } else {
         await api.put(`/work-orders/${editingOrderId}`, payload);
         setSuccessMessage('Ordem de Serviço atualizada com sucesso!');
@@ -976,7 +1090,7 @@ export const WorkOrdersPage: React.FC = () => {
       }))
     } as WorkOrder;
 
-    await openPrintModal(workOrderForPrint, true);
+    handlePrintWorkOrder(workOrderForPrint, selectedPartsList);
   };
 
   // Iniciar Serviço (Transição 'start')
@@ -3003,7 +3117,7 @@ export const WorkOrdersPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={() => handlePrintWorkOrder(printOrder)}
                   className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
                 >
                   <Printer size={16} />
