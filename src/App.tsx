@@ -77,7 +77,7 @@ const ProfilePage: React.FC = () => {
     formData.append('avatar', file);
 
     try {
-      const response = await api.post('/users/' + user.id + '/avatar', formData, {
+      const response = await api.post('/auth/me/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       const avatarUrl = response.data?.avatar_url || response.data?.user?.avatar_url;
