@@ -28,7 +28,8 @@ import {
   File,
   Eye,
   Trash,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Link
 } from 'lucide-react';
 
 interface Document {
@@ -138,11 +139,22 @@ export const AssetsPage: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingAsset, setDeletingAsset] = useState<Asset | null>(null);
 
+  const [isCombinationsModalOpen, setIsCombinationsModalOpen] = useState(false);
+  const [activeCombinations, setActiveCombinations] = useState<any[]>([]);
+  const [combTruckId, setCombTruckId] = useState('');
+  const [combCode, setCombCode] = useState('');
+  const [combLeaderId, setCombLeaderId] = useState('');
+  const [combFollowerId, setCombFollowerId] = useState('');
+  const [loadingCombinations, setLoadingCombinations] = useState(false);
+  const [submittingCombination, setSubmittingCombination] = useState(false);
+  const [combinationError, setCombinationError] = useState<string | null>(null);
+
   // Ativação da tecla ESC nos modais de Ativos
   useEscapeKey(() => setIsModalOpen(false), isModalOpen);
   useEscapeKey(() => setIsDocModalOpen(false), isDocModalOpen);
   useEscapeKey(() => setIsQrModalOpen(false), isQrModalOpen);
   useEscapeKey(() => setIsDeleteModalOpen(false), isDeleteModalOpen);
+  useEscapeKey(() => setIsCombinationsModalOpen(false), isCombinationsModalOpen);
 
   // Toasts / Feedbacks
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -247,6 +259,76 @@ export const AssetsPage: React.FC = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCombinations = async () => {
+    setLoadingCombinations(true);
+    setCombinationError(null);
+    try {
+      const response = await api.get('/fleet-combinations');
+      const data = response.data;
+      const list = Array.isArray(data)
+        ? data
+        : data?.combinations || data?.fleetCombinations || data?.fleet_combinations || data?.data?.combinations || data?.data || [];
+      setActiveCombinations(Array.isArray(list) ? list : []);
+    } catch (err: any) {
+      console.error('Erro ao carregar conjuntos rodoviários:', err);
+      setCombinationError(err.response?.data?.message || err.message || 'Não foi possível carregar os conjuntos rodoviários.');
+    } finally {
+      setLoadingCombinations(false);
+    }
+  };
+
+  const handleOpenCombinationsModal = () => {
+    setIsCombinationsModalOpen(true);
+    setCombTruckId('');
+    setCombCode('');
+    setCombLeaderId('');
+    setCombFollowerId('');
+    fetchCombinations();
+  };
+
+  const handleCreateCombination = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!combCode.trim() || !combTruckId || !combLeaderId) {
+      setCombinationError('Preencha o código, o camião trator e a trela líder.');
+      return;
+    }
+
+    setSubmittingCombination(true);
+    setCombinationError(null);
+    try {
+      await api.post('/fleet-combinations', {
+        combination_code: combCode.trim(),
+        truck_id: combTruckId,
+        leader_trailer_id: combLeaderId,
+        follower_trailer_id: combFollowerId || undefined
+      });
+      setCombCode('');
+      setCombTruckId('');
+      setCombLeaderId('');
+      setCombFollowerId('');
+      await fetchCombinations();
+      setSuccessMessage('Conjunto rodoviário criado com sucesso.');
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      console.error('Erro ao criar conjunto rodoviário:', err);
+      setCombinationError(err.response?.data?.message || err.message || 'Não foi possível criar o conjunto rodoviário.');
+    } finally {
+      setSubmittingCombination(false);
+    }
+  };
+
+  const handleTerminateCombination = async (combinationId: string) => {
+    try {
+      await api.patch(`/fleet-combinations/${combinationId}/terminate`);
+      setActiveCombinations((previous) => previous.filter((combination) => combination.id !== combinationId));
+      setSuccessMessage('Conjunto desassociado com sucesso.');
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      console.error('Erro ao desassociar conjunto:', err);
+      setCombinationError(err.response?.data?.message || err.message || 'Não foi possível desassociar o conjunto.');
     }
   };
 
@@ -930,6 +1012,21 @@ export const AssetsPage: React.FC = () => {
     return matchesSearch && matchesCategory && matchesScope;
   });
 
+  const tractorAssets = assets.filter((asset) => {
+    const type = (asset.asset_type || asset.assetType || '').toLowerCase();
+    return type === 'camião trator' || type === 'caminhao trator' || asset.category === 'vehicle_heavy';
+  });
+  const trailerAssets = assets.filter((asset) => {
+    const categoryName = asset.category.toLowerCase();
+    const type = `${asset.asset_type || asset.assetType || ''} ${asset.asset_subtype || asset.assetSubtype || ''}`.toLowerCase();
+    return asset.category === 'CAT-06' || categoryName.includes('reboque') || categoryName.includes('semirreboque') || /trela|reboque|semirreboque/.test(type);
+  });
+
+  const getCombinationAssetName = (assetId: string | undefined, nestedAsset: any) => {
+    const matchedAsset = assets.find((asset) => asset.id === assetId);
+    return nestedAsset?.name || nestedAsset?.code_tag || nestedAsset?.codeTag || matchedAsset?.name || matchedAsset?.code_tag || matchedAsset?.codeTag || assetId || '—';
+  };
+
   // Se for driver_operator, redireciona para a interface simplificada tátil
   if (isDriverOperator) {
     return (
@@ -999,6 +1096,16 @@ export const AssetsPage: React.FC = () => {
                 <Plus size={16} />
                 <span>Cadastrar Ativo</span>
               </button>
+              {currentScope === 'fleet' && (
+                <button
+                  type="button"
+                  onClick={handleOpenCombinationsModal}
+                  className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+                >
+                  <Link size={16} />
+                  <span>Gerir Conjuntos</span>
+                </button>
+              )}
             </>
           )}
         </div>
@@ -2244,6 +2351,196 @@ export const AssetsPage: React.FC = () => {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {isCombinationsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+          <div
+            className="bg-white border border-slate-200 w-full max-w-5xl rounded-md shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Link className="text-blue-700" size={18} />
+                <h2 className="text-base font-bold text-slate-900">Gestão de Conjuntos (Camião + Trelas)</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCombinationsModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+                aria-label="Fechar gestão de conjuntos"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-6">
+              <form onSubmit={handleCreateCombination} className="border border-slate-200 rounded-md p-4 space-y-4">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Nova Associação</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="combinationCode" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Identificador do Conjunto *
+                    </label>
+                    <input
+                      id="combinationCode"
+                      required
+                      value={combCode}
+                      onChange={(event) => setCombCode(event.target.value)}
+                      placeholder="Ex: CONJ-001"
+                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="combTruck" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Veículo Trator *
+                    </label>
+                    <select
+                      id="combTruck"
+                      required
+                      value={combTruckId}
+                      onChange={(event) => setCombTruckId(event.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
+                    >
+                      <option value="">Selecione o camião trator...</option>
+                      {tractorAssets.map((asset) => (
+                        <option key={asset.id} value={asset.id}>
+                          {asset.code_tag || asset.codeTag || asset.name} - {asset.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="combLeader" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Trela Líder *
+                    </label>
+                    <select
+                      id="combLeader"
+                      required
+                      value={combLeaderId}
+                      onChange={(event) => {
+                        setCombLeaderId(event.target.value);
+                        if (event.target.value === combFollowerId) setCombFollowerId('');
+                      }}
+                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
+                    >
+                      <option value="">Selecione a trela líder...</option>
+                      {trailerAssets.map((asset) => (
+                        <option key={asset.id} value={asset.id}>
+                          {asset.code_tag || asset.codeTag || asset.name} - {asset.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="combFollower" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Trela Seguidora (Opcional)
+                    </label>
+                    <select
+                      id="combFollower"
+                      value={combFollowerId}
+                      onChange={(event) => setCombFollowerId(event.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
+                    >
+                      <option value="">Sem trela seguidora</option>
+                      {trailerAssets.filter((asset) => asset.id !== combLeaderId).map((asset) => (
+                        <option key={asset.id} value={asset.id}>
+                          {asset.code_tag || asset.codeTag || asset.name} - {asset.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {combinationError && (
+                  <p role="alert" className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-md p-2.5">
+                    {combinationError}
+                  </p>
+                )}
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={submittingCombination || !combCode.trim() || !combTruckId || !combLeaderId}
+                    className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {submittingCombination && <Loader2 size={14} className="animate-spin" />}
+                    <span>{submittingCombination ? 'A criar...' : 'Criar Conjunto'}</span>
+                  </button>
+                </div>
+              </form>
+
+              <section className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                    Conjuntos Ativos ({activeCombinations.length})
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={fetchCombinations}
+                    disabled={loadingCombinations}
+                    className="p-2 text-slate-600 hover:text-slate-900 border border-slate-300 rounded-md cursor-pointer disabled:opacity-50"
+                    title="Atualizar conjuntos"
+                  >
+                    <RefreshCw size={14} className={loadingCombinations ? 'animate-spin' : ''} />
+                  </button>
+                </div>
+                {loadingCombinations ? (
+                  <div className="py-8 text-center text-xs text-slate-500">
+                    <Loader2 size={20} className="animate-spin mx-auto mb-2" />
+                    A carregar conjuntos...
+                  </div>
+                ) : activeCombinations.length === 0 ? (
+                  <div className="py-8 text-center border border-dashed border-slate-300 rounded-md text-xs text-slate-500">
+                    Não existem conjuntos ativos.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto border border-slate-200 rounded-md">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 text-slate-600 uppercase text-[10px]">
+                        <tr>
+                          <th className="px-3 py-2.5">Código</th>
+                          <th className="px-3 py-2.5">Camião Trator</th>
+                          <th className="px-3 py-2.5">Trela Líder</th>
+                          <th className="px-3 py-2.5">Trela Seguidora</th>
+                          <th className="px-3 py-2.5">Data de Início</th>
+                          <th className="px-3 py-2.5 text-right">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {activeCombinations.map((combination) => {
+                          const truckId = combination.truck_id || combination.truckId || combination.tractor_id || combination.tractorId;
+                          const leaderId = combination.leader_trailer_id || combination.leaderTrailerId || combination.leader_id || combination.leaderId;
+                          const followerId = combination.follower_trailer_id || combination.followerTrailerId || combination.follower_id || combination.followerId;
+                          const combinationId = combination.id || combination._id;
+                          const startedAt = combination.started_at || combination.start_date || combination.created_at || combination.startedAt || combination.createdAt;
+
+                          return (
+                            <tr key={combinationId || combination.combination_code || combination.combinationCode}>
+                              <td className="px-3 py-3 font-mono font-semibold text-blue-700">{combination.combination_code || combination.combinationCode || combination.code || '—'}</td>
+                              <td className="px-3 py-3 text-slate-700">{getCombinationAssetName(truckId, combination.truck || combination.tractor)}</td>
+                              <td className="px-3 py-3 text-slate-700">{getCombinationAssetName(leaderId, combination.leader_trailer || combination.leaderTrailer || combination.leader)}</td>
+                              <td className="px-3 py-3 text-slate-700">{getCombinationAssetName(followerId, combination.follower_trailer || combination.followerTrailer || combination.follower)}</td>
+                              <td className="px-3 py-3 text-slate-600">{startedAt ? new Date(startedAt).toLocaleDateString('pt-MZ') : '—'}</td>
+                              <td className="px-3 py-3 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => combinationId && handleTerminateCombination(combinationId)}
+                                  disabled={!combinationId}
+                                  className="px-2.5 py-1.5 text-[10px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md cursor-pointer disabled:opacity-50"
+                                >
+                                  Desassociar (Terminar)
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </div>
           </div>
         </div>
       )}
