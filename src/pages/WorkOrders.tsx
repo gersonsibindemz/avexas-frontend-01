@@ -339,12 +339,11 @@ export const WorkOrdersPage: React.FC = () => {
     setError(null);
     try {
       const res = await api.get('/work-orders');
-      const rawData = res.data;
-      // Extração agressiva do payload
-      const list = Array.isArray(rawData) ? rawData : (rawData?.workOrders || rawData?.work_orders || rawData?.orders || rawData?.data || []);
-      setOrders(list);
+      const raw = res.data;
+      const data = Array.isArray(raw) ? raw : (raw?.workOrders || raw?.work_orders || raw?.data || raw?.orders || []);
+      setOrders(data);
     } catch (err: any) {
-      console.error('Erro ao carregar ordens de serviço:', err);
+      console.error('Erro ao carregar ordens:', err);
       setError('Não foi possível carregar as Ordens de Serviço.');
     } finally {
       setLoading(false);
@@ -1213,11 +1212,10 @@ export const WorkOrdersPage: React.FC = () => {
 
   // Filtro de isolamento de escopo (fleet vs plant)
   const domainFilteredOrders = orders.filter((order) => {
-    const scope = order.domain || order.operational_scope;
-    if (scope && currentScope) {
-      if (currentScope === 'fleet' && scope === 'plant') return false;
-      if (currentScope === 'plant' && scope === 'fleet') return false;
-    }
+    const scope = order.domain || order.operational_scope || (order as any).asset_category;
+    if (!scope) return true;
+    if (currentScope === 'fleet' && (scope === 'plant' || scope === 'generator' || scope === 'machinery')) return false;
+    if (currentScope === 'plant' && (scope === 'fleet' || scope === 'vehicle_light' || scope === 'vehicle_heavy')) return false;
     return true;
   });
 
