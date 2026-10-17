@@ -99,6 +99,7 @@ interface WorkOrder {
   openedAt?: string;
   assigned_to?: string;
   assignedTo?: string;
+  technician_name?: string;
   technician_id?: string;
   technicianId?: string;
   meter_at_service?: number;
@@ -924,6 +925,58 @@ export const WorkOrdersPage: React.FC = () => {
     } finally {
       setSubmittingForm(false);
     }
+  };
+
+  const handleGenerateWorkOrderPDF = async () => {
+    const description = String(formData.description || '').trim();
+    const assignedTechnicianId = formData.assignedTo || formData.technicianId || formData.technician_id || '';
+    if (!description || !assignedTechnicianId) {
+      alert('Atenção: Esta Ordem de Serviço ainda está incompleta (Rascunho). Preencha a descrição técnica e atribua um técnico antes de gerar a Ficha A4 para impressão.');
+      return;
+    }
+
+    const selectedAsset = assets.find((asset) => asset.id === (formData.assetId || formData.asset_id));
+    const selectedTechnician = technicians.find((technician) => technician.id === assignedTechnicianId);
+    const existingOrder = formMode === 'edit' && editingOrderId
+      ? orders.find((order) => order.id === editingOrderId)
+      : undefined;
+    const now = new Date().toISOString();
+    const workOrderForPrint = {
+      ...existingOrder,
+      id: existingOrder?.id || 'draft-preview',
+      wo_number: existingOrder?.wo_number || existingOrder?.woNumber || formData.wo_number || 'RASCUNHO',
+      woNumber: existingOrder?.woNumber || existingOrder?.wo_number || formData.woNumber,
+      title: String(formData.title || '').trim() || 'Ordem de Serviço',
+      description,
+      asset_id: formData.assetId || formData.asset_id,
+      assetId: formData.assetId || formData.asset_id,
+      asset_name: selectedAsset?.name || existingOrder?.asset_name,
+      asset: selectedAsset
+        ? { code_tag: selectedAsset.code_tag || selectedAsset.codeTag, name: selectedAsset.name }
+        : existingOrder?.asset,
+      order_type: formData.orderType || formData.order_type || 'corrective',
+      orderType: formData.orderType || formData.order_type || 'corrective',
+      priority: formData.priority || 'medium',
+      status: existingOrder?.status || 'open',
+      opened_at: existingOrder?.opened_at || existingOrder?.openedAt || now,
+      openedAt: existingOrder?.openedAt || existingOrder?.opened_at || now,
+      technician_id: assignedTechnicianId,
+      technicianId: assignedTechnicianId,
+      assigned_to: assignedTechnicianId,
+      assignedTo: assignedTechnicianId,
+      assigned_technician_name: selectedTechnician?.name || selectedTechnician?.full_name || existingOrder?.assigned_to,
+      technician_name: selectedTechnician?.name || selectedTechnician?.full_name || existingOrder?.technician_name,
+      meter_at_service: formData.meterAtService ?? formData.meter_at_service,
+      meterAtService: formData.meterAtService ?? formData.meter_at_service,
+      parts: selectedPartsList.map((part: any) => ({
+        oem_reference: part.part_number || part.oem_reference,
+        part_number: part.part_number || part.oem_reference,
+        name: part.name,
+        quantity: part.quantity
+      }))
+    } as WorkOrder;
+
+    await openPrintModal(workOrderForPrint, true);
   };
 
   // Iniciar Serviço (Transição 'start')
@@ -2080,24 +2133,7 @@ export const WorkOrdersPage: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => {
-                      if (formMode === 'edit' && editingOrderId) {
-                        const orderToPrint = orders.find(o => o.id === editingOrderId);
-                        if (orderToPrint) openPrintModal(orderToPrint);
-                      } else {
-                        openPrintModal({
-                          id: 'preview',
-                          wo_number: 'RASCUNHO',
-                          title: formData.title || 'Ordem de Serviço (Rascunho)',
-                          description: formData.description,
-                          asset_id: formData.assetId,
-                          order_type: formData.orderType,
-                          priority: formData.priority,
-                          status: 'open',
-                          opened_at: new Date().toISOString()
-                        } as any);
-                      }
-                    }}
+                    onClick={handleGenerateWorkOrderPDF}
                     className="bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 font-medium px-4 py-2 rounded-md text-xs flex items-center gap-2 cursor-pointer"
                   >
                     <Printer size={15} />
@@ -2933,6 +2969,10 @@ export const WorkOrdersPage: React.FC = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto">
           <style>{`
             @media print {
+              @page {
+                size: A4;
+                margin: 15mm;
+              }
               body * {
                 visibility: hidden !important;
               }
@@ -3137,8 +3177,8 @@ export const WorkOrdersPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-300 text-[11px]">
-                    {usedParts && usedParts.length > 0 ? (
-                      usedParts.map((partItem: any, idx: number) => (
+                    {((printOrder as any).parts || usedParts).length > 0 ? (
+                      ((printOrder as any).parts || usedParts).map((partItem: any, idx: number) => (
                         <tr key={idx}>
                           <td className="p-2 font-mono border-r border-slate-300">{partItem.oem_reference || partItem.part_number || 'P-ITEM'}</td>
                           <td className="p-2 border-r border-slate-300">{partItem.name}</td>
@@ -3146,18 +3186,9 @@ export const WorkOrdersPage: React.FC = () => {
                         </tr>
                       ))
                     ) : (
-                      <>
-                        <tr>
-                          <td className="p-2 font-mono border-r border-slate-300">FIL-LF16015</td>
-                          <td className="p-2 border-r border-slate-300">Filtro de Óleo Lubrificante Cummins / Volvo</td>
-                          <td className="p-2 text-center font-bold">1</td>
-                        </tr>
-                        <tr>
-                          <td className="p-2 font-mono border-r border-slate-300">LUB-15W40-1L</td>
-                          <td className="p-2 border-r border-slate-300">Óleo de Motor Diesel 15W40 Multiviscoso</td>
-                          <td className="p-2 text-center font-bold">5</td>
-                        </tr>
-                      </>
+                      <tr>
+                        <td colSpan={3} className="p-2 text-center text-slate-500 italic">Nenhuma peça requisitada para esta Ordem de Serviço.</td>
+                      </tr>
                     )}
                   </tbody>
                 </table>

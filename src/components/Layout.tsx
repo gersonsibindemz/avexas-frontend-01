@@ -29,7 +29,8 @@ import {
   QrCode,
   Users,
   Layers,
-  AlertTriangle
+  AlertTriangle,
+  Camera
 } from 'lucide-react';
 
 interface NotificationItem {
@@ -38,6 +39,8 @@ interface NotificationItem {
   titulo?: string;
   message?: string;
   mensagem?: string;
+  asset_id?: string | number;
+  assetId?: string | number;
   created_at?: string;
   createdAt?: string;
   is_read?: boolean;
@@ -378,6 +381,18 @@ export const Layout: React.FC = () => {
   };
 
   const navigationItems = getNavigationItems();
+
+  const uniqueNotifications = notifications.filter((notification, index, allNotifications) => {
+    const title = notification.title || notification.titulo || 'Notificação';
+    const message = notification.message || notification.mensagem || '';
+    const assetId = notification.asset_id || notification.assetId || '';
+
+    return index === allNotifications.findIndex((candidate) =>
+      (candidate.title || candidate.titulo || 'Notificação') === title &&
+      (candidate.message || candidate.mensagem || '') === message &&
+      (candidate.asset_id || candidate.assetId || '') === assetId
+    );
+  });
 
   // Identificação da página atual para exibição de breadcrumbs
   const getActivePageName = () => {
@@ -802,7 +817,7 @@ export const Layout: React.FC = () => {
 
                   {/* Lista de Notificações */}
                   <div className="max-h-96 overflow-y-auto divide-y divide-slate-100">
-                    {notifications.length === 0 ? (
+                    {uniqueNotifications.length === 0 ? (
                       <div className="py-8 px-4 text-center flex flex-col items-center justify-center">
                         <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mb-2 border border-slate-200">
                           <Bell size={18} />
@@ -810,7 +825,7 @@ export const Layout: React.FC = () => {
                         <p className="text-xs text-slate-500 font-medium">Sem notificações pendentes.</p>
                       </div>
                     ) : (
-                      notifications.map((item) => {
+                      uniqueNotifications.map((item) => {
                         const isRead = Boolean(item.is_read ?? item.read ?? item.isRead);
                         const title = item.title || item.titulo || 'Notificação';
                         const message = item.message || item.mensagem || '';
@@ -878,9 +893,19 @@ export const Layout: React.FC = () => {
                 }
                 title="Meu Perfil"
               >
-                <span className="font-bold text-xs uppercase">
-                  {user.fullName ? user.fullName.substring(0, 2) : <User size={16} />}
-                </span>
+                {user?.avatar_url ? (
+                  <img src={user.avatar_url} alt="Avatar" className="w-9 h-9 rounded-full object-cover border-2 border-slate-200" />
+                ) : (
+                  <span className="relative flex items-center justify-center w-9 h-9 rounded-full bg-slate-100 text-slate-600 font-bold text-xs uppercase">
+                    {user.fullName ? user.fullName.substring(0, 2) : <User size={16} />}
+                    <span
+                      title="Clique para adicionar foto"
+                      className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-blue-600 text-white border-2 border-white flex items-center justify-center"
+                    >
+                      <Camera size={9} />
+                    </span>
+                  </span>
+                )}
               </NavLink>
             </div>
           </div>
