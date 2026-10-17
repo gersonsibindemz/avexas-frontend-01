@@ -213,11 +213,9 @@ export const AssetsPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get('/assets');
-      const data = Array.isArray(response.data)
-        ? response.data
-        : response.data?.assets || response.data?.data || [];
-      setAssets(data);
+      const res = await api.get('/assets');
+      const aData = Array.isArray(res.data) ? res.data : (res.data?.assets || res.data?.data || []);
+      setAssets(aData);
     } catch (err: any) {
       console.error('Erro ao buscar ativos:', err);
       if (err.response?.status === 403) {

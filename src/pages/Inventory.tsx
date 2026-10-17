@@ -85,8 +85,9 @@ export const InventoryPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get('/parts');
-      setParts(response.data.parts || response.data || []);
+      const res = await api.get('/parts');
+      const iData = Array.isArray(res.data) ? res.data : (res.data?.parts || res.data?.data || []);
+      setParts(iData);
     } catch (err: any) {
       console.error('Erro ao obter inventário:', err);
       setError('Falha ao comunicar com o servidor de inventário.');

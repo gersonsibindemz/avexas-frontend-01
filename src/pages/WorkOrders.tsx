@@ -338,18 +338,14 @@ export const WorkOrdersPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get('/work-orders');
-      const data = Array.isArray(response.data)
-        ? response.data
-        : response.data?.workOrders || response.data?.data || [];
-      setOrders(data);
+      const res = await api.get('/work-orders');
+      const rawData = res.data;
+      // Extração agressiva do payload
+      const list = Array.isArray(rawData) ? rawData : (rawData?.workOrders || rawData?.work_orders || rawData?.orders || rawData?.data || []);
+      setOrders(list);
     } catch (err: any) {
       console.error('Erro ao carregar ordens de serviço:', err);
-      setError(
-        err.response?.data?.message ||
-        err.message ||
-        'Não foi possível ligar ao servidor para carregar as Ordens de Serviço.'
-      );
+      setError('Não foi possível carregar as Ordens de Serviço.');
     } finally {
       setLoading(false);
     }
@@ -1250,14 +1246,16 @@ export const WorkOrdersPage: React.FC = () => {
     
     // Quick Tab filter (Requisito 3)
     let matchesQuickTab = true;
+    const currentStatus = order.status || 'open'; // fallback seguro
+
     if (quickTab === 'my_tasks') {
-      matchesQuickTab = isAssignedToMe(order) && order.status !== 'completed';
+      matchesQuickTab = isAssignedToMe(order) && currentStatus !== 'completed' && currentStatus !== 'closed';
     } else if (quickTab === 'pending') {
-      matchesQuickTab = order.status === 'open';
+      matchesQuickTab = currentStatus === 'open' || currentStatus === 'pending';
     } else if (quickTab === 'in_progress') {
-      matchesQuickTab = order.status === 'in_progress';
+      matchesQuickTab = currentStatus === 'in_progress' || currentStatus === 'waiting_parts' || currentStatus === 'paused';
     } else if (quickTab === 'completed') {
-      matchesQuickTab = order.status === 'completed';
+      matchesQuickTab = currentStatus === 'completed' || currentStatus === 'closed';
     }
 
     // Se a tab estiver em 'all', respeitamos o select de status filter
