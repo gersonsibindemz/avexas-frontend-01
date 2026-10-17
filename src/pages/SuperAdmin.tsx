@@ -27,7 +27,8 @@ import {
   Trash2,
   Fuel,
   Globe,
-  DollarSign
+  DollarSign,
+  Search
 } from 'lucide-react';
 
 interface Tenant {
@@ -73,6 +74,8 @@ export const SuperAdminPage: React.FC = () => {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   // Modais do Tenant
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -83,12 +86,20 @@ export const SuperAdminPage: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingTenant, setDeletingTenant] = useState<Tenant | null>(null);
 
+  // Modal de suspensão de empresa
+  const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
+  const [suspensionTenant, setSuspensionTenant] = useState<Tenant | null>(null);
+  const [suspensionReason, setSuspensionReason] = useState('');
+  const [suspensionError, setSuspensionError] = useState<string | null>(null);
+  const [isSuspending, setIsSuspending] = useState(false);
+
   // Modal de Tabela de Preços de Combustível
   const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
   const [editingFuelPriceId, setEditingFuelPriceId] = useState<string | null>(null);
 
   useEscapeKey(() => setIsModalOpen(false), isModalOpen);
   useEscapeKey(() => setIsDeleteModalOpen(false), isDeleteModalOpen);
+  useEscapeKey(() => setIsSuspendModalOpen(false), isSuspendModalOpen);
   useEscapeKey(() => setIsFuelModalOpen(false), isFuelModalOpen);
 
   const [submitting, setSubmitting] = useState(false);
@@ -313,18 +324,50 @@ export const SuperAdminPage: React.FC = () => {
 
   const handleToggleActiveStatus = async (tenant: Tenant) => {
     const currentActive = tenant.is_active ?? tenant.isActive ?? true;
-    const newStatus = !currentActive;
+    if (currentActive) {
+      setSuspensionTenant(tenant);
+      setSuspensionReason('');
+      setSuspensionError(null);
+      setIsSuspendModalOpen(true);
+      return;
+    }
+
     try {
       try {
-        await api.patch(`/admin/tenants/${tenant.id}/toggle-status`, { is_active: newStatus });
+        await api.patch(`/admin/tenants/${tenant.id}/toggle-status`, { is_active: true });
       } catch {
-        await api.put(`/super-admin/tenants/${tenant.id}`, { ...tenant, is_active: newStatus });
+        await api.put(`/super-admin/tenants/${tenant.id}`, { ...tenant, is_active: true });
       }
-      setSuccessMessage(`Estado da empresa "${tenant.name}" alterado para ${newStatus ? 'Ativo' : 'Suspenso'}.`);
-      fetchTenants();
+      setSuccessMessage(`Empresa "${tenant.name}" reativada com sucesso.`);
+      await fetchTenants();
       setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err) {
-      console.error('Erro ao alterar estado do tenant:', err);
+    } catch (err: any) {
+      console.error('Erro ao reativar empresa:', err);
+      setError(err.response?.data?.message || err.message || 'Não foi possível reativar a empresa.');
+    }
+  };
+
+  const handleSuspendTenant = async () => {
+    if (!suspensionTenant || !suspensionReason.trim()) return;
+
+    setIsSuspending(true);
+    try {
+      await api.patch('/admin/tenants/' + suspensionTenant.id + '/toggle-status', {
+        is_active: false,
+        suspension_reason: suspensionReason.trim()
+      });
+      setIsSuspendModalOpen(false);
+      setSuccessMessage(`Empresa "${suspensionTenant.name}" suspensa com sucesso.`);
+      setSuspensionTenant(null);
+      setSuspensionReason('');
+      setSuspensionError(null);
+      await fetchTenants();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      console.error('Erro ao suspender empresa:', err);
+      setSuspensionError(err.response?.data?.message || err.message || 'Não foi possível suspender a empresa.');
+    } finally {
+      setIsSuspending(false);
     }
   };
 
@@ -392,6 +435,14 @@ export const SuperAdminPage: React.FC = () => {
   const totalTenants = tenants.length;
   const activeTenants = tenants.filter(t => (t.is_active ?? t.isActive ?? true)).length;
   const totalAssetsSum = tenants.reduce((acc, t) => acc + (t.max_assets_limit ?? t.maxAssetsLimit ?? 0), 0);
+  const filteredTenants = tenants.filter((tenant) => {
+    const active = tenant.is_active ?? tenant.isActive ?? true;
+    const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? active : !active);
+    const query = searchQuery.toLowerCase();
+    const matchesSearch = [tenant.name, tenant.trade_name, tenant.tradeName, tenant.nuit, tenant.province, tenant.country]
+      .some((value) => (value || '').toLowerCase().includes(query));
+    return matchesStatus && matchesSearch;
+  });
 
   return (
     <div className="space-y-6">
@@ -532,9 +583,34 @@ export const SuperAdminPage: React.FC = () => {
 
           {/* Tabela de Empresas Contratantes */}
           <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <span className="font-semibold text-sm text-slate-900">Empresas Contratantes</span>
-              <span className="text-xs text-slate-500">Total de {tenants.length} registadas</span>
+            <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50">
+              <div>
+                <span className="font-semibold text-sm text-slate-900">Empresas Contratantes</span>
+                <span className="block text-xs text-slate-500 mt-0.5">A mostrar {filteredTenants.length} de {tenants.length} registadas</span>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <div className="relative w-full sm:w-64">
+                  <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Pesquisar empresas..."
+                    aria-label="Pesquisar empresas"
+                    className="w-full bg-white border border-slate-300 rounded-md pl-9 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
+                  />
+                </div>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  aria-label="Filtrar empresas por estado"
+                  className="w-full sm:w-36 bg-white border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 cursor-pointer"
+                >
+                  <option value="all">Todos</option>
+                  <option value="active">Ativos</option>
+                  <option value="suspended">Suspensos</option>
+                </select>
+              </div>
             </div>
 
             {loading ? (
@@ -574,7 +650,13 @@ export const SuperAdminPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {tenants.map((tenant) => {
+                    {filteredTenants.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-10 px-4 text-center text-xs text-slate-500">
+                          Nenhuma empresa corresponde aos filtros aplicados.
+                        </td>
+                      </tr>
+                    ) : filteredTenants.map((tenant) => {
                       const companyName = tenant.name;
                       const trade = tenant.trade_name || tenant.tradeName || '---';
                       const active = tenant.is_active ?? tenant.isActive ?? true;
@@ -1166,6 +1248,69 @@ export const SuperAdminPage: React.FC = () => {
                 >
                   {submitting && <Loader2 size={14} className="animate-spin" />}
                   <span>Guardar Preço de Referência</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isSuspendModalOpen && suspensionTenant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 rounded-md w-full max-w-md shadow-xl p-6 animate-slide-up">
+            <div className="w-12 h-12 bg-amber-50 border border-amber-200 text-amber-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Pause size={22} />
+            </div>
+            <h2 className="text-sm font-bold text-slate-900 text-center mb-2">Suspender Empresa</h2>
+            <p className="text-xs text-slate-600 text-center leading-relaxed mb-5">
+              Suspender Empresa: <strong className="text-slate-900">{suspensionTenant.name}</strong>. A empresa entrará em modo de bloqueio.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSuspendTenant();
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label htmlFor="suspensionReason" className="block text-xs font-medium text-slate-700 mb-1.5">
+                  Justificativa da suspensão *
+                </label>
+                <textarea
+                  id="suspensionReason"
+                  required
+                  value={suspensionReason}
+                  onChange={(e) => setSuspensionReason(e.target.value)}
+                  rows={4}
+                  placeholder="Descreva o motivo da suspensão..."
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none resize-y"
+                />
+              </div>
+              <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSuspendModalOpen(false);
+                    setSuspensionTenant(null);
+                    setSuspensionReason('');
+                    setSuspensionError(null);
+                  }}
+                  disabled={isSuspending}
+                  className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+              {suspensionError && (
+                <p role="alert" className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-md p-2.5">
+                  {suspensionError}
+                </p>
+              )}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSuspending || !suspensionReason.trim()}
+                  className="px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-md text-xs font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSuspending ? 'A suspender...' : 'Confirmar Suspensão'}
                 </button>
               </div>
             </form>

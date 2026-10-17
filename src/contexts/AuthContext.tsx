@@ -12,6 +12,10 @@ export interface User {
   tenantId: string;
   operational_scope?: 'fleet' | 'plant' | 'both' | 'mixed';
   operationalScope?: 'fleet' | 'plant' | 'both' | 'mixed';
+  isSuspended?: boolean;
+  suspensionReason?: string;
+  isActive?: boolean;
+  is_active?: boolean;
   tenant?: {
     id: string;
     name: string;
@@ -21,6 +25,46 @@ export interface User {
     operationalScope?: 'fleet' | 'plant' | 'both' | 'mixed';
   };
 }
+
+const decodeJwtPayload = (token?: string | null): Record<string, any> => {
+  try {
+    const encodedPayload = token?.split('.')[1];
+    if (!encodedPayload) return {};
+    const base64 = encodedPayload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='));
+    const bytes = Uint8Array.from(decoded, (character) => character.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return {};
+  }
+};
+
+const toOptionalBoolean = (value: unknown): boolean | undefined => {
+  if (typeof value === 'boolean') return value;
+  if (value === 1 || value === '1' || value === 'true') return true;
+  if (value === 0 || value === '0' || value === 'false') return false;
+  return undefined;
+};
+
+const normalizeUser = (userData: any, token?: string | null): User => {
+  const tokenClaims = decodeJwtPayload(token);
+  const claims = tokenClaims.user || tokenClaims;
+  const active = toOptionalBoolean(
+    userData.isActive ?? userData.is_active ?? claims.isActive ?? claims.is_active ?? tokenClaims.isActive ?? tokenClaims.is_active
+  );
+  const suspended = toOptionalBoolean(
+    userData.isSuspended ?? userData.is_suspended ?? claims.isSuspended ?? claims.is_suspended ?? claims.suspended ?? tokenClaims.isSuspended ?? tokenClaims.is_suspended ?? tokenClaims.suspended
+  ) ?? (active === false ? true : undefined);
+  const suspensionReason = userData.suspensionReason ?? userData.suspension_reason ?? claims.suspensionReason ?? claims.suspension_reason ?? tokenClaims.suspensionReason ?? tokenClaims.suspension_reason;
+
+  return {
+    ...userData,
+    isSuspended: suspended,
+    suspensionReason: typeof suspensionReason === 'string' ? suspensionReason : undefined,
+    isActive: active,
+    is_active: active
+  };
+};
 
 interface AuthContextType {
   user: User | null;
@@ -49,7 +93,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchProfile = async () => {
     try {
       const response = await api.get('/auth/me');
-      const userData = response.data?.user || response.data;
+      const rawUserData = response.data?.user || response.data;
+      const token = sessionStorage.getItem('cmms_auth_token') || localStorage.getItem('cmms_auth_token');
+      const userData = rawUserData ? normalizeUser(rawUserData, token) : null;
       if (userData && (userData.id || userData.email) && userData.role) {
         setUser(userData);
         // Inicializar o escopo padrão do utilizador
@@ -103,11 +149,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('cmms_auth_token', token);
       }
 
-      const userData = response.data?.user || response.data;
+      const rawUserData = response.data?.user || response.data;
       
-      if (!userData || !userData.id || !userData.role) {
+      if (!rawUserData || !rawUserData.id || !rawUserData.role) {
         throw new Error('Servidor retornou dados de utilizador inválidos.');
       }
+
+      const userData = normalizeUser(rawUserData, token);
       
       setUser(userData);
       const scope = userData.operational_scope || userData.tenant?.operational_scope || userData.tenant?.operationalScope;
@@ -177,4 +225,22 @@ export const useAuth = () => {
     throw new Error('useAuth deve ser utilizado dentro de um AuthProvider');
   }
   return context;
+};
+
+export const useSuspensionGuard = () => {
+  const { user } = useAuth();
+  const isSuspended = Boolean(user?.isSuspended || user?.isActive === false || user?.is_active === false);
+
+  const checkSuspension = () => {
+    if (!isSuspended) return false;
+    alert(`Conta Suspensa. O seu acesso foi limitado a modo de leitura. Motivo: ${user?.suspensionReason || 'Contacte a administração.'}`);
+    return true;
+  };
+
+  const handleActionClick = (actionFn: () => void | Promise<unknown>) => {
+    if (checkSuspension()) return;
+    void actionFn();
+  };
+
+  return { checkSuspension, handleActionClick, isSuspended };
 };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { useSuspensionGuard } from '../contexts/AuthContext';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { formatMoney } from '../config/countriesCurrencies';
 import {
@@ -59,6 +60,7 @@ interface FuelLog {
 }
 
 export const FuelPage: React.FC = () => {
+  const { checkSuspension, handleActionClick } = useSuspensionGuard();
   const [logs, setLogs] = useState<FuelLog[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,6 +196,7 @@ export const FuelPage: React.FC = () => {
   // Submissão do Abastecimento
   const handleRegisterFuel = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (checkSuspension()) return;
     if (!selectedAssetId || !liters || !pricePerLiterMzn || !currentMeter || !stationName || !receiptDocRef) {
       alert('Por favor, preencha todos os campos obrigatórios.');
       return;
@@ -324,10 +327,10 @@ export const FuelPage: React.FC = () => {
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
           <button
-            onClick={() => {
+            onClick={() => handleActionClick(() => {
               fetchAssetsForDropdown();
               setIsModalOpen(true);
-            }}
+            })}
             className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
           >
             <Plus size={16} />

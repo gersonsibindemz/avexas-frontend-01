@@ -3,6 +3,7 @@ import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { ENERGY_TYPES, FLEET_CATEGORIES, OWNERSHIP_TYPES, TRAILER_SUBTYPES } from '../config/fleetCategories';
 import QRCode from 'qrcode';
 import {
   Plus,
@@ -50,6 +51,16 @@ interface Asset {
   brand?: string;
   model: string;
   category: 'vehicle_light' | 'vehicle_heavy' | 'generator' | 'machinery' | string;
+  asset_type?: string;
+  assetType?: string;
+  asset_subtype?: string;
+  assetSubtype?: string;
+  energy_type?: string;
+  energyType?: string;
+  ownership_type?: string;
+  ownershipType?: string;
+  axle_config?: number;
+  axleConfig?: number;
   criticality_level?: 'A' | 'B' | 'C' | string;
   criticalityLevel?: string;
   current_meter?: number;
@@ -159,7 +170,12 @@ export const AssetsPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
 
   // Etapa 1: Identificação
-  const [category, setCategory] = useState<'vehicle_light' | 'vehicle_heavy' | 'generator' | 'machinery'>('vehicle_light');
+  const [category, setCategory] = useState<string>(domain === 'fleet' ? FLEET_CATEGORIES[0].code : categories[0]?.value || 'vehicle_light');
+  const [assetType, setAssetType] = useState('');
+  const [assetSubtype, setAssetSubtype] = useState('');
+  const [energyType, setEnergyType] = useState('Diesel');
+  const [ownershipType, setOwnershipType] = useState('Próprio');
+  const [axleConfig, setAxleConfig] = useState<number | ''>('');
   const [name, setName] = useState('');
   const [codeTag, setCodeTag] = useState('');
   const [criticalityLevel, setCriticalityLevel] = useState<'A' | 'B' | 'C'>('B');
@@ -193,6 +209,8 @@ export const AssetsPage: React.FC = () => {
   const [pressureTestExpiry, setPressureTestExpiry] = useState('');
   const [localSupplierName, setLocalSupplierName] = useState('');
   const [warrantyExpiry, setWarrantyExpiry] = useState('');
+
+  const selectedFleetCategory = FLEET_CATEGORIES.find((fleetCategory) => fleetCategory.code === category);
 
   // Etapa 4: Documento Inicial
   const [wizardFile, setWizardFile] = useState<File | null>(null);
@@ -347,9 +365,19 @@ export const AssetsPage: React.FC = () => {
         alert('O Modelo é obrigatório.');
         return false;
       }
+      if (domain === 'fleet' && !assetType.trim()) {
+        alert('O Tipo de Equipamento é obrigatório.');
+        return false;
+      }
     }
     // Etapa 2 e 3 são condicionais e possuem defaults, validação flexível de tipo
     return true;
+  };
+
+  const handleCategoryChange = (nextCategory: string) => {
+    setCategory(nextCategory);
+    setAssetType('');
+    setAssetSubtype('');
   };
 
   const handleNextStep = (e?: React.MouseEvent) => {
@@ -372,13 +400,23 @@ export const AssetsPage: React.FC = () => {
 
     setSubmitting(true);
 
-    const isVehicle = category === 'vehicle_light' || category === 'vehicle_heavy';
+    const isVehicle = domain === 'fleet';
     const meterKind = isVehicle ? 'odometer_km' : 'hourmeter_hours';
 
     // Construção do Payload completo mapeado para garantir conformidade
     const payload: any = {
       name,
       category,
+      asset_type: assetType || undefined,
+      assetType: assetType || undefined,
+      asset_subtype: assetSubtype || undefined,
+      assetSubtype: assetSubtype || undefined,
+      energy_type: energyType,
+      energyType,
+      ownership_type: ownershipType,
+      ownershipType,
+      axle_config: axleConfig === '' ? undefined : Number(axleConfig),
+      axleConfig: axleConfig === '' ? undefined : Number(axleConfig),
       codeTag,
       code_tag: codeTag || undefined,
       criticalityLevel,
@@ -478,7 +516,12 @@ export const AssetsPage: React.FC = () => {
   const resetWizardForm = () => {
     setCurrentStep(1);
     setName('');
-    setCategory((categories[0]?.value as any) || 'vehicle_light');
+    setCategory(domain === 'fleet' ? FLEET_CATEGORIES[0].code : categories[0]?.value || 'vehicle_light');
+    setAssetType('');
+    setAssetSubtype('');
+    setEnergyType('Diesel');
+    setOwnershipType('Próprio');
+    setAxleConfig('');
     setCodeTag('');
     setCriticalityLevel('B');
     setBrand('');
@@ -512,7 +555,21 @@ export const AssetsPage: React.FC = () => {
     setModalOpenMode('edit');
     setEditingAssetId(asset.id);
 
-    setCategory((asset.category as any) || 'vehicle_light');
+    const initialCategory = FLEET_CATEGORIES.some((fleetCategory) => fleetCategory.code === asset.category)
+      ? asset.category
+      : asset.category === 'vehicle_heavy'
+        ? 'CAT-03'
+        : asset.category === 'vehicle_light'
+          ? 'CAT-01'
+          : domain === 'fleet'
+            ? FLEET_CATEGORIES[0].code
+            : asset.category || categories[0]?.value || 'vehicle_light';
+    setCategory(initialCategory);
+    setAssetType(asset.asset_type || asset.assetType || '');
+    setAssetSubtype(asset.asset_subtype || asset.assetSubtype || '');
+    setEnergyType(asset.energy_type || asset.energyType || 'Diesel');
+    setOwnershipType(asset.ownership_type || asset.ownershipType || 'Próprio');
+    setAxleConfig(asset.axle_config ?? asset.axleConfig ?? '');
     setName(asset.name || '');
     setCodeTag(asset.code_tag || asset.codeTag || '');
     setCriticalityLevel((asset.criticality_level as any) || (asset.criticalityLevel as any) || 'B');
@@ -794,6 +851,9 @@ export const AssetsPage: React.FC = () => {
   // AUXILIARES DE RENDERIZAÇÃO
   // ==========================================
   const formatCategory = (cat: string) => {
+    const fleetCategory = FLEET_CATEGORIES.find((item) => item.code === cat);
+    if (fleetCategory) return `${fleetCategory.code} - ${fleetCategory.name}`;
+
     switch (cat) {
       case 'vehicle_light':
         return 'Veículo Ligeiro';
@@ -974,11 +1034,17 @@ export const AssetsPage: React.FC = () => {
             className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-700 focus:outline-none cursor-pointer"
           >
             <option value="all">Todas as Categorias</option>
-            {categories.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
+            {domain === 'fleet'
+              ? FLEET_CATEGORIES.map((fleetCategory) => (
+                  <option key={fleetCategory.code} value={fleetCategory.code}>
+                    {fleetCategory.code} - {fleetCategory.name}
+                  </option>
+                ))
+              : categories.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
           </select>
         </div>
       </div>
@@ -1176,24 +1242,84 @@ export const AssetsPage: React.FC = () => {
               {/* ETAPA 1: IDENTIFICAÇÃO */}
               {currentStep === 1 && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  {domain === 'fleet' ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                          Código da Categoria *
+                        </label>
+                        <select
+                          required
+                          value={category}
+                          disabled={modalMode === 'edit'}
+                          onChange={(e) => handleCategoryChange(e.target.value)}
+                          className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer disabled:bg-slate-100"
+                        >
+                          {FLEET_CATEGORIES.map((fleetCategory) => (
+                            <option key={fleetCategory.code} value={fleetCategory.code}>
+                              {fleetCategory.code} - {fleetCategory.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                          Tipo de Equipamento *
+                        </label>
+                        <select
+                          required
+                          value={assetType}
+                          onChange={(e) => {
+                            setAssetType(e.target.value);
+                            setAssetSubtype('');
+                          }}
+                          className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
+                        >
+                          <option value="">Selecione um tipo...</option>
+                          {selectedFleetCategory?.types.map((type) => (
+                            <option key={type} value={type}>{type}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {category === 'CAT-06' ? (
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                            Subtipo / Configuração
+                          </label>
+                          <select
+                            value={assetSubtype}
+                            onChange={(e) => setAssetSubtype(e.target.value)}
+                            className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
+                          >
+                            <option value="">Selecione um subtipo...</option>
+                            {TRAILER_SUBTYPES.map((subtype) => (
+                              <option key={subtype} value={subtype}>{subtype}</option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="hidden md:block" />
+                      )}
+                    </div>
+                  ) : (
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                         Categoria de Ativo *
                       </label>
                       <select
                         value={category}
-                        disabled={modalMode === 'edit'} // Categoria fixa na edição
-                        onChange={(e) => setCategory(e.target.value as any)}
+                        disabled={modalMode === 'edit'}
+                        onChange={(e) => handleCategoryChange(e.target.value)}
                         className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
                       >
                         {categories.map((c) => (
-                          <option key={c.value} value={c.value}>
-                            {c.label}
-                          </option>
+                          <option key={c.value} value={c.value}>{c.label}</option>
                         ))}
                       </select>
                     </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                         Tag / Código do Ativo
@@ -1309,6 +1435,44 @@ export const AssetsPage: React.FC = () => {
               {/* ETAPA 2: OPERAÇÃO (Condicional) */}
               {currentStep === 2 && (
                 <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                        Tipo de Energia
+                      </label>
+                      <select
+                        value={energyType}
+                        onChange={(e) => setEnergyType(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
+                      >
+                        {ENERGY_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                        Regime de Propriedade
+                      </label>
+                      <select
+                        value={ownershipType}
+                        onChange={(e) => setOwnershipType(e.target.value)}
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
+                      >
+                        {OWNERSHIP_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                        Número de Eixos
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={axleConfig}
+                        onChange={(e) => setAxleConfig(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
                   {domain === 'fleet' ? (
                     /* CAMPOS PARA VEÍCULOS (FROTA) */
                     <>
@@ -2119,7 +2283,7 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
   const [anomalySuccess, setAnomalySuccess] = useState(false);
 
   // Filter out non-vehicles for drivers
-  const vehicles = assets.filter(a => a.category === 'vehicle_light' || a.category === 'vehicle_heavy' || a.category?.startsWith('vehicle'));
+  const vehicles = assets.filter(a => a.category === 'vehicle_light' || a.category === 'vehicle_heavy' || a.category?.startsWith('vehicle') || FLEET_CATEGORIES.some((fleetCategory) => fleetCategory.code === a.category));
 
   useEffect(() => {
     if (vehicles.length > 0 && !selectedAssetId) {

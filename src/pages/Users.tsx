@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, useSuspensionGuard } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
@@ -11,7 +11,6 @@ import {
   X,
   RefreshCw,
   Edit2,
-  Trash2,
   Shield,
   Briefcase,
   AlertTriangle,
@@ -30,8 +29,8 @@ interface TenantUser {
   fullName_?: string;
   email: string;
   role: 'tenant_admin' | 'supervisor' | 'technician' | 'driver_operator';
-  operational_scope: 'fleet' | 'plant' | 'both';
-  operationalScope?: 'fleet' | 'plant' | 'both';
+  operational_scope: 'fleet' | 'plant' | 'both' | 'mixed';
+  operationalScope?: 'fleet' | 'plant' | 'both' | 'mixed';
   specialty?: string;
   created_at?: string;
 }
@@ -50,7 +49,15 @@ interface TenantItem {
 export const UsersPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, isSuperAdmin } = useAuth();
+  const { checkSuspension, handleActionClick } = useSuspensionGuard();
   const { technicianSpecialties } = useCurrentDomain();
+  const currentUserScope = user?.operational_scope || user?.operationalScope || user?.tenant?.operational_scope || user?.tenant?.operationalScope;
+  const canSelectAllScopes = isSuperAdmin || currentUserScope === 'mixed' || currentUserScope === 'both';
+  const availableOperationalScopes: Array<'fleet' | 'plant' | 'mixed'> = canSelectAllScopes
+    ? ['fleet', 'plant', 'mixed']
+    : currentUserScope === 'plant'
+      ? ['plant']
+      : ['fleet'];
 
   const [tenants, setTenants] = useState<TenantItem[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string>('');
@@ -60,16 +67,20 @@ export const UsersPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [scopeFilter, setScopeFilter] = useState('all');
 
   // Modais
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deletingUser, setDeletingUser] = useState<TenantUser | null>(null);
+  const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
+  const [suspendingUser, setSuspendingUser] = useState<TenantUser | null>(null);
+  const [suspensionReason, setSuspensionReason] = useState('');
+  const [isSuspending, setIsSuspending] = useState(false);
 
   useEscapeKey(() => setIsModalOpen(false), isModalOpen);
-  useEscapeKey(() => setIsDeleteModalOpen(false), isDeleteModalOpen);
+  useEscapeKey(() => setIsSuspendModalOpen(false), isSuspendModalOpen);
 
   // Campos do Formulário
   const [modalTenantId, setModalTenantId] = useState<string>('');
@@ -77,7 +88,7 @@ export const UsersPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'tenant_admin' | 'supervisor' | 'technician' | 'driver_operator'>('technician');
-  const [operationalScope, setOperationalScope] = useState<'fleet' | 'plant' | 'both'>('fleet');
+  const [operationalScope, setOperationalScope] = useState<'fleet' | 'plant' | 'mixed'>('fleet');
   const [specialty, setSpecialty] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
@@ -191,13 +202,17 @@ export const UsersPage: React.FC = () => {
     setEmail('');
     setPassword('');
     setRole('technician');
-    setOperationalScope('fleet');
+    setOperationalScope(currentUserScope === 'plant' ? 'plant' : currentUserScope === 'mixed' || currentUserScope === 'both' ? 'mixed' : 'fleet');
     setSpecialty(technicianSpecialties.length > 0 ? technicianSpecialties[0].value : '');
     setIsModalOpen(true);
   };
 
   const handleOpenEditModal = (targetUser: TenantUser) => {
-    const targetScope = targetUser.operational_scope === 'plant' ? 'plant' : 'fleet';
+    const targetScope = targetUser.operational_scope === 'plant'
+      ? 'plant'
+      : targetUser.operational_scope === 'mixed' || targetUser.operational_scope === 'both'
+        ? 'mixed'
+        : 'fleet';
     setModalMode('edit');
     setEditingUserId(targetUser.id);
     setFullName(targetUser.fullName);
@@ -211,6 +226,7 @@ export const UsersPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (checkSuspension()) return;
     if (!fullName.trim() || !email.trim()) {
       alert('Por favor, preencha os campos obrigatórios (*).');
       return;
@@ -224,6 +240,10 @@ export const UsersPage: React.FC = () => {
 
     if (modalMode === 'create' && !password.trim()) {
       alert('A palavra-passe é obrigatória para novos utilizadores.');
+      return;
+    }
+    if (modalMode === 'create' && !canSelectAllScopes && (currentUserScope === 'fleet' || currentUserScope === 'plant') && operationalScope !== currentUserScope) {
+      alert('Não pode criar utilizadores fora do seu âmbito operacional.');
       return;
     }
     if (role === 'technician' && !specialty) {
@@ -291,35 +311,49 @@ export const UsersPage: React.FC = () => {
     }
   };
 
-  const handleConfirmDelete = (targetUser: TenantUser) => {
-    setDeletingUser(targetUser);
-    setIsDeleteModalOpen(true);
+  const handleConfirmSuspend = (targetUser: TenantUser) => {
+    setSuspendingUser(targetUser);
+    setSuspensionReason('');
+    setIsSuspendModalOpen(true);
   };
 
-  const handleDeleteUser = async () => {
-    if (!deletingUser) return;
-    const targetUserId = deletingUser.id;
+  const handleSuspendUser = async () => {
+    if (checkSuspension()) return;
+    if (!suspendingUser) return;
+    if (!suspensionReason.trim()) {
+      alert('Indique uma justificativa para suspender este utilizador.');
+      return;
+    }
+
+    const targetUserId = suspendingUser.id;
+    setIsSuspending(true);
     try {
-      await api.delete(`/users/${targetUserId}`);
+      await api.patch('/users/' + targetUserId + '/suspend', { reason: suspensionReason.trim() });
       setUsers((prev) => prev.filter((user) => user.id !== targetUserId));
-      setSuccessMessage('Utilizador removido do contrato com sucesso.');
-      setIsDeleteModalOpen(false);
-      setDeletingUser(null);
+      setSuccessMessage('Utilizador suspenso com sucesso.');
+      setIsSuspendModalOpen(false);
+      setSuspendingUser(null);
+      setSuspensionReason('');
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
-      console.error('Erro ao eliminar utilizador:', err);
-      alert(err.response?.data?.message || err.message || 'Erro ao eliminar utilizador.');
+      console.error('Erro ao suspender utilizador:', err);
+      alert(err.response?.data?.message || err.message || 'Erro ao suspender utilizador.');
+    } finally {
+      setIsSuspending(false);
     }
   };
 
-  // Filtragem local de busca
+  // Filtragem local de busca e tabela
   const filteredUsers = users.filter((u) => {
     const query = searchQuery.toLowerCase();
-    return (
+    const matchesSearch = (
       u.fullName.toLowerCase().includes(query) ||
       u.email.toLowerCase().includes(query) ||
       u.role.toLowerCase().includes(query)
     );
+    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+    const matchesScope = scopeFilter === 'all' || u.operational_scope === scopeFilter;
+    return matchesSearch && matchesRole && matchesScope;
   });
 
   const getRoleBadgeColor = (userRole: string) => {
@@ -358,6 +392,9 @@ export const UsersPage: React.FC = () => {
         return 'Frota';
       case 'plant':
         return 'Instalação Fabril';
+      case 'both':
+      case 'mixed':
+        return 'Frota e Instalação Fabril';
       default:
         return 'Frota';
     }
@@ -396,7 +433,7 @@ export const UsersPage: React.FC = () => {
             <span>Atualizar</span>
           </button>
           <button
-            onClick={handleOpenCreateModal}
+            onClick={() => handleActionClick(handleOpenCreateModal)}
             className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
           >
             <Plus size={16} />
@@ -468,7 +505,33 @@ export const UsersPage: React.FC = () => {
           />
         </div>
 
-        <div className="flex items-center gap-2.5 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            disabled={!selectedTenantId}
+            aria-label="Filtrar por cargo"
+            className="w-full sm:w-48 bg-white border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
+          >
+            <option value="all">Todos os cargos</option>
+            <option value="tenant_admin">Gestor de Contrato</option>
+            <option value="supervisor">Supervisor</option>
+            <option value="technician">Técnico</option>
+            <option value="driver_operator">Motorista / Operador</option>
+          </select>
+          <select
+            value={scopeFilter}
+            onChange={(e) => setScopeFilter(e.target.value)}
+            disabled={!selectedTenantId}
+            aria-label="Filtrar por âmbito operacional"
+            className="w-full sm:w-44 bg-white border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
+          >
+            <option value="all">Todos os âmbitos</option>
+            <option value="fleet">Frota</option>
+            <option value="plant">Instalação Fabril</option>
+            <option value="both">Frota e Fábrica</option>
+            <option value="mixed">Misto</option>
+          </select>
           <button
             onClick={() => fetchUsers(selectedTenantId)}
             disabled={!selectedTenantId}
@@ -476,16 +539,6 @@ export const UsersPage: React.FC = () => {
             title="Recarregar Lista"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          </button>
-          
-          <button
-            onClick={handleOpenCreateModal}
-            disabled={!selectedTenantId}
-            title={!selectedTenantId ? "Selecione uma empresa primeiro" : "Criar utilizador para a empresa selecionada"}
-            className="flex-1 md:flex-none bg-blue-700 hover:bg-blue-800 text-white font-medium py-2 px-4 rounded-md transition-colors text-xs flex items-center justify-center gap-2 shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus size={15} />
-            <span>Novo Utilizador</span>
           </button>
         </div>
       </div>
@@ -518,7 +571,7 @@ export const UsersPage: React.FC = () => {
         <div className="bg-white border border-slate-200 rounded-md p-12 text-center text-slate-500">
           <UsersIcon className="mx-auto text-slate-400 mb-3" size={36} />
           <p className="text-xs font-semibold text-slate-900">Nenhum utilizador encontrado para esta empresa.</p>
-          <p className="text-xs text-slate-500 mt-1">Clique em "+ Novo Utilizador" para adicionar o primeiro utilizador a este contrato.</p>
+          <p className="text-xs text-slate-500 mt-1">Utilize "Registar Novo Utilizador / Técnico" para adicionar o primeiro utilizador a este contrato.</p>
         </div>
       ) : (
         <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
@@ -558,18 +611,18 @@ export const UsersPage: React.FC = () => {
                     <td className="py-3.5 px-4 text-slate-600">{formatScopeName(u.operational_scope)}</td>
                     <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
                       <button
-                        onClick={() => handleOpenEditModal(u)}
+                        onClick={() => handleActionClick(() => handleOpenEditModal(u))}
                         className="p-1.5 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 rounded-md border border-slate-300 transition-colors cursor-pointer"
                         title="Editar Utilizador"
                       >
                         <Edit2 size={13} />
                       </button>
                       <button
-                        onClick={() => handleConfirmDelete(u)}
-                        className="p-1.5 bg-white hover:bg-red-50 text-red-600 hover:text-red-700 rounded-md border border-slate-300 hover:border-red-200 transition-colors cursor-pointer"
-                        title="Eliminar Utilizador"
+                        onClick={() => handleActionClick(() => handleConfirmSuspend(u))}
+                        className="p-1.5 bg-white hover:bg-amber-50 text-amber-600 hover:text-amber-700 rounded-md border border-slate-300 hover:border-amber-200 transition-colors cursor-pointer"
+                        title="Suspender Utilizador"
                       >
-                        <Trash2 size={13} />
+                        <Lock size={13} />
                       </button>
                     </td>
                   </tr>
@@ -708,8 +761,9 @@ export const UsersPage: React.FC = () => {
                     onChange={(e) => setOperationalScope(e.target.value as any)}
                     className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
                   >
-                    <option value="fleet">Frota</option>
-                    <option value="plant">Instalação Fabril</option>
+                    {availableOperationalScopes.includes('fleet') && <option value="fleet">Frota</option>}
+                    {availableOperationalScopes.includes('plant') && <option value="plant">Instalação Fabril</option>}
+                    {availableOperationalScopes.includes('mixed') && <option value="mixed">Mista</option>}
                   </select>
                 </div>
               </div>
@@ -764,30 +818,43 @@ export const UsersPage: React.FC = () => {
         </div>
       )}
 
-      {/* CONFIRMAÇÃO DE ELIMINAÇÃO */}
-      {isDeleteModalOpen && deletingUser && (
+      {/* CONFIRMAÇÃO DE SUSPENSÃO */}
+      {isSuspendModalOpen && suspendingUser && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white border border-slate-200 rounded-md w-full max-w-sm shadow-xl p-6 text-center animate-slide-up">
-            <div className="w-12 h-12 bg-red-50 border border-red-200 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle size={24} />
+          <div className="bg-white border border-slate-200 rounded-md w-full max-w-md shadow-xl p-6 animate-slide-up">
+            <div className="w-12 h-12 bg-amber-50 border border-amber-200 text-amber-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Lock size={22} />
             </div>
-            <h3 className="text-sm font-bold text-slate-900 mb-2">Eliminar Utilizador?</h3>
-            <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              Tem a certeza de que deseja eliminar o utilizador <strong className="text-slate-900">{deletingUser.fullName}</strong>? 
-              Esta ação removerá completamente o seu acesso e não pode ser desfeita.
+            <h3 className="text-sm font-bold text-slate-900 mb-2 text-center">Suspender Utilizador?</h3>
+            <p className="text-xs text-slate-600 leading-relaxed mb-4 text-center">
+              A conta de <strong className="text-slate-900">{suspendingUser.fullName}</strong> perderá acesso até ser reativada.
             </p>
-            <div className="flex gap-3 justify-center">
+            <label className="block text-xs font-medium text-slate-700 mb-1.5" htmlFor="suspension-reason">
+              Justificativa da suspensão *
+            </label>
+            <textarea
+              id="suspension-reason"
+              required
+              value={suspensionReason}
+              onChange={(e) => setSuspensionReason(e.target.value)}
+              rows={3}
+              placeholder="Indique o motivo da suspensão..."
+              className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none resize-y"
+            />
+            <div className="flex gap-3 justify-end mt-5">
               <button
-                onClick={() => setIsDeleteModalOpen(false)}
+                onClick={() => setIsSuspendModalOpen(false)}
+                disabled={isSuspending}
                 className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-md text-xs font-medium border border-slate-300 transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
               <button
-                onClick={handleDeleteUser}
-                className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-md text-xs font-medium transition-colors cursor-pointer"
+                onClick={handleSuspendUser}
+                disabled={isSuspending || !suspensionReason.trim()}
+                className="px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-md text-xs font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Sim, Eliminar
+                {isSuspending ? 'A suspender...' : 'Suspender Utilizador'}
               </button>
             </div>
           </div>

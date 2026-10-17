@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, useSuspensionGuard } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { Technician } from '../types/technician';
@@ -107,6 +107,7 @@ interface WorkOrder {
 
 export const WorkOrdersPage: React.FC = () => {
   const { user, currentScope } = useAuth();
+  const { checkSuspension, handleActionClick } = useSuspensionGuard();
   const { counterLabel, failureCauses, technicianSpecialties, domain } = useCurrentDomain();
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -274,6 +275,7 @@ export const WorkOrdersPage: React.FC = () => {
   // Submeter Cancelamento de OS
   const handleCancelOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (checkSuspension()) return;
     if (!selectedDrawerOrder || !cancelReason.trim()) {
       alert('Por favor, informe a justificativa do cancelamento.');
       return;
@@ -437,6 +439,7 @@ export const WorkOrdersPage: React.FC = () => {
   // Submeter apontamento de peça (Requisito 10.2)
   const handleAddPartSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (checkSuspension()) return;
     if (!selectedDrawerOrder || !selectedPartId || partQtyToUse === '') return;
 
     const qty = Number(partQtyToUse);
@@ -676,6 +679,7 @@ export const WorkOrdersPage: React.FC = () => {
 
   // Helper para adicionar peças provisórias à OS no próprio Modal (Requisito 5.2)
   const handleAddPartToModalList = () => {
+    if (checkSuspension()) return;
     if (!selectedPartId) {
       alert('Por favor, selecione uma peça.');
       return;
@@ -726,6 +730,7 @@ export const WorkOrdersPage: React.FC = () => {
 
   // Abre criação de OS
   const handleOpenCreateModal = () => {
+      if (checkSuspension()) return;
     setFormMode('create');
     setEditingEditingOrderId(null);
     const initialAssetId = assets.length > 0 ? assets[0].id : '';
@@ -754,6 +759,7 @@ export const WorkOrdersPage: React.FC = () => {
 
   // Abre edição de OS
   const handleOpenEditModal = (order: WorkOrder, e?: React.MouseEvent) => {
+      if (checkSuspension()) return;
     if (e) {
       e.stopPropagation(); // impede abrir o drawer ao clicar no botão editar
     }
@@ -811,6 +817,7 @@ export const WorkOrdersPage: React.FC = () => {
   // Cadastro de novo técnico rápido
   const handleCreateTechnicianSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (checkSuspension()) return;
     if (!techName.trim() || !techSpecialty.trim()) {
       alert('Nome e Especialidade são campos obrigatórios.');
       return;
@@ -862,6 +869,7 @@ export const WorkOrdersPage: React.FC = () => {
   // Submeter OS (Conforme Requisito 5.3)
   const handleSaveOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (checkSuspension()) return;
     if (!formData.assetId || !formData.title?.trim() || !formData.description?.trim()) {
       alert('Por favor, preencha todos os campos obrigatórios.');
       return;
@@ -920,6 +928,7 @@ export const WorkOrdersPage: React.FC = () => {
 
   // Iniciar Serviço (Transição 'start')
   const handleStartService = async (order: WorkOrder) => {
+      if (checkSuspension()) return;
     try {
       // Tenta submeter na rota de transições, com fallback para PATCH direto de status
       try {
@@ -941,6 +950,7 @@ export const WorkOrdersPage: React.FC = () => {
 
   // Abrir Modal de Pausa / Interrupção
   const handleOpenPauseModal = (order: WorkOrder) => {
+      if (checkSuspension()) return;
     setSelectedDrawerOrder(order);
     setPauseReason('Aguardando Peças no Armazém');
     setPauseJustification('');
@@ -950,6 +960,7 @@ export const WorkOrdersPage: React.FC = () => {
   // Submeter Pausa / Interrupção (Transição 'pause' / 'waiting_parts')
   const handlePauseServiceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (checkSuspension()) return;
     if (!selectedDrawerOrder || !pauseJustification.trim()) {
       alert('A justificação detalhada é estritamente obrigatória.');
       return;
@@ -989,6 +1000,7 @@ export const WorkOrdersPage: React.FC = () => {
 
   // Retomar Serviço (Transição 'resume')
   const handleResumeService = async (order: WorkOrder) => {
+      if (checkSuspension()) return;
     try {
       try {
         await api.post(`/work-orders/${order.id}/transitions`, { eventType: 'resume' });
@@ -1010,6 +1022,7 @@ export const WorkOrdersPage: React.FC = () => {
   // Concluir Serviço (Ação Rápida de Fecho)
   const handleCloseOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (checkSuspension()) return;
     if (!selectedOrder) return;
 
     setSubmittingClose(true);
@@ -1386,7 +1399,7 @@ export const WorkOrdersPage: React.FC = () => {
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
           <button
-            onClick={handleOpenCreateModal}
+            onClick={() => handleActionClick(handleOpenCreateModal)}
             className="bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
           >
             <Plus size={16} />
@@ -1746,8 +1759,10 @@ export const WorkOrdersPage: React.FC = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedOrder(order);
-                              setIsCloseModalOpen(true);
+                              handleActionClick(() => {
+                                setSelectedOrder(order);
+                                setIsCloseModalOpen(true);
+                              });
                             }}
                             className="py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-none"
                           >
@@ -1931,7 +1946,7 @@ export const WorkOrdersPage: React.FC = () => {
                     </label>
                     <button
                       type="button"
-                      onClick={() => setIsTechModalOpen(true)}
+                      onClick={() => handleActionClick(() => setIsTechModalOpen(true))}
                       className="text-[10px] text-blue-700 hover:text-blue-800 font-semibold"
                     >
                       + Novo Técnico
@@ -2312,20 +2327,22 @@ export const WorkOrdersPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            setSelectedOrder(selectedDrawerOrder);
-                            
-                            // Calcula e preenche valores automaticamente
-                            const materialsCost = usedParts.reduce((acc, p) => acc + (p.subtotal || 0), 0);
-                            const tech = technicians.find(t => t.id === selectedDrawerOrder.technician_id || t.id === selectedDrawerOrder.technicianId);
-                            const hourlyRate = tech?.cost_per_hour || tech?.costPerHour || 0;
-                            const workedHours = calculateWorkedHours();
-                            const laborCost = workedHours * hourlyRate;
+                            handleActionClick(() => {
+                              setSelectedOrder(selectedDrawerOrder);
 
-                            setPartsCostMzn(materialsCost > 0 ? materialsCost : '');
-                            setLaborCostMzn(laborCost > 0 ? laborCost : '');
-                            setDowntimeHours(workedHours > 0 ? workedHours : '');
-                            
-                            setIsCloseModalOpen(true);
+                              // Calcula e preenche valores automaticamente
+                              const materialsCost = usedParts.reduce((acc, p) => acc + (p.subtotal || 0), 0);
+                              const tech = technicians.find(t => t.id === selectedDrawerOrder.technician_id || t.id === selectedDrawerOrder.technicianId);
+                              const hourlyRate = tech?.cost_per_hour || tech?.costPerHour || 0;
+                              const workedHours = calculateWorkedHours();
+                              const laborCost = workedHours * hourlyRate;
+
+                              setPartsCostMzn(materialsCost > 0 ? materialsCost : '');
+                              setLaborCostMzn(laborCost > 0 ? laborCost : '');
+                              setDowntimeHours(workedHours > 0 ? workedHours : '');
+
+                              setIsCloseModalOpen(true);
+                            });
                           }}
                           className="py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                         >
@@ -2351,8 +2368,10 @@ export const WorkOrdersPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => {
-                          setCancelReason('');
-                          setIsCancelModalOpen(true);
+                          handleActionClick(() => {
+                            setCancelReason('');
+                            setIsCancelModalOpen(true);
+                          });
                         }}
                         className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
@@ -2376,9 +2395,11 @@ export const WorkOrdersPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedPartId('');
-                        setPartQtyToUse('');
-                        setIsAddPartModalOpen(true);
+                        handleActionClick(() => {
+                          setSelectedPartId('');
+                          setPartQtyToUse('');
+                          setIsAddPartModalOpen(true);
+                        });
                       }}
                       className="text-xs font-medium text-blue-700 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
                     >

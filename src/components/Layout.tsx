@@ -195,13 +195,16 @@ export const Layout: React.FC = () => {
       }
     }
 
-    if (itemLink) {
+    if (itemLink && itemLink !== '#' && itemLink.trim() !== '') {
       setIsNotificationOpen(false);
-      if (itemLink.startsWith('http://') || itemLink.startsWith('https://')) {
+      if (itemLink.startsWith('http')) {
         window.open(itemLink, '_blank');
       } else {
-        navigate(itemLink);
+        // Garante que o link começa com barra para não quebrar o router
+        navigate(itemLink.startsWith('/') ? itemLink : `/${itemLink}`);
       }
+    } else {
+      setIsNotificationOpen(false);
     }
   };
 
@@ -859,20 +862,26 @@ export const Layout: React.FC = () => {
             {/* Separador vertical */}
             <span className="w-px h-6 bg-slate-200 hidden md:inline"></span>
 
-            {/* Perfil */}
-            <div className="flex items-center gap-2">
-              <NavLink 
+            {/* Perfil com Avatar e Nome */}
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex flex-col items-end">
+                <span className="text-xs font-bold text-slate-900">{user.fullName || 'Utilizador'}</span>
+                <span className="text-[10px] font-medium text-slate-500 uppercase">{formatRole(user.role)}</span>
+              </div>
+              <NavLink
                 to="/app/profile"
                 className={({ isActive }) => 
-                  `p-2 rounded-md transition-all border shrink-0 ${
+                  `flex items-center justify-center w-9 h-9 rounded-full border-2 transition-all ${
                     isActive 
-                      ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                      : 'text-slate-500 hover:text-slate-800 border-transparent hover:bg-slate-100 hover:border-slate-200'
+                      ? 'border-blue-600 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 bg-slate-100 text-slate-600 hover:border-slate-300'
                   }`
                 }
                 title="Meu Perfil"
               >
-                <User size={18} />
+                <span className="font-bold text-xs uppercase">
+                  {user.fullName ? user.fullName.substring(0, 2) : <User size={16} />}
+                </span>
               </NavLink>
             </div>
           </div>
