@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { useSuspensionGuard } from '../contexts/AuthContext';
+import { useAuth, useSuspensionGuard } from '../contexts/AuthContext';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { formatMoney } from '../config/countriesCurrencies';
 import {
@@ -60,6 +60,7 @@ interface FuelLog {
 }
 
 export const FuelPage: React.FC = () => {
+  const { currentScope } = useAuth();
   const { checkSuspension, handleActionClick } = useSuspensionGuard();
   const [logs, setLogs] = useState<FuelLog[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -114,9 +115,15 @@ export const FuelPage: React.FC = () => {
       const data = Array.isArray(response.data)
         ? response.data
         : response.data?.assets || response.data?.data || [];
-      setAssets(data);
-      if (data.length > 0) {
-        setSelectedAssetId(data[0].id);
+      const filteredAssets = data.filter((asset: any) => {
+        if (currentScope === 'plant') return asset.category === 'generator' || asset.category === 'machinery';
+        return asset.category === 'vehicle_light' || asset.category === 'vehicle_heavy';
+      });
+      setAssets(filteredAssets);
+      if (filteredAssets.length > 0) {
+        setSelectedAssetId(filteredAssets[0].id);
+      } else {
+        setSelectedAssetId('');
       }
     } catch (err) {
       console.error('Erro ao carregar ativos para abastecimento:', err);
@@ -169,9 +176,12 @@ export const FuelPage: React.FC = () => {
 
   useEffect(() => {
     fetchFuelLogs();
-    fetchAssetsForDropdown();
     fetchReferencePrices();
   }, []);
+
+  useEffect(() => {
+    fetchAssetsForDropdown();
+  }, [currentScope]);
 
   // Sugere automaticamente o preço por litro quando o modal abre ou muda o tipo de combustível
   useEffect(() => {

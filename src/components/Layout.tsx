@@ -29,8 +29,7 @@ import {
   QrCode,
   Users,
   Layers,
-  AlertTriangle,
-  ArrowLeft
+  AlertTriangle
 } from 'lucide-react';
 
 interface NotificationItem {
@@ -889,19 +888,6 @@ export const Layout: React.FC = () => {
 
         {/* ÁREA DE OUTLET COM ROLAGEM INDEPENDENTE */}
         <main className="flex-1 overflow-y-auto bg-slate-50 relative">
-          {/* Botão de Regressar */}
-          {location.pathname !== '/app/dashboard' && location.pathname !== '/super-admin' && location.pathname !== '/app/super-admin' && (
-            <div className="px-4 md:px-8 pt-4 flex items-center justify-between">
-              <button
-                onClick={() => navigate(-1)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-md transition-colors cursor-pointer shadow-xs"
-                title="Voltar à página anterior"
-              >
-                <ArrowLeft size={14} className="text-slate-500" />
-                <span>Voltar</span>
-              </button>
-            </div>
-          )}
           <div className="min-h-full p-4 md:p-8 max-w-7xl mx-auto w-full pb-20 md:pb-8">
             <Outlet />
           </div>

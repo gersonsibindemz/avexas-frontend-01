@@ -40,10 +40,10 @@ export const DashboardPage: React.FC = () => {
     try {
       let data: any = null;
       try {
-        const res = await api.get('/dashboard');
+        const res = await api.get('/dashboard', { params: { scope: currentScope } });
         data = res.data?.stats || res.data?.data || res.data;
       } catch {
-        const res = await api.get('/dashboard/stats');
+        const res = await api.get('/dashboard/stats', { params: { scope: currentScope } });
         data = res.data?.stats || res.data?.data || res.data;
       }
 

@@ -751,13 +751,6 @@ export const SuperAdminPage: React.FC = () => {
                 Valores de referência por litro vigentes para cálculo de eficiência e custos de abastecimento no CMMS.
               </span>
             </div>
-            <button
-              onClick={() => handleOpenFuelModal()}
-              className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2 px-3 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Plus size={14} />
-              <span>+ Definir Tabela de Preços</span>
-            </button>
           </div>
 
           <div className="overflow-x-auto">
