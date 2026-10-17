@@ -1223,16 +1223,6 @@ export const AssetsPage: React.FC = () => {
                 <Plus size={16} />
                 <span>Cadastrar Ativo</span>
               </button>
-              {currentScope === 'fleet' && (
-                <button
-                  type="button"
-                  onClick={handleOpenCombinationsModal}
-                  className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
-                >
-                  <Link size={16} />
-                  <span>Gerir Conjuntos</span>
-                </button>
-              )}
             </>
           )}
         </div>
