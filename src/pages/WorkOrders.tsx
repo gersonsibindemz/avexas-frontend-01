@@ -1277,6 +1277,13 @@ export const WorkOrdersPage: React.FC = () => {
     return matchesSearch && matchesPriority && matchesQuickTab && matchesStatus;
   });
 
+  const availableTechnicians = technicians.filter((tech) =>
+    !tech.operational_scope ||
+    tech.operational_scope === 'both' ||
+    tech.operational_scope === 'mixed' ||
+    tech.operational_scope === currentScope
+  );
+
   // Filtro para Solicitações Pendentes (Notificações de Manutenção)
   const filteredMaintenanceRequests = maintenanceRequests.filter((req) => {
     const q = searchQuery.toLowerCase();
@@ -1960,7 +1967,7 @@ export const WorkOrdersPage: React.FC = () => {
                     className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer focus:outline-none"
                   >
                     <option value="">Selecione o Técnico / Mecânico...</option>
-                    {technicians.map((t) => (
+                    {availableTechnicians.map((t) => (
                       <option key={t.id} value={t.id}>{t.name || t.full_name} — {t.specialty || 'Mecânico'}</option>
                     ))}
                   </select>

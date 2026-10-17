@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { FLEET_CATEGORIES } from '../config/fleetCategories';
 import {
   LayoutDashboard,
   RefreshCw,
@@ -27,6 +28,17 @@ const formatMZN = (val: number) => {
   return `${formatted} MZN`;
 };
 
+const fleetCategoryCodes = new Set(FLEET_CATEGORIES.map((category) => category.code));
+const isFleetCategory = (category: unknown) =>
+  typeof category === 'string' && (
+    category === 'vehicle_light' ||
+    category === 'vehicle_heavy' ||
+    category.startsWith('vehicle') ||
+    fleetCategoryCodes.has(category)
+  );
+const isPlantCategory = (category: unknown) =>
+  category === 'generator' || category === 'machinery' || category === 'plant';
+
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { currentScope } = useAuth();
@@ -38,81 +50,69 @@ export const DashboardPage: React.FC = () => {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      let data: any = null;
-      try {
-        const res = await api.get('/dashboard', { params: { scope: currentScope } });
-        data = res.data?.stats || res.data?.data || res.data;
-      } catch {
-        const res = await api.get('/dashboard/stats', { params: { scope: currentScope } });
-        data = res.data?.stats || res.data?.data || res.data;
-      }
+      const [assetsRes, woRes, fuelRes, partsRes] = await Promise.allSettled([
+        api.get('/assets'),
+        api.get('/work-orders'),
+        api.get('/fuel'),
+        api.get('/parts')
+      ]);
 
-      if (data && (data.assets || data.total_assets)) {
-        setStats(data);
-      } else {
-        throw new Error('Endpoint indisponível, recorrendo ao fallback de agregação.');
-      }
-    } catch {
-      try {
-        const [assetsRes, woRes, fuelRes, partsRes] = await Promise.allSettled([
-          api.get('/assets'),
-          api.get('/work-orders'),
-          api.get('/fuel'),
-          api.get('/parts')
-        ]);
+      // Desempacotamento seguro
+      const rawAssets = assetsRes.status === 'fulfilled' ? (Array.isArray(assetsRes.value.data) ? assetsRes.value.data : assetsRes.value.data?.assets || assetsRes.value.data?.data || []) : [];
+      const rawWo = woRes.status === 'fulfilled' ? (Array.isArray(woRes.value.data) ? woRes.value.data : woRes.value.data?.workOrders || woRes.value.data?.work_orders || woRes.value.data?.data || []) : [];
+      const rawFuel = fuelRes.status === 'fulfilled' ? (Array.isArray(fuelRes.value.data) ? fuelRes.value.data : fuelRes.value.data?.fuelLogs || fuelRes.value.data?.data || []) : [];
+      const rawParts = partsRes.status === 'fulfilled' ? (Array.isArray(partsRes.value.data) ? partsRes.value.data : partsRes.value.data?.parts || partsRes.value.data?.data || []) : [];
 
-        // Desempacotamento seguro
-        const rawAssets = assetsRes.status === 'fulfilled' ? (Array.isArray(assetsRes.value.data) ? assetsRes.value.data : assetsRes.value.data?.assets || assetsRes.value.data?.data || []) : [];
-        const rawWo = woRes.status === 'fulfilled' ? (Array.isArray(woRes.value.data) ? woRes.value.data : woRes.value.data?.workOrders || woRes.value.data?.work_orders || woRes.value.data?.data || []) : [];
-        const rawFuel = fuelRes.status === 'fulfilled' ? (Array.isArray(fuelRes.value.data) ? fuelRes.value.data : fuelRes.value.data?.fuelLogs || fuelRes.value.data?.data || []) : [];
-        const rawParts = partsRes.status === 'fulfilled' ? (Array.isArray(partsRes.value.data) ? partsRes.value.data : partsRes.value.data?.parts || partsRes.value.data?.data || []) : [];
+      // Filtragem estrita pelo currentScope do Dashboard:
+      const assetsList = rawAssets.filter((asset: any) => {
+        const scope = asset.domain || asset.operational_scope || asset.operationalScope;
+        if (scope === 'plant' || scope === 'fleet') return scope === currentScope;
+        if (currentScope === 'plant') return !isFleetCategory(asset.category);
+        return !isPlantCategory(asset.category);
+      });
 
-        // Filtragem estrita pelo currentScope do Dashboard:
-        const assetsList = rawAssets.filter((a: any) => {
-          if (currentScope === 'plant') return a.category !== 'vehicle_light' && a.category !== 'vehicle_heavy';
-          if (currentScope === 'fleet') return a.category !== 'generator' && a.category !== 'machinery';
-          return true;
-        });
+      const woList = rawWo.filter((order: any) => {
+        const matchingAsset = rawAssets.find((asset: any) =>
+          asset.id === (order.asset_id || order.assetId || order.asset?.id)
+        );
+        const scope = order.domain || order.operational_scope || order.asset_category ||
+          matchingAsset?.domain || matchingAsset?.operational_scope || matchingAsset?.operationalScope || matchingAsset?.category;
+        if (!scope) return true;
+        if (scope === 'plant' || scope === 'fleet') return scope === currentScope;
+        if (currentScope === 'plant') return !isFleetCategory(scope);
+        return !isPlantCategory(scope);
+      });
 
-        const woList = rawWo.filter((w: any) => {
-          const scope = w.domain || w.operational_scope || w.asset_category;
-          if (!scope) return true;
-          if (currentScope === 'plant' && (scope === 'fleet' || scope === 'vehicle_light' || scope === 'vehicle_heavy')) return false;
-          if (currentScope === 'fleet' && (scope === 'plant' || scope === 'generator' || scope === 'machinery')) return false;
-          return true;
-        });
+      const fuelList = rawFuel; // Combustível aplica-se quase sempre a frotas, mantemos o total.
 
-        const fuelList = rawFuel; // Combustível aplica-se quase sempre a frotas, mantemos o total.
+      const totalAssets = assetsList.length;
+      const opAssets = assetsList.filter((asset: any) => asset.status === 'operational').length;
+      const maintAssets = assetsList.filter((asset: any) => asset.status === 'maintenance' || asset.status === 'breakdown').length;
 
-        const totalAssets = assetsList.length;
-        const opAssets = assetsList.filter((a: any) => a.status === 'operational').length;
-        const maintAssets = assetsList.filter((a: any) => a.status === 'maintenance' || a.status === 'breakdown').length;
+      const pendingWo = woList.filter((order: any) => order.status === 'open' || order.status === 'pending' || !order.status).length;
+      const inProgWo = woList.filter((order: any) => order.status === 'in_progress' || order.status === 'waiting_parts' || order.status === 'paused').length;
 
-        const pendingWo = woList.filter((w: any) => w.status === 'open' || w.status === 'pending' || !w.status).length;
-        const inProgWo = woList.filter((w: any) => w.status === 'in_progress' || w.status === 'waiting_parts' || w.status === 'paused').length;
+      const totalOpCost = woList.reduce((acc: number, order: any) => acc + Number(order.total_cost_mzn || order.totalCostMzn || 0), 0) + fuelList.reduce((acc: number, fuel: any) => acc + Number(fuel.total_cost_mzn || fuel.totalCostMzn || 0), 0);
+      const downtime = woList.reduce((acc: number, order: any) => acc + Number(order.downtime_hours || order.downtimeHours || 0), 0);
 
-        const totalOpCost = woList.reduce((acc: number, w: any) => acc + Number(w.total_cost_mzn || w.totalCostMzn || 0), 0) + fuelList.reduce((acc: number, f: any) => acc + Number(f.total_cost_mzn || f.totalCostMzn || 0), 0);
-        const downtime = woList.reduce((acc: number, w: any) => acc + Number(w.downtime_hours || w.downtimeHours || 0), 0);
-
-        setStats({
-          assets: { total: totalAssets, operational: opAssets, maintenance: maintAssets },
-          workOrders: {
-            pending: pendingWo,
-            in_progress: inProgWo,
-            total_month_cost_mzn: totalOpCost,
-            total_downtime_hours: downtime
-          },
-          inventory: {
-            lowStockCount: rawParts.filter((p: any) => (p.current_stock ?? p.currentStock ?? 0) <= (p.min_stock ?? p.minStock ?? 5)).length
-          },
-          compliance: {
-            expiringCount: 0
-          },
-          recentWorkOrders: woList.slice(0, 5)
-        });
-      } catch (err) {
-        console.error('Erro ao calcular estatísticas locais:', err);
-      }
+      setStats({
+        assets: { total: totalAssets, operational: opAssets, maintenance: maintAssets },
+        workOrders: {
+          pending: pendingWo,
+          in_progress: inProgWo,
+          total_month_cost_mzn: totalOpCost,
+          total_downtime_hours: downtime
+        },
+        inventory: {
+          lowStockCount: rawParts.filter((part: any) => (part.current_stock ?? part.currentStock ?? 0) <= (part.min_stock ?? part.minStock ?? 5)).length
+        },
+        compliance: {
+          expiringCount: 0
+        },
+        recentWorkOrders: woList.slice(0, 5)
+      });
+    } catch (err) {
+      console.error('Erro ao calcular estatísticas locais:', err);
     } finally {
       setLoading(false);
     }

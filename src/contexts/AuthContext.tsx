@@ -7,6 +7,7 @@ export interface User {
   id: string;
   fullName: string;
   email: string;
+  avatar_url?: string;
   role: UserRole;
   tenantName: string;
   tenantId: string;

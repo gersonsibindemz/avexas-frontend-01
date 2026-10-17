@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth, User } from './contexts/AuthContext';
+import { api } from './services/api';
 import Layout from './components/Layout';
 import LoginPage from './pages/Login';
 import DashboardPage from './pages/Dashboard';
@@ -29,7 +30,9 @@ import {
   Search,
   Filter,
   Eye,
-  EyeOff
+  EyeOff,
+  Loader2,
+  UploadCloud
 } from 'lucide-react';
 
 // Formatação de Moeda em Meticais Moçambicanos (MZN)
@@ -54,9 +57,41 @@ const LoadingFallback: React.FC = () => (
 );
 
 const ProfilePage: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, setUser } = useAuth();
+  const [avatar, setAvatar] = useState(user?.avatar_url || '');
+  const [uploading, setUploading] = useState(false);
+
+  React.useEffect(() => {
+    setAvatar(user?.avatar_url || '');
+  }, [user?.avatar_url]);
+
   if (loading) return <LoadingFallback />;
   if (!user) return <Navigate to="/login" replace />;
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    try {
+      const response = await api.post('/users/' + user.id + '/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const avatarUrl = response.data?.avatar_url || response.data?.user?.avatar_url;
+      if (!avatarUrl) throw new Error('O servidor não devolveu o endereço da fotografia.');
+      setAvatar(avatarUrl);
+      setUser({ ...user, avatar_url: avatarUrl });
+    } catch (err: any) {
+      console.error('Erro ao atualizar fotografia do perfil:', err);
+      alert(err.response?.data?.message || err.message || 'Não foi possível atualizar a fotografia.');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -69,9 +104,28 @@ const ProfilePage: React.FC = () => {
 
       <div className="bg-white border border-slate-200 rounded-md p-6 space-y-6 shadow-none">
         <div className="flex items-center gap-4 border-b border-slate-100 pb-6">
-          <div className="w-16 h-16 bg-blue-50 text-blue-700 border border-blue-200 rounded-md flex items-center justify-center font-bold text-2xl uppercase">
-            {user.fullName ? user.fullName.substring(0, 2) : 'US'}
-          </div>
+          <label
+            className={`relative w-16 h-16 rounded-md overflow-hidden border border-blue-200 bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 ${uploading ? 'cursor-wait' : 'cursor-pointer group'}`}
+            title={uploading ? 'A carregar fotografia...' : 'Alterar fotografia de perfil'}
+          >
+            <input
+              type="file"
+              accept="image/jpeg, image/png, image/webp"
+              className="hidden"
+              onChange={handleAvatarUpload}
+              disabled={uploading}
+            />
+            {avatar ? (
+              <img src={avatar} alt="Fotografia de perfil" className="w-16 h-16 rounded-md object-cover" />
+            ) : (
+              <span className="font-bold text-2xl uppercase">
+                {user.fullName ? user.fullName.substring(0, 2) : 'US'}
+              </span>
+            )}
+            <span className={`absolute inset-0 flex items-center justify-center bg-slate-900/50 text-white transition-opacity ${uploading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+              {uploading ? <Loader2 size={18} className="animate-spin" /> : <UploadCloud size={18} />}
+            </span>
+          </label>
           <div>
             <h2 className="text-lg font-bold text-slate-900">{user.fullName || user.email}</h2>
             <p className="text-slate-500 text-xs">{user.email}</p>

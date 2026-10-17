@@ -42,6 +42,7 @@ export interface Technician {
   email?: string;
   specialty?: string;
   role?: string;
+  operational_scope?: 'fleet' | 'plant' | 'both' | 'mixed';
 }
 
 export interface ChecklistItem {
@@ -82,7 +83,7 @@ export interface MaintenancePlan {
 }
 
 export const MaintenancePlansPage: React.FC = () => {
-  const { user, isTechnician } = useAuth();
+  const { user, isTechnician, currentScope } = useAuth();
   const domainConfig = useCurrentDomain();
   const { domain } = domainConfig;
 
@@ -370,6 +371,13 @@ export const MaintenancePlansPage: React.FC = () => {
 
     return matchesSearch && matchesStatus;
   });
+
+  const availableTechnicians = technicians.filter((tech) =>
+    !tech.operational_scope ||
+    tech.operational_scope === 'both' ||
+    tech.operational_scope === 'mixed' ||
+    tech.operational_scope === currentScope
+  );
 
   return (
     <div className="space-y-6">
@@ -772,7 +780,7 @@ export const MaintenancePlansPage: React.FC = () => {
                         className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
                       >
                         <option value="">Atribuição automática / Ninguém</option>
-                        {technicians.map((tech) => (
+                        {availableTechnicians.map((tech) => (
                           <option key={tech.id} value={tech.id}>
                             {tech.fullName || tech.full_name || tech.email} ({tech.specialty || 'Geral'})
                           </option>
