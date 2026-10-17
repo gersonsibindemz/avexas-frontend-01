@@ -1886,7 +1886,7 @@ export const WorkOrdersPage: React.FC = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            openPrintModal(order);
+                            handlePrintWorkOrder(order);
                           }}
                           className="p-1 text-slate-400 hover:text-blue-700 hover:bg-slate-100 rounded transition-all cursor-pointer"
                           title="Imprimir Ficha A4"
@@ -1914,7 +1914,7 @@ export const WorkOrdersPage: React.FC = () => {
                           className="w-full py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all shadow-none cursor-pointer"
                         >
                           <Play size={12} className="fill-current shrink-0" />
-                          <span>▶ Iniciar Serviço</span>
+                          <span>Iniciar Serviço</span>
                         </button>
                       )}
 
@@ -1928,7 +1928,7 @@ export const WorkOrdersPage: React.FC = () => {
                             className="py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                           >
                             <Pause size={12} className="shrink-0" />
-                            <span>⏸ Pausar</span>
+                            <span>Pausar</span>
                           </button>
                           <button
                             onClick={(e) => {
@@ -1941,7 +1941,7 @@ export const WorkOrdersPage: React.FC = () => {
                             className="py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-none"
                           >
                             <CheckCircle2 size={12} className="shrink-0" />
-                            <span>✔ Concluir</span>
+                            <span>Concluir</span>
                           </button>
                         </div>
                       )}
@@ -1955,7 +1955,7 @@ export const WorkOrdersPage: React.FC = () => {
                           className="w-full py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all shadow-none cursor-pointer"
                         >
                           <Play size={12} className="fill-current shrink-0" />
-                          <span>▶ Retomar</span>
+                          <span>Retomar</span>
                         </button>
                       )}
                     </div>
