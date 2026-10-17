@@ -1199,30 +1199,34 @@ export const AssetsPage: React.FC = () => {
           </button>
           {!isTechnician && !isDriverOperator && (
             <>
-              <button
-                onClick={() => {
-                  setBatchFile(null);
-                  setParsedBatchData([]);
-                  setBatchError(null);
-                  setIsBatchImportModalOpen(true);
-                }}
-                className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
-              >
-                <FileSpreadsheet size={16} className="text-slate-500" />
-                <span>Importar em Lote</span>
-              </button>
-              <button
-                onClick={() => {
-                  resetWizardForm();
-                  setModalOpenMode('create');
-                  setActiveTab(0);
-                  setIsModalOpen(true);
-                }}
-                className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
-              >
-                <Plus size={16} />
-                <span>Cadastrar Ativo</span>
-              </button>
+              {domain === 'fleet' && (
+                <>
+                  <button
+                    onClick={() => {
+                      setBatchFile(null);
+                      setParsedBatchData([]);
+                      setBatchError(null);
+                      setIsBatchImportModalOpen(true);
+                    }}
+                    className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+                  >
+                    <FileSpreadsheet size={16} className="text-slate-500" />
+                    <span>Importar em Lote</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      resetWizardForm();
+                      setModalOpenMode('create');
+                      setActiveTab(0);
+                      setIsModalOpen(true);
+                    }}
+                    className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+                  >
+                    <Plus size={16} />
+                    <span>Cadastrar Ativo</span>
+                  </button>
+                </>
+              )}
             </>
           )}
         </div>
@@ -1418,7 +1422,7 @@ export const AssetsPage: React.FC = () => {
               </button>
             </div>
 
-            <div role="tablist" aria-label="Blocos da ficha técnica" className="px-4 py-3 border-b border-slate-200 flex gap-2 overflow-x-auto bg-white">
+            <div role="tablist" aria-label="Blocos da ficha técnica" className="px-4 py-3 border-b border-slate-200 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden bg-white">
               {['Identificação', 'Fabricante', 'Características Técnicas', 'Operação & Medidores', 'Conformidade & Aquisição', 'Manutenção', 'Segurança'].map((tab, index) => (
                 <button
                   key={tab}
