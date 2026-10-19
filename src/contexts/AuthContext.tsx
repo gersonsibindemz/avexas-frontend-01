@@ -95,8 +95,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await api.get('/auth/me');
       const rawUserData = response.data?.user || response.data;
-      const token = sessionStorage.getItem('cmms_auth_token') || localStorage.getItem('cmms_auth_token');
-      const userData = rawUserData ? normalizeUser(rawUserData, token) : null;
+      // Com cookies HttpOnly, o token não é acessível via JavaScript.
+      // Os dados do utilizador vêm do corpo da resposta (/auth/me).
+      const userData = rawUserData ? normalizeUser(rawUserData) : null;
       if (userData && (userData.id || userData.email) && userData.role) {
         setUser(userData);
         // Inicializar o escopo padrão do utilizador
@@ -124,8 +125,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     window.addEventListener('focus', handleWindowFocus);
 
+    // Ouve o evento de expiração de sessão disparado pelo interceptor do Axios
+    const handleAuthExpired = () => {
+      void logout();
+    };
+    window.addEventListener('cmms:auth-expired', handleAuthExpired);
+
     return () => {
       window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('cmms:auth-expired', handleAuthExpired);
     };
   }, []);
 
@@ -143,21 +151,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string): Promise<User> => {
     try {
       const response = await api.post('/auth/login', { email, password });
-      
-      const token = response.data?.token || response.data?.accessToken;
-      if (token) {
-        sessionStorage.setItem('cmms_auth_token', token);
-        localStorage.setItem('cmms_auth_token', token);
-      }
 
+      // Com cookies HttpOnly, o token de sessão é definido pelo backend via Set-Cookie
+      // e gerido pelo navegador. Não é lido nem armazenado via JavaScript.
       const rawUserData = response.data?.user || response.data;
-      
+
       if (!rawUserData || !rawUserData.id || !rawUserData.role) {
         throw new Error('Servidor retornou dados de utilizador inválidos.');
       }
 
-      const userData = normalizeUser(rawUserData, token);
-      
+      const userData = normalizeUser(rawUserData);
+
       setUser(userData);
       const scope = userData.operational_scope || userData.tenant?.operational_scope || userData.tenant?.operationalScope;
       if (scope === 'plant') {
@@ -180,8 +184,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Erro ao efetuar logout no servidor', err);
     } finally {
-      sessionStorage.removeItem('cmms_auth_token');
-      localStorage.removeItem('cmms_auth_token');
+      // Com cookies HttpOnly, o cookie de sessão é limpo pelo backend via Set-Cookie.
+      // Não há tokens armazenados em sessionStorage/localStorage para remover.
       setUser(null);
       setLoading(false);
     }
