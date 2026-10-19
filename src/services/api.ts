@@ -19,33 +19,16 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Interceptor de resposta: trata 401 (sessão expirada) e tenta renovação via cookie de refresh
+// Interceptor de resposta: trata 401 (sessão expirada).
+// O backend não expõe endpoint de refresh token, portanto não há renovação automática.
+// Em caso de 401, dispara evento cmms:auth-expired para logout automático no frontend.
 api.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      // Tenta renovar a sessão usando o cookie de refresh (HttpOnly, enviado automaticamente)
-      try {
-        await api.post('/auth/refresh');
-        // Renovação bem-sucedida: repete a requisição original
-        return api(originalRequest);
-      } catch (refreshErr) {
-        // Renovação falhou: sessão expirada. Notifica a aplicação para efetuar logout.
-        console.warn('Sessão expirada ou não autorizada. A fazer logout...');
-        window.dispatchEvent(new CustomEvent('cmms:auth-expired'));
-        return Promise.reject(refreshErr);
-      }
-    }
-
+  (error) => {
     if (error.response?.status === 401) {
       console.warn('Sessão expirada ou não autorizada.');
       window.dispatchEvent(new CustomEvent('cmms:auth-expired'));
     }
-
     return Promise.reject(error);
   },
 );
