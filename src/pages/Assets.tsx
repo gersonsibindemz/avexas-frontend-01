@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { api } from '../services/api';
+import { api, getApiErrorMessage, toFiniteNumber } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import { ENERGY_TYPES, FLEET_CATEGORIES, OWNERSHIP_TYPES, TRAILER_SUBTYPES } from '../config/fleetCategories';
+import { ENERGY_TYPES, FLEET_CATEGORIES, OWNERSHIP_TYPES, TRAILER_SUBTYPES, toBackendCategory } from '../config/fleetCategories';
 import QRCode from 'qrcode';
 import {
   Plus,
@@ -47,6 +47,7 @@ interface Asset {
   code_tag: string;
   codeTag?: string;
   name: string;
+  domain?: string;
   brand?: string;
   model: string;
   category: 'vehicle_light' | 'vehicle_heavy' | 'generator' | 'machinery' | string;
@@ -607,8 +608,47 @@ export const AssetsPage: React.FC = () => {
     setSubmitting(true);
     const isVehicle = domain === 'fleet';
     const meterKind = isVehicle ? 'odometer_km' : 'hourmeter_hours';
+
+    // ---------------------------------------------------------------
+    // Validações/normalizações locais para não enviar dados que o
+    // backend rejeita (400) ou que se perderiam em silêncio (NaN, etc).
+    // ---------------------------------------------------------------
+    // Eixos: backend exige inteiro >= 1 (ou ausente).
+    const axleConfigRaw = toFiniteNumber(formData.axle_config);
+    const axleConfig = axleConfigRaw !== undefined && Number.isInteger(axleConfigRaw) && axleConfigRaw >= 1
+      ? axleConfigRaw
+      : undefined;
+    // Ano de fabrico: backend exige inteiro (ou ausente).
+    const manufactureYearRaw = toFiniteNumber(formData.manufacture_year);
+    const manufactureYear = manufactureYearRaw !== undefined && manufactureYearRaw >= 0
+      ? Math.trunc(manufactureYearRaw)
+      : undefined;
+    // Capacidade do tanque e potência: números >= 0 (ou ausentes).
+    const tankCapacityRaw = toFiniteNumber(formData.technical_specs.tank_capacity);
+    const fuelTankCapacityLiters = tankCapacityRaw !== undefined && tankCapacityRaw >= 0
+      ? tankCapacityRaw
+      : undefined;
+    const powerKwKvaRaw = toFiniteNumber(formData.power_kw_kva);
+    const powerKwKva = powerKwKvaRaw !== undefined && powerKwKvaRaw >= 0 ? powerKwKvaRaw : undefined;
+    // Valor de aquisição: backend exige número >= 0 (ou ausente).
+    const acquisitionValueRaw = toFiniteNumber(formData.acquisition_value);
+    const acquisitionValue = acquisitionValueRaw !== undefined && acquisitionValueRaw >= 0
+      ? acquisitionValueRaw
+      : undefined;
+    // Contadores: backend exige número >= 0 (default 0).
+    const initialMeter = Math.max(0, toFiniteNumber(formData.initial_meter) ?? 0);
+    const currentMeter = Math.max(0, toFiniteNumber(formData.current_meter) ?? 0);
+    // Estado: o backend só aceita operational | under_maintenance | breakdown | decommissioned.
+    const status = formData.status === 'maintenance'
+      ? 'under_maintenance'
+      : formData.status || (modalMode === 'create' ? 'operational' : undefined);
+
     const payload = {
       ...formData,
+      // Categoria convertida para o conjunto canónico aceite pelo backend.
+      // Na edição o campo é bloqueado no formulário, por isso nunca é reenviado
+      // (evita que a categoria original seja corrompida/normalizada indevidamente).
+      category: modalMode === 'create' ? toBackendCategory(formData.category, domain) : undefined,
       codeTag: formData.code_tag,
       assetType: formData.asset_type || undefined,
       asset_subtype: formData.asset_subtype || undefined,
@@ -617,31 +657,39 @@ export const AssetsPage: React.FC = () => {
       energyType: formData.technical_specs.fuel || formData.energy_type,
       ownership_type: formData.ownership_type,
       ownershipType: formData.ownership_type,
-      axle_config: formData.axle_config ? Number(formData.axle_config) : undefined,
-      axleConfig: formData.axle_config ? Number(formData.axle_config) : undefined,
+      axle_config: axleConfig,
+      axleConfig,
       criticalityLevel: formData.criticality_level,
-      manufacture_year: Number(formData.manufacture_year) || undefined,
-      manufactureYear: Number(formData.manufacture_year) || undefined,
+      manufacture_year: manufactureYear,
+      manufactureYear,
       costCenter: formData.cost_center,
       meter_kind: meterKind,
       meterKind,
-      initial_meter: Number(formData.initial_meter) || 0,
-      current_meter: Number(formData.current_meter) || 0,
-      currentMeter: Number(formData.current_meter) || 0,
-      meter_unit: formData.meter_unit,
+      initial_meter: initialMeter,
+      current_meter: currentMeter,
+      currentMeter,
+      // Campos do formulário mapeados para as colunas padrão do backend
+      // (sem este mapeamento eram simplesmente ignorados no servidor).
+      measurement_unit: formData.meter_unit || undefined,
+      measurementUnit: formData.meter_unit || undefined,
+      operational_shift: formData.shift || undefined,
+      operationalShift: formData.shift || undefined,
+      operation_start_date: formData.operation_date || undefined,
+      operationStartDate: formData.operation_date || undefined,
+      operator_name: formData.operator_driver || undefined,
+      operatorName: formData.operator_driver || undefined,
+      color_config: formData.color || undefined,
+      acquisition_value: acquisitionValue,
+      acquisitionValue,
       licensePlate: formData.license_plate,
       chassisVin: formData.chassis_vin,
       engineNumber: formData.engine_number,
-      fuel_tank_capacity_liters: formData.technical_specs.tank_capacity
-        ? Number(formData.technical_specs.tank_capacity)
-        : undefined,
-      fuelTankCapacityLiters: formData.technical_specs.tank_capacity
-        ? Number(formData.technical_specs.tank_capacity)
-        : undefined,
+      fuel_tank_capacity_liters: fuelTankCapacityLiters,
+      fuelTankCapacityLiters,
       plantSector: formData.plant_sector,
       voltageSpecs: formData.voltage_specs,
-      power_kw_kva: formData.power_kw_kva ? Number(formData.power_kw_kva) : undefined,
-      powerKwKva: formData.power_kw_kva ? Number(formData.power_kw_kva) : undefined,
+      power_kw_kva: powerKwKva,
+      powerKwKva,
       inatro_inspection_expiry: isVehicle ? formData.inspection_expiry || undefined : undefined,
       inatroInspectionExpiry: isVehicle ? formData.inspection_expiry || undefined : undefined,
       innoq_calibration_expiry: !isVehicle ? formData.inspection_expiry || undefined : undefined,
@@ -651,7 +699,7 @@ export const AssetsPage: React.FC = () => {
       warrantyExpiry: formData.warranty_expiry,
       local_supplier_name: formData.supplier || undefined,
       localSupplierName: formData.supplier || undefined,
-      status: formData.status || (modalMode === 'create' ? 'operational' : undefined)
+      status
     };
 
     try {
@@ -686,7 +734,7 @@ export const AssetsPage: React.FC = () => {
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       console.error('Erro ao salvar ativo:', err);
-      alert(err.response?.data?.message || err.message || 'Erro ao guardar dados do ativo.');
+      alert(getApiErrorMessage(err, 'Erro ao guardar dados do ativo.'));
     } finally {
       setSubmitting(false);
     }
@@ -710,15 +758,21 @@ export const AssetsPage: React.FC = () => {
       const value = keys.map((key) => assetData[key]).find((item) => item !== undefined && item !== null);
       return value === undefined ? '' : String(value);
     };
-    const initialCategory = FLEET_CATEGORIES.some((fleetCategory) => fleetCategory.code === asset.category)
-      ? asset.category
+    // Categoria inicial da edição: mantém o código de UI quando existir opção
+    // correspondente; caso contrário preserva o valor canónico vindo do backend
+    // (o <select> é bloqueado na edição e o valor nunca é reenviado ao servidor).
+    const knownUiCategory = FLEET_CATEGORIES.some((fleetCategory) => fleetCategory.code === asset.category)
+      || categories.some((item) => item.value === asset.category);
+    const initialCategory = knownUiCategory
+      ? asset.category || ''
       : asset.category === 'vehicle_heavy'
         ? 'CAT-03'
         : asset.category === 'vehicle_light'
           ? 'CAT-01'
-          : domain === 'fleet'
-            ? FLEET_CATEGORIES[0].code
-            : asset.category || categories[0]?.value || 'vehicle_light';
+          : asset.category
+            || (domain === 'fleet'
+              ? FLEET_CATEGORIES[0].code
+              : categories[0]?.value || 'vehicle_light');
     const initialData = createInitialAssetFormData(domain, categories);
     const technicalSpecs = assetData.technical_specs as AssetFormData['technical_specs'] | undefined;
     const safetyChecks = assetData.safety_checks as AssetFormData['safety_checks'] | undefined;
@@ -735,7 +789,7 @@ export const AssetsPage: React.FC = () => {
       cost_center: read('cost_center', 'costCenter'),
       status: read('status') || 'operational',
       criticality_level: read('criticality_level', 'criticalityLevel') || 'B',
-      operator_driver: read('operator_driver', 'operatorDriver'),
+      operator_driver: read('operator_driver', 'operatorDriver', 'operator_name', 'operatorName'),
       brand: asset.brand || '',
       model: asset.model || '',
       manufacture_year: read('manufacture_year', 'manufactureYear') || initialData.manufacture_year,
@@ -743,7 +797,7 @@ export const AssetsPage: React.FC = () => {
       license_plate: read('license_plate', 'licensePlate'),
       chassis_vin: read('chassis_vin', 'chassisVin'),
       engine_number: read('engine_number', 'engineNumber'),
-      color: read('color'),
+      color: read('color', 'color_config', 'colorConfig'),
       energy_type: read('energy_type', 'energyType') || 'Diesel',
       ownership_type: read('ownership_type', 'ownershipType') || 'Próprio',
       axle_config: read('axle_config', 'axleConfig'),
@@ -752,10 +806,10 @@ export const AssetsPage: React.FC = () => {
       power_kw_kva: read('power_kw_kva', 'powerKwKva'),
       initial_meter: read('initial_meter', 'initialMeter') || '0',
       current_meter: read('current_meter', 'currentMeter') || '0',
-      meter_unit: read('meter_unit', 'meterUnit') || initialData.meter_unit,
-      shift: read('shift'),
+      meter_unit: read('meter_unit', 'meterUnit', 'measurement_unit', 'measurementUnit') || initialData.meter_unit,
+      shift: read('shift', 'operational_shift', 'operationalShift'),
       acquisition_date: read('acquisition_date', 'acquisitionDate'),
-      operation_date: read('operation_date', 'operationDate'),
+      operation_date: read('operation_date', 'operationDate', 'operation_start_date', 'operationStartDate'),
       acquisition_value: read('acquisition_value', 'acquisitionValue'),
       currency: read('currency') || 'MZN',
       supplier: read('supplier', 'local_supplier_name', 'localSupplierName'),
@@ -981,33 +1035,43 @@ export const AssetsPage: React.FC = () => {
     setBatchError(null);
 
     const assetsToImport = parsedBatchData.map((row) => {
-      const isVehicle = currentScope === 'fleet' || row.Categoria === 'vehicle_light' || row.Categoria === 'vehicle_heavy' || row.categoria === 'vehicle_light' || row.categoria === 'vehicle_heavy';
-      const cat = row.Categoria || row.categoria || (isVehicle ? 'vehicle_light' : 'generator');
+      // Categoria normalizada para o conjunto aceite pelo backend (400 "Categoria inválida").
+      const rawCategory = String(row.Categoria || row.categoria || '').trim();
+      const category = toBackendCategory(rawCategory, domain);
+      const isVehicle = currentScope === 'fleet'
+        || category === 'vehicle_light'
+        || category === 'vehicle_heavy';
       const meterKind = isVehicle ? 'odometer_km' : 'hourmeter_hours';
+      // Números saneados: NaN rejeitaria o lote inteiro no backend.
+      const manufactureYear = toFiniteNumber(row.Ano) ?? new Date().getFullYear();
+      const currentMeter = Math.max(0, toFiniteNumber(
+        row.OdometroInicial || row.HorimetroInicial || row.odometroinicial || row.horimetroinicial || row.currentMeter || row.current_meter,
+      ) ?? 0);
+      const powerKwKva = toFiniteNumber(row.Potencia || row.potencia);
 
       return {
         name: (row.Nome || row.nome || '').trim(),
-        category: cat,
+        category: category || (isVehicle ? 'vehicle_light' : 'generator'),
         codeTag: (row.Tag || row.tag || row.codeTag || row.code_tag || '').trim() || undefined,
         code_tag: (row.Tag || row.tag || row.codeTag || row.code_tag || '').trim() || undefined,
         brand: (row.Marca || row.marca || row.Fabricante || row.fabricante || '').trim() || undefined,
         model: (row.Modelo || row.modelo || '').trim() || '',
-        manufactureYear: row.Ano ? Number(row.Ano) : new Date().getFullYear(),
-        manufacture_year: row.Ano ? Number(row.Ano) : new Date().getFullYear(),
+        manufactureYear,
+        manufacture_year: manufactureYear,
         costCenter: 'Sede / Geral',
         cost_center: 'Sede / Geral',
         meterKind,
         meter_kind: meterKind,
-        currentMeter: Number(row.OdometroInicial || row.HorimetroInicial || row.odometroinicial || row.horimetroinicial || row.currentMeter || row.current_meter || 0),
-        current_meter: Number(row.OdometroInicial || row.HorimetroInicial || row.odometroinicial || row.horimetroinicial || row.currentMeter || row.current_meter || 0),
+        currentMeter,
+        current_meter: currentMeter,
         licensePlate: (row.Matricula || row.matricula || '').trim() || undefined,
         license_plate: (row.Matricula || row.matricula || '').trim() || undefined,
         chassisVin: (row.Chassis || row.chassis || '').trim() || undefined,
         chassis_vin: (row.Chassis || row.chassis || '').trim() || undefined,
         plantSector: (row.SetorFabril || row.setorfabril || '').trim() || undefined,
         plant_sector: (row.SetorFabril || row.setorfabril || '').trim() || undefined,
-        powerKwKva: row.Potencia || row.potencia ? Number(row.Potencia || row.potencia) : undefined,
-        power_kw_kva: row.Potencia || row.potencia ? Number(row.Potencia || row.potencia) : undefined,
+        powerKwKva,
+        power_kw_kva: powerKwKva,
         voltageSpecs: (row.Voltagem || row.voltagem || '').trim() || undefined,
         voltage_specs: (row.Voltagem || row.voltagem || '').trim() || undefined,
         status: 'operational'
@@ -1052,6 +1116,8 @@ export const AssetsPage: React.FC = () => {
         return 'Gerador Industrial';
       case 'machinery':
         return 'Maquinaria / Chão Fábrica';
+      case 'plant_equipment':
+        return 'Equipamento de Chão de Fábrica';
       default:
         return cat || 'Não especificado';
     }
@@ -1083,6 +1149,9 @@ export const AssetsPage: React.FC = () => {
             Avariado
           </span>
         );
+      // O backend grava 'under_maintenance' (enum asset_status); 'maintenance'
+      // é mantido para exibir corretamente registos legados.
+      case 'under_maintenance':
       case 'maintenance':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
@@ -1106,14 +1175,25 @@ export const AssetsPage: React.FC = () => {
     const query = searchQuery.toLowerCase();
 
     const matchesSearch = code.includes(query) || assetName.includes(query) || assetModel.includes(query);
-    const matchesCategory = categoryFilter === 'all' || asset.category === categoryFilter;
+    // Compara sempre a categoria canónica (o backend guarda vehicle_light,
+    // vehicle_heavy, machinery, plant_equipment ou generator) com o filtro
+    // escolhido na UI (código CAT-xx ou valor canónico).
+    const matchesCategory = categoryFilter === 'all'
+      || toBackendCategory(asset.category, domain) === toBackendCategory(categoryFilter, domain);
 
-    // Filtro baseado no escopo ativo ('fleet' ou 'plant')
+    // Filtro baseado no escopo ativo ('fleet' ou 'plant').
+    // Prioriza o domínio gravado no backend (coluna domain) e usa a categoria
+    // apenas como fallback para registos antigos sem domínio.
     let matchesScope = true;
-    if (currentScope === 'plant') {
+    const assetScope = asset.domain === 'fleet' || asset.domain === 'plant' ? asset.domain : undefined;
+    if (assetScope) {
+      matchesScope = assetScope === currentScope;
+    } else if (currentScope === 'plant') {
       matchesScope = asset.category !== 'vehicle_light' && asset.category !== 'vehicle_heavy';
     } else if (currentScope === 'fleet') {
-      matchesScope = asset.category !== 'generator' && asset.category !== 'machinery';
+      matchesScope = asset.category !== 'generator'
+        && asset.category !== 'machinery'
+        && asset.category !== 'plant_equipment';
     }
 
     return matchesSearch && matchesCategory && matchesScope;
@@ -1446,10 +1526,17 @@ export const AssetsPage: React.FC = () => {
                       {domain === 'fleet' ? (
                         <select value={formData.category} disabled={modalMode === 'edit'} onChange={(e) => handleCategoryChange(e.target.value)} className={fieldClass}>
                           {FLEET_CATEGORIES.map((item) => <option key={item.code} value={item.code}>{item.code} - {item.name}</option>)}
+                          {/* Categoria canónica vinda do backend sem código de UI equivalente */}
+                          {formData.category && !FLEET_CATEGORIES.some((item) => item.code === formData.category) && (
+                            <option key={formData.category} value={formData.category}>{formatCategory(formData.category)}</option>
+                          )}
                         </select>
                       ) : (
                         <select value={formData.category} disabled={modalMode === 'edit'} onChange={(e) => handleCategoryChange(e.target.value)} className={fieldClass}>
                           {categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                          {formData.category && !categories.some((item) => item.value === formData.category) && (
+                            <option key={formData.category} value={formData.category}>{formatCategory(formData.category)}</option>
+                          )}
                         </select>
                       )}
                     </div>
@@ -1458,13 +1545,20 @@ export const AssetsPage: React.FC = () => {
                       <select value={formData.asset_type} onChange={(e) => updateFormField('asset_type', e.target.value)} className={fieldClass}>
                         <option value="">Selecione um tipo...</option>
                         {selectedFleetCategory?.types.map((type) => <option key={type} value={type}>{type}</option>)}
+                        {/* Tipo gravado no backend sem correspondência na lista da categoria atual */}
+                        {formData.asset_type && !(selectedFleetCategory?.types ?? []).includes(formData.asset_type) && (
+                          <option key={formData.asset_type} value={formData.asset_type}>{formData.asset_type}</option>
+                        )}
                       </select>
                     </div>}
-                    {formData.category === 'CAT-06' && <div>
+                    {(formData.category === 'CAT-06' || formData.asset_subtype) && <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Subtipo / Configuração</label>
                       <select value={formData.asset_subtype} onChange={(e) => updateFormField('asset_subtype', e.target.value)} className={fieldClass}>
                         <option value="">Selecione um subtipo...</option>
                         {TRAILER_SUBTYPES.map((subtype) => <option key={subtype} value={subtype}>{subtype}</option>)}
+                        {formData.asset_subtype && !TRAILER_SUBTYPES.includes(formData.asset_subtype) && (
+                          <option key={formData.asset_subtype} value={formData.asset_subtype}>{formData.asset_subtype}</option>
+                        )}
                       </select>
                     </div>}
                     {renderInput('Código do ativo', 'code_tag', 'text', 'Gerado automaticamente se vazio')}
@@ -1475,7 +1569,7 @@ export const AssetsPage: React.FC = () => {
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Estado</label>
                       <select value={formData.status} onChange={(e) => updateFormField('status', e.target.value)} className={fieldClass}>
-                        <option value="operational">Operacional</option><option value="maintenance">Em manutenção</option><option value="breakdown">Avariado</option>
+                        <option value="operational">Operacional</option><option value="under_maintenance">Em manutenção</option><option value="breakdown">Avariado</option><option value="decommissioned">Abatido</option>
                       </select>
                     </div>
                     <div>

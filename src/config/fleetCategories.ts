@@ -40,3 +40,47 @@ export const TRAILER_SUBTYPES = [
 
 export const ENERGY_TYPES = ['Diesel', 'Gasolina', 'Elétrico', 'Híbrido', 'GPL', 'GNV'];
 export const OWNERSHIP_TYPES = ['Próprio', 'Alugado', 'Leasing', 'Cedido'];
+
+// ==============================================
+// SINCRONIZAÇÃO DE CATEGORIAS COM O BACKEND
+// ==============================================
+// O backend (POST/PUT /api/assets) só aceita as categorias canónicas abaixo
+// (ver ASSET_CATEGORIES em src/routes/assets.js). Códigos fora dessa lista
+// (CAT-06, CAT-07, CAT-08, CAT-09, CAT-14, other_equipment) são rejeitados
+// com 400 "Categoria inválida" e o CAT-03 do front (veículos pesados) seria
+// convertido em "machinery" pelo backend. Por isso, o envio ao backend é
+// sempre feito através de toBackendCategory(), preservando o código fino
+// (CAT-xx) apenas na interface (onde alimenta a lista de tipos/subtipos).
+export const BACKEND_ASSET_CATEGORIES = [
+  'vehicle_light',
+  'vehicle_heavy',
+  'machinery',
+  'plant_equipment',
+  'generator',
+] as const;
+
+const UI_CATEGORY_TO_BACKEND: Record<string, string> = {
+  'CAT-01': 'vehicle_light', // Veículos ligeiros
+  'CAT-02': 'vehicle_light', // Veículos comerciais ligeiros
+  'CAT-03': 'vehicle_heavy', // Veículos pesados de mercadorias
+  'CAT-06': 'vehicle_heavy', // Reboques e semirreboques
+  'CAT-07': 'machinery', // Tratores e máquinas agrícolas
+  'CAT-08': 'machinery', // Máquinas de construção civil
+  'CAT-09': 'machinery', // Equipamentos de movimentação de cargas
+  'CAT-14': 'machinery', // Outros equipamentos móveis terrestres
+};
+
+// Converte a categoria selecionada no formulário para o valor canónico aceite pelo backend.
+// Valores já canónicos (ex.: generator, machinery) são preservados.
+export const toBackendCategory = (
+  category?: string | null,
+  domain?: 'fleet' | 'plant',
+): string => {
+  const value = (category ?? '').trim();
+  if (!value) return value;
+  if (value === 'other_equipment') {
+    return domain === 'plant' ? 'plant_equipment' : 'machinery';
+  }
+  if ((BACKEND_ASSET_CATEGORIES as readonly string[]).includes(value)) return value;
+  return UI_CATEGORY_TO_BACKEND[value] ?? value;
+};

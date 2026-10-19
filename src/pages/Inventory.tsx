@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, getApiErrorMessage } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import {
@@ -134,7 +134,12 @@ export const InventoryPage: React.FC = () => {
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       console.error('Erro ao guardar peça:', err);
-      alert(err.response?.data?.message || err.message || 'Erro ao guardar dados da peça.');
+      // O backend atual não expõe PUT /parts/:id (rota inexistente → 404).
+      if (partModalMode === 'edit' && err.response?.status === 404) {
+        alert('A edição de peças não está disponível no backend: a rota PUT /api/parts/:id não existe. Crie uma nova peça ou atualize o backend.');
+      } else {
+        alert(getApiErrorMessage(err, 'Erro ao guardar dados da peça.'));
+      }
     } finally {
       setSubmittingPart(false);
     }
@@ -185,37 +190,21 @@ export const InventoryPage: React.FC = () => {
     }
 
     setSubmittingPart(true);
-    const quantityDelta = stockActionType === 'input' ? qty : -qty;
-    const finalStock = (selectedStockPart.current_stock ?? selectedStockPart.currentStock ?? 0) + quantityDelta;
 
     try {
       if (stockActionType === 'input') {
-        try {
-          // POST /parts/:id/restock
-          await api.post(`/parts/${selectedStockPart.id}/restock`, {
-            quantity: qty,
-            unitCost: newCost,
-            unit_cost: newCost
-          });
-        } catch (apiErr) {
-          // Fallback robusto direto PATCH
-          await api.patch(`/parts/${selectedStockPart.id}`, {
-            current_stock: finalStock,
-            unit_cost: newCost
-          });
-        }
+        // POST /parts/:id/restock — rota de entradas suportada pelo backend
+        // (o backend não possui PATCH /parts/:id, portanto não há fallback).
+        await api.post(`/parts/${selectedStockPart.id}/restock`, {
+          quantity: qty,
+          unitCost: newCost,
+          unit_cost: newCost
+        });
       } else {
-        try {
-          // POST /parts/:id/withdraw
-          await api.post(`/parts/${selectedStockPart.id}/withdraw`, {
-            quantity: qty
-          });
-        } catch (apiErr) {
-          // Fallback robusto direto PATCH
-          await api.patch(`/parts/${selectedStockPart.id}`, {
-            current_stock: finalStock
-          });
-        }
+        // POST /parts/:id/withdraw — rota de saídas suportada pelo backend.
+        await api.post(`/parts/${selectedStockPart.id}/withdraw`, {
+          quantity: qty
+        });
       }
 
       setSuccessMessage(
@@ -232,7 +221,7 @@ export const InventoryPage: React.FC = () => {
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       console.error('Erro ao atualizar stock:', err);
-      alert(err.response?.data?.message || err.message || 'Erro ao processar movimentação.');
+      alert(getApiErrorMessage(err, 'Erro ao processar movimentação.'));
     } finally {
       setSubmittingPart(false);
     }
@@ -251,12 +240,9 @@ export const InventoryPage: React.FC = () => {
     if (!deletingPart) return;
 
     try {
-      try {
-        await api.delete(`/parts/${deletingPart.id}`);
-      } catch (err) {
-        // Fallback para delete alternativo
-        await api.delete(`/inventory/${deletingPart.id}`);
-      }
+      // DELETE /parts/:id — única rota de eliminação suportada pelo backend
+      // (o fallback /inventory/:id não existe no servidor).
+      await api.delete(`/parts/${deletingPart.id}`);
 
       setSuccessMessage(`Peça "${deletingPart.name}" eliminada do inventário.`);
       setIsDeleteModalOpen(false);
@@ -265,7 +251,11 @@ export const InventoryPage: React.FC = () => {
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       console.error('Erro ao eliminar peça:', err);
-      alert('Não foi possível eliminar a peça.');
+      if (err.response?.status === 404) {
+        alert('A eliminação de peças não está disponível no backend: a rota DELETE /api/parts/:id não existe. Oculte a peça por outra forma ou atualize o backend.');
+      } else {
+        alert(getApiErrorMessage(err, 'Não foi possível eliminar a peça.'));
+      }
     }
   };
 

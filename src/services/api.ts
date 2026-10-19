@@ -29,6 +29,47 @@ api.interceptors.response.use(
       console.warn('Sessão expirada ou não autorizada.');
       window.dispatchEvent(new CustomEvent('cmms:auth-expired'));
     }
+    // Normaliza a mensagem de erro do backend: as rotas devolvem { message }
+    // (work-orders, fuel, auth) ou { error } (assets, parts, middlewares).
+    // Como os catchs das páginas usam `err.message` como fallback, copiamos aqui
+    // a mensagem real do servidor para nunca mostrar um erro genérico.
+    const data = error?.response?.data;
+    if (data && typeof data === 'object') {
+      const backendMessage = data.message || data.error || data.detail;
+      if (typeof backendMessage === 'string' && backendMessage.trim()) {
+        error.message = backendMessage;
+      }
+    }
     return Promise.reject(error);
   },
 );
+
+// O backend do CMMS devolve validações em { message } (work-orders, fuel, auth)
+// ou em { error } (assets, parts, middlewares). Este helper extrai a mensagem real
+// para que o utilizador veja sempre o motivo do erro do servidor.
+export const getApiErrorMessage = (err: unknown, fallback: string): string => {
+  const apiError = err as {
+    message?: string;
+    response?: { status?: number; data?: { message?: string; error?: string; detail?: string } };
+  };
+  const data = apiError?.response?.data;
+  // Respostas 404/405 chegam como HTML (rota inexistente) — não servem como mensagem.
+  const status = apiError?.response?.status;
+  if ((status === 404 || status === 405) && typeof data !== 'object') {
+    return fallback;
+  }
+  return (
+    (data && typeof data === 'object' && (data.message || data.error || data.detail)) ||
+    apiError?.message ||
+    fallback
+  );
+};
+
+// Converte um valor de formulário em número finito.
+// Retorna undefined quando o valor é vazio/inválido para evitar NaN
+// (o backend rejeita NaN com 400 "Campo numérico inválido").
+export const toFiniteNumber = (value: unknown): number | undefined => {
+  if (value === '' || value === null || value === undefined) return undefined;
+  const parsed = typeof value === 'number' ? value : Number(String(value).trim());
+  return Number.isFinite(parsed) ? parsed : undefined;
+};

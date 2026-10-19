@@ -1,10 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, toFiniteNumber } from '../services/api';
 import { useAuth, useSuspensionGuard } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { Technician } from '../types/technician';
 import QRCode from 'qrcode';
+
+// ==============================================
+// SINCRONIZAÇÃO COM OS ENUMS DO BACKEND
+// ==============================================
+// POST/PUT /api/work-orders valida:
+//  - orderType em { corrective, preventive, inspection }
+//  - priority em { low, medium, high, urgent }
+// A triagem de notificações pode trazer textos livres (ex.: "Preventiva",
+// "Alta") que originariam 400 "Dados obrigatórios da ordem de serviço inválidos".
+const VALID_ORDER_TYPES = new Set(['corrective', 'preventive', 'inspection']);
+const VALID_PRIORITIES = new Set(['low', 'medium', 'high', 'urgent']);
+
+const toValidOrderType = (value?: string | null): 'corrective' | 'preventive' | 'inspection' => {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (VALID_ORDER_TYPES.has(normalized)) {
+    return normalized as 'corrective' | 'preventive' | 'inspection';
+  }
+  if (normalized.includes('prevent')) return 'preventive';
+  if (normalized.includes('insp')) return 'inspection';
+  return 'corrective';
+};
+
+const toValidPriority = (value?: string | null): 'low' | 'medium' | 'high' | 'urgent' => {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (VALID_PRIORITIES.has(normalized)) return normalized as 'low' | 'medium' | 'high' | 'urgent';
+  if (['baixa', 'baixo'].includes(normalized)) return 'low';
+  if (['alta', 'alto'].includes(normalized)) return 'high';
+  if (['urgente', 'crítica', 'critica', 'critical'].includes(normalized)) return 'urgent';
+  return 'medium';
+};
 import {
   Plus,
   Wrench,
@@ -115,7 +145,14 @@ export const WorkOrdersPage: React.FC = () => {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
 
   const domainAssets = assets.filter((asset: any) => {
-    const isPlantType = asset.category === 'generator' || asset.category === 'machinery';
+    // Prioriza o domínio gravado no backend (coluna domain, devolvida por
+    // GET /assets); a categoria é apenas fallback para registos legados.
+    if (asset.domain === 'fleet' || asset.domain === 'plant') {
+      return asset.domain === domain;
+    }
+    const isPlantType = asset.category === 'generator'
+      || asset.category === 'machinery'
+      || asset.category === 'plant_equipment';
     const isFleetType = asset.category === 'vehicle_light' || asset.category === 'vehicle_heavy';
     if (domain === 'plant') return isPlantType;
     if (domain === 'fleet') return isFleetType;
@@ -447,6 +484,10 @@ export const WorkOrdersPage: React.FC = () => {
 
   // Secção de Peças no Modal da OS (Criação e Edição - Requisito 5.2)
   const [selectedPartsList, setSelectedPartsList] = useState<any[]>([]);
+  // Marca alterações reais na lista de peças: numa edição sem alterações o
+  // payload NÃO envia "parts", para não substituir (apagar) as peças já
+  // registadas no backend (PUT /work-orders/:id sincroniza por substituição).
+  const [partsDirty, setPartsDirty] = useState(false);
   const [modalSelectedPartId, setModalSelectedPartId] = useState('');
   const [modalPartQty, setModalPartQty] = useState<number>(1);
 
@@ -836,6 +877,8 @@ export const WorkOrdersPage: React.FC = () => {
       }]);
     }
 
+    setPartsDirty(true);
+
     setSelectedPartId('');
     setModalSelectedPartId('');
     setModalPartQty(1);
@@ -866,6 +909,7 @@ export const WorkOrdersPage: React.FC = () => {
       technician_id: ''
     });
     setSelectedPartsList([]);
+    setPartsDirty(false);
     setModalSelectedPartId('');
     setSelectedPartId('');
     setModalPartQty(1);
@@ -900,15 +944,37 @@ export const WorkOrdersPage: React.FC = () => {
       technician_id: currentTechId
     });
 
-    // Se o modal de edição for aberto, podemos carregar peças já vinculadas a esta OS se existirem
-    const orderParts = usedParts.filter(p => p.work_order_id === order.id || p.workOrderId === order.id);
-    setSelectedPartsList(orderParts.map((p: any) => ({
-      id: p.part_id || p.partId,
-      name: p.name,
-      part_number: p.oem_reference || p.oemReference || p.part_number || p.partNumber || '',
-      quantity: p.quantity,
-      unit_cost: p.unit_cost || p.unitCost || 0,
-    })));
+    // Carrega as peças reais da OS para o modal de edição (GET /work-orders/:id/parts)
+    // para que a lista exibida e enviada corresponda ao que está registado no backend.
+    const loadOrderPartsForEdit = async () => {
+      try {
+        const res = await api.get(`/work-orders/${order.id}/parts`);
+        const list = Array.isArray(res.data) ? res.data : (res.data?.parts || res.data?.data || []);
+        if (Array.isArray(list)) {
+          setSelectedPartsList(list.map((p: any) => ({
+            id: p.part_id || p.partId || p.id,
+            name: p.name,
+            part_number: p.part_number || p.partNumber || p.oem_reference || p.oemReference || '',
+            quantity: p.quantity,
+            unit_cost: p.unit_cost ?? p.unitCost ?? 0,
+          })));
+          return;
+        }
+      } catch (err) {
+        console.warn('Não foi possível carregar as peças da ordem de serviço:', err);
+      }
+      // Fallback: peças já carregadas nesta sessão
+      const orderParts = usedParts.filter(p => p.work_order_id === order.id || p.workOrderId === order.id);
+      setSelectedPartsList(orderParts.map((p: any) => ({
+        id: p.part_id || p.partId,
+        name: p.name,
+        part_number: p.oem_reference || p.oemReference || p.part_number || p.partNumber || '',
+        quantity: p.quantity,
+        unit_cost: p.unit_cost || p.unitCost || 0,
+      })));
+    };
+    setPartsDirty(false);
+    loadOrderPartsForEdit();
 
     setModalSelectedPartId('');
     setSelectedPartId('');
@@ -992,29 +1058,41 @@ export const WorkOrdersPage: React.FC = () => {
 
     setSubmittingForm(true);
 
+    // Enums normalizados contra o backend (wo_type / wo_priority) e números
+    // saneados para nunca enviar NaN/strings inválidas (400 no servidor).
+    const orderType = toValidOrderType(formData.orderType || formData.order_type);
+    const priority = toValidPriority(formData.priority);
+    const meterAtService = formData.meterAtService === '' || formData.meterAtService === null || formData.meterAtService === undefined
+      ? undefined
+      : toFiniteNumber(formData.meterAtService);
+
     const payload = {
       ...formData,
       assetId: formData.assetId,
       asset_id: formData.assetId,
       title: formData.title,
       description: formData.description,
-      orderType: formData.orderType,
-      order_type: formData.orderType,
-      priority: formData.priority,
-      meterAtService: formData.meterAtService !== '' ? Number(formData.meterAtService) : undefined,
-      meter_at_service: formData.meterAtService !== '' ? Number(formData.meterAtService) : undefined,
+      orderType,
+      order_type: orderType,
+      priority,
+      meterAtService,
+      meter_at_service: meterAtService,
       technicianId: formData.assignedTo || undefined,
       technician_id: formData.assignedTo || undefined,
       assignedTo: formData.assignedTo || undefined,
       assigned_to: formData.assignedTo || undefined,
       status: formMode === 'create' ? 'open' : undefined,
-      parts: selectedPartsList.map((item: any) => ({
-        partId: item.id || item.partId,
-        part_id: item.id || item.partId,
-        id: item.id,
-        quantity: Number(item.quantity),
-        unitCost: Number(item.unit_cost || item.unitCost || 0)
-      }))
+      // Em edição, "parts" só é enviado se o utilizador alterou a lista:
+      // o backend substitui todas as peças da OS quando recebe o campo.
+      parts: formMode === 'create' || partsDirty
+        ? selectedPartsList.map((item: any) => ({
+            partId: item.id || item.partId,
+            part_id: item.id || item.partId,
+            id: item.id,
+            quantity: toFiniteNumber(item.quantity) ?? 1,
+            unitCost: toFiniteNumber(item.unit_cost ?? item.unitCost) ?? 0
+          }))
+        : undefined
     };
 
     try {
@@ -1134,7 +1212,9 @@ export const WorkOrdersPage: React.FC = () => {
     }
 
     setSubmittingPause(true);
-    const targetStatus = pauseReason === 'Aguardando Peças no Armazém' ? 'waiting_parts' : 'paused';
+    // 'paused' não existe no enum STATUSES do backend
+    // (open, assigned, in_progress, waiting_parts, blocked, completed, cancelled).
+    const targetStatus = pauseReason === 'Aguardando Peças no Armazém' ? 'waiting_parts' : 'blocked';
 
     try {
       try {
@@ -2212,7 +2292,10 @@ export const WorkOrdersPage: React.FC = () => {
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => setSelectedPartsList(selectedPartsList.filter(item => item.id !== p.id))}
+                                  onClick={() => {
+                                    setSelectedPartsList(selectedPartsList.filter(item => item.id !== p.id));
+                                    setPartsDirty(true);
+                                  }}
                                   className="p-1 text-slate-400 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
                                   title="Remover Peça"
                                 >

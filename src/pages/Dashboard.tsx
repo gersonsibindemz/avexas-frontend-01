@@ -87,7 +87,8 @@ export const DashboardPage: React.FC = () => {
 
       const totalAssets = assetsList.length;
       const opAssets = assetsList.filter((asset: any) => asset.status === 'operational').length;
-      const maintAssets = assetsList.filter((asset: any) => asset.status === 'maintenance' || asset.status === 'breakdown').length;
+      // O backend usa o enum asset_status: operational | under_maintenance | breakdown | decommissioned
+      const maintAssets = assetsList.filter((asset: any) => asset.status === 'under_maintenance' || asset.status === 'maintenance' || asset.status === 'breakdown').length;
 
       const pendingWo = woList.filter((order: any) => order.status === 'open' || order.status === 'pending' || !order.status).length;
       const inProgWo = woList.filter((order: any) => order.status === 'in_progress' || order.status === 'waiting_parts' || order.status === 'paused').length;

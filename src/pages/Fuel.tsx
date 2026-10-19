@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, getApiErrorMessage } from '../services/api';
 import { useAuth, useSuspensionGuard } from '../contexts/AuthContext';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { formatMoney } from '../config/countriesCurrencies';
@@ -116,7 +116,16 @@ export const FuelPage: React.FC = () => {
         ? response.data
         : response.data?.assets || response.data?.data || [];
       const filteredAssets = data.filter((asset: any) => {
-        if (currentScope === 'plant') return asset.category === 'generator' || asset.category === 'machinery';
+        // Prioriza o domínio gravado no backend (coluna domain de GET /assets);
+        // a categoria é apenas fallback para registos legados sem domínio.
+        if (asset.domain === 'fleet' || asset.domain === 'plant') {
+          return asset.domain === currentScope;
+        }
+        if (currentScope === 'plant') {
+          return asset.category === 'generator'
+            || asset.category === 'machinery'
+            || asset.category === 'plant_equipment';
+        }
         return asset.category === 'vehicle_light' || asset.category === 'vehicle_heavy';
       });
       setAssets(filteredAssets);
@@ -267,7 +276,7 @@ export const FuelPage: React.FC = () => {
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       console.error('Erro ao guardar abastecimento:', err);
-      alert(err.response?.data?.message || err.message || 'Erro ao guardar abastecimento no servidor.');
+      alert(getApiErrorMessage(err, 'Erro ao guardar abastecimento no servidor.'));
     } finally {
       setSubmitting(false);
     }
