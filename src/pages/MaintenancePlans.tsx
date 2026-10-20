@@ -26,9 +26,10 @@ import {
   AlertCircle,
   Save
 } from 'lucide-react';
-import { draftService } from '../services/draftService';
+import { draftService, DraftItem } from '../services/draftService';
 import { DraftConfirmModal } from '../components/DraftConfirmModal';
 import { DraftBanner } from '../components/DraftBanner';
+import { DraftsListView } from '../components/DraftsListView';
 
 export interface Asset {
   id: string;
@@ -113,6 +114,46 @@ export const MaintenancePlansPage: React.FC = () => {
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
+  const [planDrafts, setPlanDrafts] = useState<DraftItem[]>([]);
+
+  const loadDrafts = () => {
+    const list = draftService.getDrafts('maintenance_plans', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    setPlanDrafts(list);
+  };
+
+  useEffect(() => {
+    loadDrafts();
+    const handleDraftsUpdated = (e: any) => {
+      if (!e.detail || e.detail.module === 'maintenance_plans') {
+        loadDrafts();
+      }
+    };
+    window.addEventListener('cmms:drafts-updated', handleDraftsUpdated);
+    return () => window.removeEventListener('cmms:drafts-updated', handleDraftsUpdated);
+  }, [user]);
+
+  const handleResumeDraft = (draft: DraftItem) => {
+    const data = draft.data || {};
+    setTitle(data.title || '');
+    setAssetId(data.assetId || '');
+    setTriggerType(data.triggerType || 'meter');
+    setIntervalDays(data.intervalDays || 90);
+    setIntervalMeter(data.intervalMeter || 10000);
+    setPriority(data.priority || 'medium');
+    setAssignedTechnicianId(data.assignedTechnicianId || '');
+    if (data.checklist && Array.isArray(data.checklist)) {
+      setChecklist(data.checklist);
+    }
+    setHasRestoredDraft(true);
+    setDraftSavedAt(draft.timestamp);
+    setEditingPlan(null);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteDraft = (draftId: string) => {
+    draftService.deleteDraft('maintenance_plans', draftId, user?.tenantId || (user as any)?.tenant_id, user?.id);
+    loadDrafts();
+  };
 
   // Campos do Formulário
   const [title, setTitle] = useState<string>('');
@@ -253,6 +294,8 @@ export const MaintenancePlansPage: React.FC = () => {
   };
 
   const handleSaveDraft = () => {
+    const planTitle = title.trim() || 'Novo Plano Preventivo';
+    const subtitle = `Gatilho: ${triggerType === 'both' ? 'Dias e Km' : triggerType === 'time' ? `${intervalDays} dias` : `${intervalMeter} km`}`;
     draftService.saveDraft('maintenance_plans', {
       title,
       assetId,
@@ -262,10 +305,11 @@ export const MaintenancePlansPage: React.FC = () => {
       priority,
       assignedTechnicianId,
       checklist
-    }, user?.tenantId || (user as any)?.tenant_id, user?.id);
+    }, user?.tenantId || (user as any)?.tenant_id, user?.id, { title: planTitle, subtitle });
     setIsDraftConfirmOpen(false);
     setIsModalOpen(false);
-    setSuccessMessage('Rascunho de plano preventivo guardado com sucesso!');
+    loadDrafts();
+    setSuccessMessage('Rascunho de plano preventivo guardado com sucesso na lista de rascunhos!');
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
@@ -274,6 +318,7 @@ export const MaintenancePlansPage: React.FC = () => {
     setIsDraftConfirmOpen(false);
     setIsModalOpen(false);
     setHasRestoredDraft(false);
+    loadDrafts();
   };
 
   const handleDiscardRestoredDraft = () => {
@@ -567,12 +612,22 @@ export const MaintenancePlansPage: React.FC = () => {
               <option value="all">Todos os Estados</option>
               <option value="active">Ativos</option>
               <option value="paused">Pausados</option>
+              <option value="drafts">Rascunhos Salvos ({planDrafts.length})</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* TABELA DE PLANOS PREVENTIVOS OU ESTADO VAZIO REAL */}
+      {/* TABELA DE PLANOS PREVENTIVOS OU LISTA DE RASCUNHOS */}
+      {statusFilter === 'drafts' ? (
+        <DraftsListView
+          moduleName="Plano de Manutenção"
+          drafts={planDrafts}
+          onResumeDraft={handleResumeDraft}
+          onDeleteDraft={handleDeleteDraft}
+          onNewItem={() => handleOpenCreateModal()}
+        />
+      ) : (
       <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
         {loading ? (
           <div className="p-12 text-center">
@@ -720,6 +775,7 @@ export const MaintenancePlansPage: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* CAMADA SECUNDÁRIA: CRIAÇÃO / EDIÇÃO DE PLANO PREVENTIVO */}
       <SecondaryView

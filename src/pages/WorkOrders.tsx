@@ -66,12 +66,15 @@ import {
   Phone,
   UserCheck,
   Bell,
-  Printer
+  Printer,
+  FileText
 } from 'lucide-react';
 import { MaintenanceNotificationModal } from '../components/MaintenanceNotificationModal';
-import { draftService } from '../services/draftService';
+import { draftService, DraftItem } from '../services/draftService';
 import { DraftConfirmModal } from '../components/DraftConfirmModal';
 import { DraftBanner } from '../components/DraftBanner';
+import { DraftsListView } from '../components/DraftsListView';
+import { deduplicateNotifications } from '../services/notificationService';
 
 interface Asset {
   id: string;
@@ -171,7 +174,7 @@ export const WorkOrdersPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [quickTab, setQuickTab] = useState<'all' | 'my_tasks' | 'pending' | 'in_progress' | 'completed' | 'maintenance_requests'>('all');
+  const [quickTab, setQuickTab] = useState<'all' | 'my_tasks' | 'pending' | 'in_progress' | 'completed' | 'maintenance_requests' | 'drafts'>('all');
 
   // Solicitações de Manutenção / Notificações
   const [maintenanceRequests, setMaintenanceRequests] = useState<any[]>([]);
@@ -239,6 +242,43 @@ export const WorkOrdersPage: React.FC = () => {
   const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  const [woDrafts, setWoDrafts] = useState<DraftItem[]>([]);
+
+  const loadDrafts = () => {
+    const list = draftService.getDrafts('work_orders', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    setWoDrafts(list);
+  };
+
+  useEffect(() => {
+    loadDrafts();
+    const handleDraftsUpdated = (e: any) => {
+      if (!e.detail || e.detail.module === 'work_orders') {
+        loadDrafts();
+      }
+    };
+    window.addEventListener('cmms:drafts-updated', handleDraftsUpdated);
+    return () => window.removeEventListener('cmms:drafts-updated', handleDraftsUpdated);
+  }, [user]);
+
+  const handleResumeDraft = (draft: DraftItem) => {
+    const data = draft.data || {};
+    if (data.formData) {
+      setFormData(data.formData);
+      setSelectedPartsList(data.selectedPartsList || []);
+    } else {
+      setFormData(data);
+    }
+    setHasRestoredDraft(true);
+    setDraftSavedAt(draft.timestamp);
+    setFormMode('create');
+    setEditingEditingOrderId(null);
+    setIsFormModalOpen(true);
+  };
+
+  const handleDeleteDraft = (draftId: string) => {
+    draftService.deleteDraft('work_orders', draftId, user?.tenantId || (user as any)?.tenant_id, user?.id);
+    loadDrafts();
+  };
 
   // Modal Novo Técnico
   const [isTechModalOpen, setIsTechModalOpen] = useState(false);
@@ -777,7 +817,7 @@ export const WorkOrdersPage: React.FC = () => {
     try {
       const response = await api.get('/notifications');
       const data = Array.isArray(response.data) ? response.data : response.data?.notifications || response.data?.data || [];
-      setNotifications(data);
+      setNotifications(deduplicateNotifications(data));
     } catch (err) {
       console.warn('Endpoint /notifications não encontrado, gerando pendentes locais:', err);
       // Fallback: Gerar notificações virtuais a partir de ordens abertas atribuídas ao técnico atual
@@ -969,17 +1009,20 @@ export const WorkOrdersPage: React.FC = () => {
   useEscapeKey(handleRequestCloseModal, isFormModalOpen);
 
   const handleSaveDraft = (closeModal: boolean = true) => {
+    const title = formData.title?.trim() || 'Nova Ordem de Serviço';
+    const subtitle = `Prioridade: ${formData.priority} · Tipo: ${formData.orderType}`;
     draftService.saveDraft('work_orders', {
       formData,
       selectedPartsList
-    }, user?.tenantId || (user as any)?.tenant_id, user?.id);
+    }, user?.tenantId || (user as any)?.tenant_id, user?.id, { title, subtitle });
     setIsDraftConfirmOpen(false);
     if (closeModal) {
       setIsFormModalOpen(false);
     }
+    loadDrafts();
     setDraftSavedAt(Date.now());
     setHasRestoredDraft(true);
-    setSuccessMessage('Rascunho de Ordem de Serviço guardado com sucesso!');
+    setSuccessMessage('Rascunho de Ordem de Serviço guardado com sucesso na lista de rascunhos.');
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
@@ -1807,6 +1850,7 @@ export const WorkOrdersPage: React.FC = () => {
             <option value="waiting_parts">Aguardando Peças</option>
             <option value="paused">Pausadas / Interrompidas</option>
             <option value="completed">Concluídas</option>
+            <option value="drafts">Rascunhos Salvos ({woDrafts.length})</option>
           </select>
         </div>
       </div>
@@ -1874,10 +1918,52 @@ export const WorkOrdersPage: React.FC = () => {
         >
           Concluídas ({domainFilteredOrders.filter(o => o.status === 'completed').length})
         </button>
+        <button
+          onClick={() => setQuickTab('drafts')}
+          className={`px-4 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap cursor-pointer border flex items-center gap-1.5 ${
+            quickTab === 'drafts'
+              ? 'bg-blue-700 text-white border-blue-700 shadow-none font-semibold'
+              : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+          }`}
+        >
+          <FileText size={13} />
+          <span>Rascunhos ({woDrafts.length})</span>
+        </button>
       </div>
 
-      {/* Grid de Ordens de Serviço ou Lista de Solicitações Pendentes (Triagem) */}
-      {quickTab === 'maintenance_requests' ? (
+      {/* Grid de Ordens de Serviço, Rascunhos ou Lista de Solicitações Pendentes (Triagem) */}
+      {quickTab === 'drafts' || statusFilter === 'drafts' ? (
+        <DraftsListView
+          moduleName="Ordem de Serviço"
+          drafts={woDrafts}
+          onResumeDraft={handleResumeDraft}
+          onDeleteDraft={handleDeleteDraft}
+          onNewItem={() => {
+            const initialAssetId = assets.length > 0 ? assets[0].id : '';
+            const initialMeter = assets.length > 0 ? (assets[0].current_meter ?? assets[0].currentMeter ?? 0) : '';
+            setFormData({
+              assetId: initialAssetId,
+              asset_id: initialAssetId,
+              title: '',
+              description: '',
+              orderType: 'corrective',
+              order_type: 'corrective',
+              priority: 'medium',
+              meterAtService: initialMeter,
+              meter_at_service: initialMeter,
+              assignedTo: '',
+              technicianId: '',
+              technician_id: ''
+            });
+            setSelectedPartsList([]);
+            setHasRestoredDraft(false);
+            setDraftSavedAt(null);
+            setFormMode('create');
+            setEditingEditingOrderId(null);
+            setIsFormModalOpen(true);
+          }}
+        />
+      ) : quickTab === 'maintenance_requests' ? (
         loadingRequests ? (
           <div className="p-12 text-center bg-white border border-slate-200 rounded-md">
             <Loader2 className="animate-spin text-blue-700 mx-auto" size={32} />

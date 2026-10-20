@@ -4,9 +4,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import SecondaryView from '../components/SecondaryView';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import { draftService } from '../services/draftService';
+import { draftService, DraftItem } from '../services/draftService';
 import { DraftConfirmModal } from '../components/DraftConfirmModal';
 import { DraftBanner } from '../components/DraftBanner';
+import { DraftsListView } from '../components/DraftsListView';
 import {
   Plus,
   Layers,
@@ -88,6 +89,44 @@ export const InventoryPage: React.FC = () => {
   const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  const [invDrafts, setInvDrafts] = useState<DraftItem[]>([]);
+
+  const loadDrafts = () => {
+    const list = draftService.getDrafts('inventory', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    setInvDrafts(list);
+  };
+
+  useEffect(() => {
+    loadDrafts();
+    const handleDraftsUpdated = (e: any) => {
+      if (!e.detail || e.detail.module === 'inventory') {
+        loadDrafts();
+      }
+    };
+    window.addEventListener('cmms:drafts-updated', handleDraftsUpdated);
+    return () => window.removeEventListener('cmms:drafts-updated', handleDraftsUpdated);
+  }, [user]);
+
+  const handleResumeDraft = (draft: DraftItem) => {
+    const data = draft.data || {};
+    setFormOemReference(data.formOemReference || '');
+    setFormName(data.formName || '');
+    setFormCategory(data.formCategory || 'mechanical');
+    setFormWarehouseLocation(data.formWarehouseLocation || '');
+    setFormCurrentStock(data.formCurrentStock ?? '');
+    setFormMinStock(data.formMinStock ?? '');
+    setFormUnitCost(data.formUnitCost ?? '');
+    setHasRestoredDraft(true);
+    setDraftSavedAt(draft.timestamp);
+    setPartModalMode('create');
+    setEditingPartId(null);
+    setIsPartModalOpen(true);
+  };
+
+  const handleDeleteDraft = (draftId: string) => {
+    draftService.deleteDraft('inventory', draftId, user?.tenantId || (user as any)?.tenant_id, user?.id);
+    loadDrafts();
+  };
 
   // Carregar Peças (Requisito 6.2)
   const fetchInventory = async () => {
@@ -211,6 +250,8 @@ export const InventoryPage: React.FC = () => {
   useEscapeKey(handleRequestCloseModal, isPartModalOpen);
 
   const handleSaveDraft = (closeModal: boolean = true) => {
+    const partTitle = formName.trim() || formOemReference.trim() || 'Nova Peça de Inventário';
+    const subtitle = `Ref: ${formOemReference || 'S/N'} · Cat: ${formCategory} · Stock: ${formCurrentStock || 0}`;
     draftService.saveDraft('inventory', {
       formOemReference,
       formName,
@@ -219,14 +260,15 @@ export const InventoryPage: React.FC = () => {
       formCurrentStock,
       formMinStock,
       formUnitCost
-    }, user?.tenantId || (user as any)?.tenant_id, user?.id);
+    }, user?.tenantId || (user as any)?.tenant_id, user?.id, { title: partTitle, subtitle });
     setIsDraftConfirmOpen(false);
     if (closeModal) {
       setIsPartModalOpen(false);
     }
+    loadDrafts();
     setDraftSavedAt(Date.now());
     setHasRestoredDraft(true);
-    setSuccessMessage('Rascunho de Peça/Inventário guardado com sucesso!');
+    setSuccessMessage('Rascunho de Peça/Inventário guardado com sucesso na lista de rascunhos!');
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
@@ -512,11 +554,21 @@ export const InventoryPage: React.FC = () => {
             <option value="low">Abaixo do Mínimo</option>
             <option value="available">Disponível em Stock</option>
             <option value="out_of_stock">Esgotado</option>
+            <option value="drafts">Rascunhos Salvos ({invDrafts.length})</option>
           </select>
         </div>
       </div>
 
-      {/* Tabela de Peças (Requisito 1.2) */}
+      {/* Tabela de Peças ou Lista de Rascunhos */}
+      {stockStatusFilter === 'drafts' ? (
+        <DraftsListView
+          moduleName="Item de Inventário"
+          drafts={invDrafts}
+          onResumeDraft={handleResumeDraft}
+          onDeleteDraft={handleDeleteDraft}
+          onNewItem={() => handleOpenCreateModal()}
+        />
+      ) : (
       <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
         {loading ? (
           <div className="p-8 space-y-4">
@@ -638,6 +690,7 @@ export const InventoryPage: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* ==========================================
           CAMADA SECUNDÁRIA: CADASTRAR OU EDITAR PEÇA

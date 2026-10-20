@@ -32,25 +32,7 @@ import {
   AlertTriangle,
   Camera
 } from 'lucide-react';
-
-interface NotificationItem {
-  id: string | number;
-  title?: string;
-  titulo?: string;
-  message?: string;
-  mensagem?: string;
-  asset_id?: string | number;
-  assetId?: string | number;
-  created_at?: string;
-  createdAt?: string;
-  is_read?: boolean;
-  read?: boolean;
-  isRead?: boolean;
-  link?: string;
-  targetUrl?: string;
-  target_url?: string;
-  url?: string;
-}
+import { NotificationItem, deduplicateNotifications } from '../services/notificationService';
 
 const formatTimeAgo = (dateStr?: string) => {
   if (!dateStr) return '';
@@ -118,14 +100,18 @@ export const Layout: React.FC = () => {
   const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
   const notificationRef = useRef<HTMLDivElement>(null);
 
-  // Verificação de conformidade ao entrar (para tenant_admin ou supervisor)
+  // Verificação de conformidade ao entrar (executa no máximo 1 vez por sessão para não duplicar gatilhos)
   useEffect(() => {
     if (user && (user.role === 'tenant_admin' || user.role === 'supervisor')) {
-      api.get('/notifications/check-compliance').catch(() => {});
+      const sessionKey = `cmms_compliance_checked_${user.id || user.email}`;
+      if (!sessionStorage.getItem(sessionKey)) {
+        sessionStorage.setItem(sessionKey, 'true');
+        api.get('/notifications/check-compliance').catch(() => {});
+      }
     }
   }, [user]);
 
-  // Busca notificações na API (GET /notifications) - carrega até 25 itens
+  // Busca notificações na API (GET /notifications) com deduplicação inteligente por assunto
   const fetchNotifications = async () => {
     try {
       const response = await api.get('/notifications');
@@ -141,20 +127,10 @@ export const Layout: React.FC = () => {
         }
       }
 
-      // Deduplica exclusivamente notificações que compartilham o mesmo ID real
-      const seen = new Set<string>();
-      const deduped: NotificationItem[] = [];
-      for (const item of list) {
-        const key = item.id ? String(item.id) : `${item.title || ''}-${item.message || ''}-${item.created_at || ''}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          deduped.push(item);
-        }
-      }
-
-      const finalList = deduped.slice(0, 25);
-      setNotifications(finalList);
-      const unread = finalList.filter(n => !(n.is_read ?? n.read ?? n.isRead)).length;
+      // Deduplica eventos que andam em pares no mesmo datetime, preservando repetições legítimas em datas distintas
+      const uniqueList = deduplicateNotifications(list).slice(0, 30);
+      setNotifications(uniqueList);
+      const unread = uniqueList.filter(n => !(n.is_read ?? n.read ?? n.isRead)).length;
       setUnreadCount(unread);
     } catch (err) {
       console.warn('Não foi possível obter as notificações:', err);
@@ -183,14 +159,15 @@ export const Layout: React.FC = () => {
     };
   }, [isNotificationOpen]);
 
-  // Marcar uma notificação como lida (PATCH /notifications/:id/read)
+  // Marcar uma notificação como lida (PATCH /notifications/:id/read para o item e eventuais duplicatas em par)
   const handleMarkAsRead = async (item: NotificationItem) => {
     const isRead = Boolean(item.is_read ?? item.read ?? item.isRead);
     const itemLink = item.link || item.targetUrl || item.target_url || item.url;
 
     if (!isRead) {
+      const idsToMark = item._duplicateIds && item._duplicateIds.length > 0 ? item._duplicateIds : [item.id];
       try {
-        await api.patch(`/notifications/${item.id}/read`);
+        await Promise.allSettled(idsToMark.map(id => api.patch(`/notifications/${id}/read`)));
       } catch (err) {
         console.warn(`Erro ao marcar notificação ${item.id} como lida:`, err);
       } finally {

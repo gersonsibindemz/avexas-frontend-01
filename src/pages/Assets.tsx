@@ -37,9 +37,10 @@ import {
   History,
   ShieldAlert
 } from 'lucide-react';
-import { draftService } from '../services/draftService';
+import { draftService, DraftItem } from '../services/draftService';
 import { DraftConfirmModal } from '../components/DraftConfirmModal';
 import { DraftBanner } from '../components/DraftBanner';
+import { DraftsListView } from '../components/DraftsListView';
 import { combinationService, TrailerRole, CombinationHistoryEntry } from '../services/combinationService';
 import { FleetOperationsReportModal } from '../components/FleetOperationsReportModal';
 
@@ -376,6 +377,38 @@ export const AssetsPage: React.FC = () => {
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
+  const [assetsViewMode, setAssetsViewMode] = useState<'active' | 'drafts'>('active');
+  const [assetDrafts, setAssetDrafts] = useState<DraftItem[]>([]);
+
+  const loadDrafts = () => {
+    const list = draftService.getDrafts('assets', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    setAssetDrafts(list);
+  };
+
+  useEffect(() => {
+    loadDrafts();
+    const handleDraftsUpdated = (e: any) => {
+      if (!e.detail || e.detail.module === 'assets') {
+        loadDrafts();
+      }
+    };
+    window.addEventListener('cmms:drafts-updated', handleDraftsUpdated);
+    return () => window.removeEventListener('cmms:drafts-updated', handleDraftsUpdated);
+  }, [user]);
+
+  const handleResumeDraft = (draft: DraftItem) => {
+    setFormData(draft.data);
+    setActiveTab(draft.meta?.activeTab || 0);
+    setHasRestoredDraft(true);
+    setDraftSavedAt(draft.timestamp);
+    setModalOpenMode('create');
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteDraft = (draftId: string) => {
+    draftService.deleteDraft('assets', draftId, user?.tenantId || (user as any)?.tenant_id, user?.id);
+    loadDrafts();
+  };
 
   // ==========================================
   // ESTADOS DE DOCUMENTAÇÃO ADICIONAL
@@ -1227,13 +1260,16 @@ export const AssetsPage: React.FC = () => {
   };
 
   const handleSaveDraft = () => {
-    draftService.saveDraft('assets', formData, user?.tenantId || (user as any)?.tenant_id, user?.id, { activeTab });
+    const title = formData.name?.trim() || formData.code_tag?.trim() || formData.license_plate?.trim() || 'Novo Ativo';
+    const subtitle = [formData.brand, formData.model, formData.category].filter(Boolean).join(' · ');
+    draftService.saveDraft('assets', formData, user?.tenantId || (user as any)?.tenant_id, user?.id, { title, subtitle, activeTab });
     setIsDraftConfirmOpen(false);
     setIsModalOpen(false);
     resetWizardForm();
+    loadDrafts();
     showAlert({
       title: 'Rascunho Guardado',
-      message: 'O rascunho do ativo foi guardado. Poderá continuar o registo mais tarde.',
+      message: 'O rascunho do ativo foi guardado na lista de rascunhos. Poderá consultá-lo filtrando por "Rascunhos" a qualquer momento.',
       type: 'success'
     });
   };
@@ -1243,11 +1279,13 @@ export const AssetsPage: React.FC = () => {
     setIsDraftConfirmOpen(false);
     setIsModalOpen(false);
     resetWizardForm();
+    loadDrafts();
   };
 
   const handleDiscardRestoredDraft = () => {
     draftService.clearDraft('assets', user?.tenantId || (user as any)?.tenant_id, user?.id);
     resetWizardForm();
+    loadDrafts();
     showAlert({
       title: 'Rascunho Eliminado',
       message: 'O rascunho foi descartado e o formulário limpo.',
@@ -1916,29 +1954,55 @@ export const AssetsPage: React.FC = () => {
             className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-9 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {/* Filtro de Visão: Ativos Cadastrados vs Rascunhos Salvos */}
           <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-700 focus:outline-none cursor-pointer"
+            value={assetsViewMode}
+            onChange={(e) => setAssetsViewMode(e.target.value as 'active' | 'drafts')}
+            className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-800 focus:outline-none cursor-pointer font-semibold shadow-2xs"
           >
-            <option value="all">Todas as Categorias</option>
-            {domain === 'fleet'
-              ? FLEET_CATEGORIES.map((fleetCategory) => (
-                  <option key={fleetCategory.code} value={fleetCategory.code}>
-                    {fleetCategory.code} - {fleetCategory.name}
-                  </option>
-                ))
-              : categories.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
+            <option value="active">Ativos Cadastrados ({filteredAssets.length})</option>
+            <option value="drafts">Rascunhos Salvos ({assetDrafts.length})</option>
           </select>
+
+          {assetsViewMode === 'active' && (
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-700 focus:outline-none cursor-pointer"
+            >
+              <option value="all">Todas as Categorias</option>
+              {domain === 'fleet'
+                ? FLEET_CATEGORIES.map((fleetCategory) => (
+                    <option key={fleetCategory.code} value={fleetCategory.code}>
+                      {fleetCategory.code} - {fleetCategory.name}
+                    </option>
+                  ))
+                : categories.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+            </select>
+          )}
         </div>
       </div>
 
-      {/* Tabela de Ativos com Ações Completas */}
+      {/* Exibição condicional: Rascunhos Salvos ou Tabela de Ativos Oficiais */}
+      {assetsViewMode === 'drafts' ? (
+        <DraftsListView
+          moduleName={domain === 'plant' ? 'Equipamento' : 'Ativo'}
+          drafts={assetDrafts}
+          onResumeDraft={handleResumeDraft}
+          onDeleteDraft={handleDeleteDraft}
+          onNewItem={() => {
+            resetWizardForm();
+            setModalOpenMode('create');
+            setIsModalOpen(true);
+          }}
+        />
+      ) : (
+      /* Tabela de Ativos com Ações Completas */
       <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
         {loading ? (
           <div className="p-8 space-y-4">
@@ -2066,6 +2130,7 @@ export const AssetsPage: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* Camada Secundária: Cadastro e Edição da Ficha Técnica */}
       <SecondaryView

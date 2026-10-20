@@ -22,9 +22,10 @@ import {
   Save,
   Fuel
 } from 'lucide-react';
-import { draftService } from '../services/draftService';
+import { draftService, DraftItem } from '../services/draftService';
 import { DraftConfirmModal } from '../components/DraftConfirmModal';
 import { DraftBanner } from '../components/DraftBanner';
+import { DraftsListView } from '../components/DraftsListView';
 
 interface Asset {
   id: string;
@@ -85,6 +86,43 @@ export const FuelPage: React.FC = () => {
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
+  const [fuelViewMode, setFuelViewMode] = useState<'logs' | 'drafts'>('logs');
+  const [fuelDrafts, setFuelDrafts] = useState<DraftItem[]>([]);
+
+  const loadDrafts = () => {
+    const list = draftService.getDrafts('fuel', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    setFuelDrafts(list);
+  };
+
+  useEffect(() => {
+    loadDrafts();
+    const handleDraftsUpdated = (e: any) => {
+      if (!e.detail || e.detail.module === 'fuel') {
+        loadDrafts();
+      }
+    };
+    window.addEventListener('cmms:drafts-updated', handleDraftsUpdated);
+    return () => window.removeEventListener('cmms:drafts-updated', handleDraftsUpdated);
+  }, [user]);
+
+  const handleResumeDraft = (draft: DraftItem) => {
+    const data = draft.data || {};
+    setSelectedAssetId(data.selectedAssetId || '');
+    setFuelType(data.fuelType || 'Diesel');
+    setLiters(data.liters || '');
+    setPricePerLiterMzn(data.pricePerLiterMzn || '');
+    setCurrentMeter(data.currentMeter || '');
+    setStationName(data.stationName || '');
+    setReceiptDocRef(data.receiptDocRef || '');
+    setHasRestoredDraft(true);
+    setDraftSavedAt(draft.timestamp);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteDraft = (draftId: string) => {
+    draftService.deleteDraft('fuel', draftId, user?.tenantId || (user as any)?.tenant_id, user?.id);
+    loadDrafts();
+  };
 
   // Campos do Formulário
   const [selectedAssetId, setSelectedAssetId] = useState('');
@@ -331,6 +369,9 @@ export const FuelPage: React.FC = () => {
   };
 
   const handleSaveDraft = (closeModal: boolean = true) => {
+    const matched = assets.find(a => a.id === selectedAssetId);
+    const fuelTitle = matched ? `${matched.code_tag || matched.name} - ${liters ? `${liters}L` : 'Abastecimento'}` : 'Novo Abastecimento';
+    const subtitle = `Posto: ${stationName || 'N/D'} · Tipo: ${fuelType} · Recibo: ${receiptDocRef || 'N/D'}`;
     draftService.saveDraft('fuel', {
       selectedAssetId,
       fuelType,
@@ -339,14 +380,15 @@ export const FuelPage: React.FC = () => {
       currentMeter,
       stationName,
       receiptDocRef
-    }, user?.tenantId || (user as any)?.tenant_id, user?.id);
+    }, user?.tenantId || (user as any)?.tenant_id, user?.id, { title: fuelTitle, subtitle });
     setIsDraftConfirmOpen(false);
     if (closeModal) {
       setIsModalOpen(false);
     }
+    loadDrafts();
     setDraftSavedAt(Date.now());
     setHasRestoredDraft(true);
-    setSuccessMessage('Rascunho de abastecimento guardado com sucesso!');
+    setSuccessMessage('Rascunho de abastecimento guardado com sucesso na lista de rascunhos!');
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
@@ -515,20 +557,41 @@ export const FuelPage: React.FC = () => {
             className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-9 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none"
           />
         </div>
-        <div>
+        <div className="flex flex-wrap gap-2">
+          {/* Seletor de Visão: Faturados vs Rascunhos */}
           <select
-            value={fuelTypeFilter}
-            onChange={(e) => setFuelTypeFilter(e.target.value)}
-            className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-700 focus:outline-none cursor-pointer"
+            value={fuelViewMode}
+            onChange={(e) => setFuelViewMode(e.target.value as 'logs' | 'drafts')}
+            className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-800 focus:outline-none cursor-pointer font-semibold shadow-2xs"
           >
-            <option value="all">Qualquer Tipo</option>
-            <option value="diesel">Diesel (Gasóleo)</option>
-            <option value="gasolina">Gasolina</option>
+            <option value="logs">Abastecimentos Faturados</option>
+            <option value="drafts">Rascunhos Salvos ({fuelDrafts.length})</option>
           </select>
+
+          {fuelViewMode === 'logs' && (
+            <select
+              value={fuelTypeFilter}
+              onChange={(e) => setFuelTypeFilter(e.target.value)}
+              className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-700 focus:outline-none cursor-pointer"
+            >
+              <option value="all">Qualquer Tipo</option>
+              <option value="diesel">Diesel (Gasóleo)</option>
+              <option value="gasolina">Gasolina</option>
+            </select>
+          )}
         </div>
       </div>
 
-      {/* Tabela de Abastecimentos */}
+      {/* Tabela de Abastecimentos ou Lista de Rascunhos */}
+      {fuelViewMode === 'drafts' ? (
+        <DraftsListView
+          moduleName="Abastecimento"
+          drafts={fuelDrafts}
+          onResumeDraft={handleResumeDraft}
+          onDeleteDraft={handleDeleteDraft}
+          onNewItem={() => handleOpenCreateModal()}
+        />
+      ) : (
       <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
         {loading ? (
           /* SKELETON */
@@ -628,6 +691,7 @@ export const FuelPage: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* CAMADA SECUNDÁRIA: REGISTAR ABASTECIMENTO */}
       <SecondaryView

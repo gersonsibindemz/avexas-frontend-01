@@ -50,30 +50,33 @@ export const DraftConfirmModal: React.FC<DraftConfirmModalProps> = ({
             </button>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-end gap-2">
+          <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+            {/* Botão de descarte com apenas o ícone de lixeira conforme solicitado */}
             <button
               type="button"
               onClick={onDiscard}
-              className="w-full sm:w-auto px-3.5 py-2 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-transparent rounded-md transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              className="p-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 rounded-md transition-colors cursor-pointer shrink-0 flex items-center justify-center"
+              title="Descartar e sair"
+              aria-label="Descartar e sair"
             >
-              <Trash2 size={13} />
-              <span>Descartar e Sair</span>
+              <Trash2 size={16} />
             </button>
-            <div className="flex w-full sm:w-auto items-center gap-2">
+
+            {/* Ações: Continuar e Sim, perfeitamente visíveis sem corte */}
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onCancel}
-                className="flex-1 sm:flex-none px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 border border-slate-300 rounded-md transition-colors cursor-pointer"
+                className="px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 border border-slate-300 rounded-md transition-colors cursor-pointer whitespace-nowrap"
               >
-                Continuar a Preencher
+                Continuar
               </button>
               <button
                 type="button"
                 onClick={onSaveDraft}
-                className="flex-1 sm:flex-none px-4 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 active:bg-blue-900 rounded-md transition-colors cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                className="px-5 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 active:bg-blue-900 rounded-md transition-colors cursor-pointer shadow-xs whitespace-nowrap"
               >
-                <Save size={13} />
-                <span>Salvar Rascunho</span>
+                Sim
               </button>
             </div>
           </div>
