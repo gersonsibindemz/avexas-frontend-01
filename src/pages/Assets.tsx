@@ -3,7 +3,7 @@ import { api, getApiErrorMessage, toFiniteNumber } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import { ENERGY_TYPES, FLEET_CATEGORIES, OWNERSHIP_TYPES, TRAILER_SUBTYPES, toBackendCategory } from '../config/fleetCategories';
+import { ENERGY_TYPES, FLEET_CATEGORIES, OWNERSHIP_TYPES, TRAILER_SUBTYPES, getSubtypesForType, toBackendCategory } from '../config/fleetCategories';
 import QRCode from 'qrcode';
 import {
   Plus,
@@ -109,10 +109,20 @@ interface Asset {
   warrantyExpiry?: string;
 }
 
+interface DriverUser {
+  id: string;
+  full_name: string;
+  email: string;
+  role: string;
+  operational_scope?: string;
+}
+
 interface AssetFormData {
   category: string;
   asset_type: string;
+  custom_asset_type?: string;
   asset_subtype: string;
+  custom_asset_subtype?: string;
   code_tag: string;
   name: string;
   company: string;
@@ -176,7 +186,9 @@ interface AssetFormData {
 const createInitialAssetFormData = (domain: string, categories: { value: string }[]): AssetFormData => ({
   category: domain === 'fleet' ? FLEET_CATEGORIES[0].code : categories[0]?.value || 'vehicle_light',
   asset_type: '',
+  custom_asset_type: '',
   asset_subtype: '',
+  custom_asset_subtype: '',
   code_tag: '',
   name: '',
   company: '',
@@ -311,6 +323,11 @@ export const AssetsPage: React.FC = () => {
   const [maintenancePlans, setMaintenancePlans] = useState<{ id: string; title: string }[]>([]);
   const [maintenancePlansError, setMaintenancePlansError] = useState<string | null>(null);
   const selectedFleetCategory = FLEET_CATEGORIES.find((fleetCategory) => fleetCategory.code === formData.category);
+
+  // Lista de Operadores / Motoristas disponíveis no tenant e escopo atual
+  const [drivers, setDrivers] = useState<DriverUser[]>([]);
+  const [loadingDrivers, setLoadingDrivers] = useState(false);
+  const [driversError, setDriversError] = useState<string | null>(null);
 
   // Etapa 4: Documento Inicial
   const [wizardFile, setWizardFile] = useState<File | null>(null);
@@ -450,10 +467,41 @@ export const AssetsPage: React.FC = () => {
     };
 
     fetchMaintenancePlans();
+
+    const fetchDrivers = async () => {
+      setLoadingDrivers(true);
+      setDriversError(null);
+      try {
+        const response = await api.get('/users', {
+          params: {
+            role: 'driver_operator',
+            operational_scope: domain
+          }
+        });
+        const data = Array.isArray(response.data)
+          ? response.data
+          : response.data?.users || response.data?.data || [];
+        if (isCurrent) {
+          setDrivers(Array.isArray(data) ? data : []);
+        }
+      } catch (err: any) {
+        console.error('Erro ao carregar operadores/motoristas:', err);
+        if (isCurrent) {
+          setDriversError(err.response?.data?.error || err.response?.data?.message || err.message || 'Não foi possível carregar a lista de operadores/motoristas.');
+        }
+      } finally {
+        if (isCurrent) {
+          setLoadingDrivers(false);
+        }
+      }
+    };
+
+    fetchDrivers();
+
     return () => {
       isCurrent = false;
     };
-  }, [isModalOpen]);
+  }, [isModalOpen, domain]);
 
   // ==========================================
   // CARREGAR DOCUMENTOS DE UM ATIVO
@@ -589,6 +637,16 @@ export const AssetsPage: React.FC = () => {
       alert('O Tipo de Equipamento é obrigatório.');
       return false;
     }
+    if (domain === 'fleet' && formData.asset_type === 'Outro tipo (especificar)' && !formData.custom_asset_type?.trim()) {
+      setActiveTab(0);
+      alert('Por favor, especifique o Tipo de Equipamento.');
+      return false;
+    }
+    if (formData.asset_subtype === 'Outro (especificar)' && !formData.custom_asset_subtype?.trim()) {
+      setActiveTab(0);
+      alert('Por favor, especifique o Subtipo / Configuração.');
+      return false;
+    }
     return true;
   };
 
@@ -597,7 +655,9 @@ export const AssetsPage: React.FC = () => {
       ...previous,
       category: nextCategory,
       asset_type: '',
-      asset_subtype: ''
+      custom_asset_type: '',
+      asset_subtype: '',
+      custom_asset_subtype: ''
     }));
   };
 
@@ -643,6 +703,14 @@ export const AssetsPage: React.FC = () => {
       ? 'under_maintenance'
       : formData.status || (modalMode === 'create' ? 'operational' : undefined);
 
+    const finalAssetType = formData.asset_type === 'Outro tipo (especificar)' && formData.custom_asset_type?.trim()
+      ? formData.custom_asset_type.trim()
+      : formData.asset_type;
+
+    const finalAssetSubtype = formData.asset_subtype === 'Outro (especificar)' && formData.custom_asset_subtype?.trim()
+      ? formData.custom_asset_subtype.trim()
+      : formData.asset_subtype;
+
     const payload = {
       ...formData,
       // Categoria convertida para o conjunto canónico aceite pelo backend.
@@ -650,9 +718,9 @@ export const AssetsPage: React.FC = () => {
       // (evita que a categoria original seja corrompida/normalizada indevidamente).
       category: modalMode === 'create' ? toBackendCategory(formData.category, domain) : undefined,
       codeTag: formData.code_tag,
-      assetType: formData.asset_type || undefined,
-      asset_subtype: formData.asset_subtype || undefined,
-      assetSubtype: formData.asset_subtype || undefined,
+      assetType: finalAssetType || undefined,
+      asset_subtype: finalAssetSubtype || undefined,
+      assetSubtype: finalAssetSubtype || undefined,
       energy_type: formData.technical_specs.fuel || formData.energy_type,
       energyType: formData.technical_specs.fuel || formData.energy_type,
       ownership_type: formData.ownership_type,
@@ -776,12 +844,16 @@ export const AssetsPage: React.FC = () => {
     const initialData = createInitialAssetFormData(domain, categories);
     const technicalSpecs = assetData.technical_specs as AssetFormData['technical_specs'] | undefined;
     const safetyChecks = assetData.safety_checks as AssetFormData['safety_checks'] | undefined;
+    const currentAssetType = read('asset_type', 'assetType');
+    const currentAssetSubtype = read('asset_subtype', 'assetSubtype');
 
     setFormData({
       ...initialData,
       category: initialCategory,
-      asset_type: read('asset_type', 'assetType'),
-      asset_subtype: read('asset_subtype', 'assetSubtype'),
+      asset_type: currentAssetType,
+      custom_asset_type: '',
+      asset_subtype: currentAssetSubtype,
+      custom_asset_subtype: '',
       code_tag: read('code_tag', 'codeTag'),
       name: asset.name || '',
       company: read('company'),
@@ -1206,7 +1278,7 @@ export const AssetsPage: React.FC = () => {
   const trailerAssets = assets.filter((asset) => {
     const categoryName = asset.category.toLowerCase();
     const type = `${asset.asset_type || asset.assetType || ''} ${asset.asset_subtype || asset.assetSubtype || ''}`.toLowerCase();
-    return asset.category === 'CAT-06' || categoryName.includes('reboque') || categoryName.includes('semirreboque') || /trela|reboque|semirreboque/.test(type);
+    return asset.category === 'CAT-06' || categoryName.includes('reboque') || categoryName.includes('semirreboque') || /trela|reboque|semirreboque|dolly/.test(type);
   });
 
   const getCombinationAssetName = (assetId: string | undefined, nestedAsset: any) => {
@@ -1540,27 +1612,85 @@ export const AssetsPage: React.FC = () => {
                         </select>
                       )}
                     </div>
-                    {domain === 'fleet' && <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Tipo de equipamento *</label>
-                      <select value={formData.asset_type} onChange={(e) => updateFormField('asset_type', e.target.value)} className={fieldClass}>
-                        <option value="">Selecione um tipo...</option>
-                        {selectedFleetCategory?.types.map((type) => <option key={type} value={type}>{type}</option>)}
-                        {/* Tipo gravado no backend sem correspondência na lista da categoria atual */}
-                        {formData.asset_type && !(selectedFleetCategory?.types ?? []).includes(formData.asset_type) && (
-                          <option key={formData.asset_type} value={formData.asset_type}>{formData.asset_type}</option>
+                    {domain === 'fleet' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Tipo de equipamento *</label>
+                          <select
+                            value={formData.asset_type}
+                            onChange={(e) => {
+                              updateFormField('asset_type', e.target.value);
+                              if (e.target.value !== 'Outro tipo (especificar)') {
+                                updateFormField('custom_asset_type', '');
+                              }
+                            }}
+                            className={fieldClass}
+                          >
+                            <option value="">Selecione um tipo...</option>
+                            {selectedFleetCategory?.types.map((type) => (
+                              <option key={type} value={type}>{type}</option>
+                            ))}
+                            {/* Tipo gravado no backend sem correspondência na lista da categoria atual */}
+                            {formData.asset_type && !(selectedFleetCategory?.types ?? []).includes(formData.asset_type) && (
+                              <option key={formData.asset_type} value={formData.asset_type}>{formData.asset_type}</option>
+                            )}
+                          </select>
+                        </div>
+                        {formData.asset_type === 'Outro tipo (especificar)' && (
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Especificar tipo de equipamento *</label>
+                            <input
+                              type="text"
+                              placeholder="Digite o tipo do equipamento..."
+                              value={formData.custom_asset_type || ''}
+                              onChange={(e) => updateFormField('custom_asset_type', e.target.value)}
+                              className={fieldClass}
+                            />
+                          </div>
                         )}
-                      </select>
-                    </div>}
-                    {(formData.category === 'CAT-06' || formData.asset_subtype) && <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Subtipo / Configuração</label>
-                      <select value={formData.asset_subtype} onChange={(e) => updateFormField('asset_subtype', e.target.value)} className={fieldClass}>
-                        <option value="">Selecione um subtipo...</option>
-                        {TRAILER_SUBTYPES.map((subtype) => <option key={subtype} value={subtype}>{subtype}</option>)}
-                        {formData.asset_subtype && !TRAILER_SUBTYPES.includes(formData.asset_subtype) && (
-                          <option key={formData.asset_subtype} value={formData.asset_subtype}>{formData.asset_subtype}</option>
-                        )}
-                      </select>
-                    </div>}
+                      </>
+                    )}
+                    {(() => {
+                      const availableSubtypes = getSubtypesForType(formData.category, formData.asset_type);
+                      if (availableSubtypes.length === 0 && !formData.asset_subtype) return null;
+                      return (
+                        <>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Subtipo / Configuração</label>
+                            <select
+                              value={formData.asset_subtype}
+                              onChange={(e) => {
+                                updateFormField('asset_subtype', e.target.value);
+                                if (e.target.value !== 'Outro (especificar)') {
+                                  updateFormField('custom_asset_subtype', '');
+                                }
+                              }}
+                              className={fieldClass}
+                            >
+                              <option value="">Selecione um subtipo...</option>
+                              {availableSubtypes.map((subtype) => (
+                                <option key={subtype} value={subtype}>{subtype}</option>
+                              ))}
+                              {formData.asset_subtype && !availableSubtypes.includes(formData.asset_subtype) && (
+                                <option key={formData.asset_subtype} value={formData.asset_subtype}>{formData.asset_subtype}</option>
+                              )}
+                            </select>
+                          </div>
+                          {formData.asset_subtype === 'Outro (especificar)' && (
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Especificar subtipo / configuração *</label>
+                              <input
+                                type="text"
+                                placeholder="Digite o subtipo..."
+                                value={formData.custom_asset_subtype || ''}
+                                onChange={(e) => updateFormField('custom_asset_subtype', e.target.value)}
+                                className={fieldClass}
+                              />
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                     {renderInput('Código do ativo', 'code_tag', 'text', 'Gerado automaticamente se vazio')}
                     {renderInput('Nome / Designação *', 'name', 'text', 'Nome do equipamento')}
                     {renderInput('Empresa', 'company')}
@@ -1578,7 +1708,40 @@ export const AssetsPage: React.FC = () => {
                         <option value="A">A - Alta</option><option value="B">B - Média</option><option value="C">C - Baixa</option>
                       </select>
                     </div>
-                    {renderInput('Operador / Motorista', 'operator_driver')}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                        {domain === 'fleet' ? 'Motorista / Condutor' : 'Operador do Equipamento'}
+                      </label>
+                      <select
+                        value={formData.operator_driver}
+                        onChange={(e) => updateFormField('operator_driver', e.target.value)}
+                        className={fieldClass}
+                        disabled={loadingDrivers}
+                      >
+                        <option value="">
+                          {loadingDrivers ? 'A carregar lista de utilizadores...' : 'Selecione o operador / motorista...'}
+                        </option>
+                        {drivers.map((drv) => (
+                          <option key={drv.id} value={drv.full_name}>
+                            {drv.full_name} {drv.email ? `(${drv.email})` : ''}
+                          </option>
+                        ))}
+                        {/* Se o ativo já tinha um operador gravado e ele não consta na lista filtrada */}
+                        {formData.operator_driver && !drivers.some((drv) => drv.full_name === formData.operator_driver) && (
+                          <option key={formData.operator_driver} value={formData.operator_driver}>
+                            {formData.operator_driver} (atribuído atualmente)
+                          </option>
+                        )}
+                      </select>
+                      {driversError && (
+                        <p className="mt-1 text-[11px] text-amber-600">{driversError}</p>
+                      )}
+                      {!loadingDrivers && drivers.length === 0 && !driversError && (
+                        <p className="mt-1 text-[11px] text-slate-400">
+                          Nenhum utilizador com função de {domain === 'fleet' ? 'motorista' : 'operador'} registado no escopo {domain}.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
 
