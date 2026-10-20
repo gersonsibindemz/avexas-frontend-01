@@ -12,6 +12,7 @@ import {
   Wrench,
   AlertTriangle,
   CheckCircle2,
+  Check,
   Search,
   X,
   RefreshCw,
@@ -250,6 +251,16 @@ const createInitialAssetFormData = (domain: string, categories: { value: string 
     general_condition: ''
   }
 });
+
+const ASSET_WIZARD_STEPS = [
+  { id: 0, label: 'Identificação', shortLabel: 'Identificação' },
+  { id: 1, label: 'Fabricante', shortLabel: 'Fabricante' },
+  { id: 2, label: 'Características Técnicas', shortLabel: 'Técnica' },
+  { id: 3, label: 'Operação & Medidores', shortLabel: 'Operação' },
+  { id: 4, label: 'Conformidade & Aquisição', shortLabel: 'Aquisição' },
+  { id: 5, label: 'Manutenção', shortLabel: 'Manutenção' },
+  { id: 6, label: 'Segurança', shortLabel: 'Segurança' },
+];
 
 export const AssetsPage: React.FC = () => {
   const { user, isTechnician, isDriverOperator, isFleet, isPlant, currentScope } = useAuth();
@@ -1749,35 +1760,85 @@ export const AssetsPage: React.FC = () => {
         icon={<Wrench size={18} />}
         maxWidthClass="max-w-5xl mx-auto"
       >
-        <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
-          <div role="tablist" aria-label="Blocos da ficha técnica" className="px-6 py-3.5 border-b border-slate-200 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden bg-slate-50/50">
-            {['Identificação', 'Fabricante', 'Características Técnicas', 'Operação & Medidores', 'Conformidade & Aquisição', 'Manutenção', 'Segurança'].map((tab, index) => (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === index}
-                onClick={() => setActiveTab(index)}
-                className={`shrink-0 rounded-md px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer ${activeTab === index ? 'bg-blue-700 text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}
-              >
-                <span className="mr-1.5 opacity-75">{index + 1}</span>{tab}
-              </button>
-            ))}
-          </div>
-
-          <form
-            onSubmit={handleSubmitForm}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && activeTab < 6) {
-                const target = e.target as HTMLElement;
-                if (target.tagName === 'INPUT' || target.tagName === 'SELECT') {
-                  e.preventDefault();
-                  setActiveTab((tab) => Math.min(6, tab + 1));
-                }
+        <form
+          onSubmit={handleSubmitForm}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && activeTab < 6) {
+              const target = e.target as HTMLElement;
+              if (target.tagName === 'INPUT' || target.tagName === 'SELECT') {
+                e.preventDefault();
+                setActiveTab((tab) => Math.min(6, tab + 1));
               }
-            }}
-            className="p-6 md:p-8"
-          >
+            }
+          }}
+          className="space-y-6 pb-8"
+        >
+          {/* Indicador e Numeração Elegante das Etapas */}
+          <div className="border-b border-slate-200 pb-5 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 mb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500">
+                  Etapa <strong className="text-slate-900 font-bold">{activeTab + 1}</strong> de {ASSET_WIZARD_STEPS.length}:
+                </span>
+                <span className="text-xs font-bold text-blue-700">
+                  {ASSET_WIZARD_STEPS[activeTab].label}
+                </span>
+              </div>
+              <span className="text-[11px] font-medium text-slate-500">
+                {Math.round(((activeTab + 1) / ASSET_WIZARD_STEPS.length) * 100)}% concluído
+              </span>
+            </div>
+
+            {/* Linha contínua e suave de progresso */}
+            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mb-4">
+              <div
+                className="bg-blue-600 h-full rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${((activeTab + 1) / ASSET_WIZARD_STEPS.length) * 100}%` }}
+              />
+            </div>
+
+            {/* Stepper com numeração moderna e agradável */}
+            <nav role="tablist" aria-label="Etapas da ficha técnica" className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {ASSET_WIZARD_STEPS.map((step, index) => {
+                const isActive = activeTab === index;
+                const isCompleted = activeTab > index;
+                return (
+                  <button
+                    key={step.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setActiveTab(index)}
+                    className={`group flex items-center gap-2 px-3 py-1.5 rounded-md text-xs transition-all cursor-pointer shrink-0 ${
+                      isActive
+                        ? 'bg-blue-50 text-blue-900 font-bold border border-blue-200 shadow-2xs'
+                        : isCompleted
+                        ? 'text-slate-700 hover:bg-slate-50 border border-transparent font-medium'
+                        : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 border border-transparent font-medium'
+                    }`}
+                  >
+                    <span
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors ${
+                        isActive
+                          ? 'bg-blue-700 text-white shadow-2xs'
+                          : isCompleted
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-slate-100 text-slate-500 border border-slate-200 group-hover:border-slate-300'
+                      }`}
+                    >
+                      {isCompleted ? <Check size={11} strokeWidth={2.5} /> : index + 1}
+                    </span>
+                    <span className="whitespace-nowrap hidden md:inline">
+                      {step.label}
+                    </span>
+                    <span className="whitespace-nowrap md:hidden">
+                      {step.shortLabel}
+                    </span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
             <div role="tabpanel" className="min-h-[280px]">
                 {activeTab === 0 && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2108,7 +2169,6 @@ export const AssetsPage: React.FC = () => {
                 </div>
               </div>
             </form>
-          </div>
         </SecondaryView>
 
       {/* ==========================================

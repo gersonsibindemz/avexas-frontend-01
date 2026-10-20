@@ -62,7 +62,7 @@ export const SecondaryView: React.FC<SecondaryViewProps> = ({
     <div
       role="region"
       aria-label={title}
-      className={`absolute inset-0 z-30 bg-slate-50 flex flex-col min-h-full animate-fade-in ${className}`}
+      className={`absolute inset-0 z-30 bg-white flex flex-col min-h-full animate-fade-in ${className}`}
     >
       {/* Barra superior de navegação da Camada Secundária */}
       <header className="sticky top-0 z-20 bg-white border-b border-slate-200 px-4 md:px-8 py-3.5 shadow-xs flex items-center justify-between shrink-0">
