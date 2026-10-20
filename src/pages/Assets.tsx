@@ -32,11 +32,16 @@ import {
   FileSpreadsheet,
   Link,
   Camera,
-  Save
+  Save,
+  BarChart3,
+  History,
+  ShieldAlert
 } from 'lucide-react';
 import { draftService } from '../services/draftService';
 import { DraftConfirmModal } from '../components/DraftConfirmModal';
 import { DraftBanner } from '../components/DraftBanner';
+import { combinationService, TrailerRole, CombinationHistoryEntry } from '../services/combinationService';
+import { FleetOperationsReportModal } from '../components/FleetOperationsReportModal';
 
 interface Document {
   id: string;
@@ -299,19 +304,29 @@ export const AssetsPage: React.FC = () => {
 
   const [isCombinationsModalOpen, setIsCombinationsModalOpen] = useState(false);
   const [activeCombinations, setActiveCombinations] = useState<any[]>([]);
-  const [combTruckId, setCombTruckId] = useState('');
+  const [combTab, setCombTab] = useState<'active' | 'create' | 'history'>('active');
   const [combCode, setCombCode] = useState('');
-  const [combLeaderId, setCombLeaderId] = useState('');
-  const [combFollowerId, setCombFollowerId] = useState('');
+  const [combTruckId, setCombTruckId] = useState('');
+  const [combTrailers, setCombTrailers] = useState<{ trailerId: string; role: TrailerRole }[]>([
+    { trailerId: '', role: 'leader' }
+  ]);
+  const [allowOperationalOverride, setAllowOperationalOverride] = useState(false);
+  const [overrideJustification, setOverrideJustification] = useState('');
+  const [combinationHistory, setCombinationHistory] = useState<CombinationHistoryEntry[]>([]);
   const [loadingCombinations, setLoadingCombinations] = useState(false);
   const [submittingCombination, setSubmittingCombination] = useState(false);
   const [combinationError, setCombinationError] = useState<string | null>(null);
+
+  // Relatórios de Operação (Ativos & Conjuntos)
+  const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
+  const [selectedCombForReport, setSelectedCombForReport] = useState<string | null>(null);
 
   // Ativação da tecla ESC nos modais de Ativos
   useEscapeKey(() => setIsDocModalOpen(false), isDocModalOpen);
   useEscapeKey(() => setIsQrModalOpen(false), isQrModalOpen);
   useEscapeKey(() => setIsDeleteModalOpen(false), isDeleteModalOpen);
   useEscapeKey(() => setIsCombinationsModalOpen(false), isCombinationsModalOpen);
+  useEscapeKey(() => setIsReportsModalOpen(false), isReportsModalOpen);
 
   // Toasts / Feedbacks
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -418,33 +433,130 @@ export const AssetsPage: React.FC = () => {
     setIsCombinationsModalOpen(true);
     setCombTruckId('');
     setCombCode('');
-    setCombLeaderId('');
-    setCombFollowerId('');
+    setCombTrailers([{ trailerId: '', role: 'leader' }]);
+    setAllowOperationalOverride(false);
+    setOverrideJustification('');
+    setCombinationError(null);
+    setCombTab('active');
     fetchCombinations();
+    setCombinationHistory(combinationService.getHistory(user?.tenantId));
+  };
+
+  const handleAddTrailerSlot = () => {
+    setCombTrailers((prev) => [
+      ...prev,
+      { trailerId: '', role: prev.length === 0 ? 'leader' : 'follower' }
+    ]);
+  };
+
+  const handleRemoveTrailerSlot = (index: number) => {
+    setCombTrailers((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateTrailerSlot = (index: number, field: 'trailerId' | 'role', value: string) => {
+    setCombTrailers((prev) =>
+      prev.map((slot, i) => (i === index ? { ...slot, [field]: value } : slot))
+    );
   };
 
   const handleCreateCombination = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!combCode.trim() || !combTruckId || !combLeaderId) {
-      setCombinationError('Preencha o código, o camião trator e a trela líder.');
+    if (!combCode.trim() || !combTruckId) {
+      setCombinationError('Preencha o identificador do conjunto e selecione o veículo trator.');
+      return;
+    }
+
+    // Validação de trelas
+    const validTrailers = combTrailers.filter((t) => t.trailerId.trim() !== '');
+    if (validTrailers.length === 0) {
+      setCombinationError('Selecione pelo menos uma trela ou semirreboque para acoplar ao conjunto.');
+      return;
+    }
+
+    // Impedir selecionar a mesma trela mais de uma vez no mesmo conjunto
+    const trailerIds = validTrailers.map((t) => t.trailerId);
+    if (new Set(trailerIds).size !== trailerIds.length) {
+      setCombinationError('Não é permitido adicionar a mesma trela mais de uma vez no mesmo conjunto.');
+      return;
+    }
+
+    // REGRA 4: Impedir que o camião trator esteja simultaneamente associado a dois conjuntos ativos
+    const truckCheck = combinationService.checkTruckOccupied(combTruckId, activeCombinations);
+    if (truckCheck.isOccupied && !allowOperationalOverride) {
+      setCombinationError(`O veículo trator já se encontra associado ao conjunto ativo "${truckCheck.activeCombinationCode}". Desassocie-o primeiro ou valide a exceção operacional.`);
+      return;
+    }
+
+    // REGRA 4: Impedir que a mesma trela esteja simultaneamente associada a dois conjuntos ativos
+    for (const t of validTrailers) {
+      const trailerCheck = combinationService.checkTrailerOccupied(t.trailerId, activeCombinations);
+      if (trailerCheck.isOccupied && !allowOperationalOverride) {
+        const trailerAsset = assets.find((a) => a.id === t.trailerId);
+        const tag = trailerAsset?.code_tag || trailerAsset?.codeTag || 'Trela';
+        setCombinationError(`A trela [${tag}] já está associada ao conjunto ativo "${trailerCheck.activeCombinationCode}". É proibido associar a mesma trela a dois conjuntos em simultâneo. Desassocie-a primeiro ou valide a exceção operacional.`);
+        return;
+      }
+    }
+
+    // Se houver exceção, justificação é obrigatória
+    if (allowOperationalOverride && !overrideJustification.trim()) {
+      setCombinationError('Para autorizar a transferência de ativos com exceção operacional, deve preencher a justificação formal obrigatória.');
       return;
     }
 
     setSubmittingCombination(true);
     setCombinationError(null);
+
+    const leaderSlot = validTrailers.find((t) => t.role === 'leader') || validTrailers[0];
+    const followerSlot = validTrailers.find((t) => t.role === 'follower');
+
     try {
       await api.post('/fleet-combinations', {
         combination_code: combCode.trim(),
         truck_id: combTruckId,
-        leader_trailer_id: combLeaderId,
-        follower_trailer_id: combFollowerId || undefined
+        leader_trailer_id: leaderSlot?.trailerId || undefined,
+        follower_trailer_id: followerSlot?.trailerId || undefined,
+        trailers: validTrailers.map((t, idx) => ({
+          trailer_id: t.trailerId,
+          role: t.role,
+          order: idx + 1
+        })),
+        override_applied: allowOperationalOverride,
+        override_justification: allowOperationalOverride ? overrideJustification.trim() : undefined
       });
+
+      // REGRA 3: Registar auditoria de associação no histórico persistente com data, hora e utilizador
+      combinationService.logEvent(user?.tenantId, {
+        action: 'association',
+        combinationCode: combCode.trim(),
+        truckId: combTruckId,
+        truckCodeTag: assets.find((a) => a.id === combTruckId)?.code_tag,
+        truckName: assets.find((a) => a.id === combTruckId)?.name,
+        trailers: validTrailers.map((t) => {
+          const match = assets.find((a) => a.id === t.trailerId);
+          return {
+            id: t.trailerId,
+            codeTag: match?.code_tag || match?.codeTag,
+            name: match?.name,
+            role: t.role,
+            roleLabel: combinationService.getRoleLabel(t.role)
+          };
+        }),
+        performedByUserId: user?.id,
+        performedByUserName: user?.fullName || user?.email || 'Utilizador Responsável',
+        performedByUserEmail: user?.email,
+        reason: allowOperationalOverride ? `Exceção operacional validada: ${overrideJustification.trim()}` : undefined
+      });
+
       setCombCode('');
       setCombTruckId('');
-      setCombLeaderId('');
-      setCombFollowerId('');
+      setCombTrailers([{ trailerId: '', role: 'leader' }]);
+      setAllowOperationalOverride(false);
+      setOverrideJustification('');
       await fetchCombinations();
-      setSuccessMessage('Conjunto rodoviário criado com sucesso.');
+      setCombinationHistory(combinationService.getHistory(user?.tenantId));
+      setCombTab('active');
+      setSuccessMessage('Conjunto rodoviário criado e registado no histórico com sucesso.');
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       console.error('Erro ao criar conjunto rodoviário:', err);
@@ -454,11 +566,49 @@ export const AssetsPage: React.FC = () => {
     }
   };
 
-  const handleTerminateCombination = async (combinationId: string) => {
+  const handleTerminateCombination = async (combinationId: string, combObj?: any) => {
     try {
       await api.patch(`/fleet-combinations/${combinationId}/terminate`);
+
+      // REGRA 3: Registar desassociação no histórico de auditoria com data, hora e utilizador
+      const comb = combObj || activeCombinations.find((c) => c.id === combinationId);
+      const code = comb?.combination_code || comb?.combinationCode || 'CONJ';
+      const truckId = comb?.truck_id || comb?.truckId || comb?.tractor_id;
+      const leaderId = comb?.leader_trailer_id || comb?.leaderTrailerId;
+      const followerId = comb?.follower_trailer_id || comb?.followerTrailerId;
+
+      combinationService.logEvent(user?.tenantId, {
+        action: 'disassociation',
+        combinationId,
+        combinationCode: code,
+        truckId: truckId || '',
+        truckCodeTag: assets.find((a) => a.id === truckId)?.code_tag,
+        truckName: assets.find((a) => a.id === truckId)?.name,
+        trailers: [
+          ...(leaderId ? [{
+            id: leaderId,
+            codeTag: assets.find((a) => a.id === leaderId)?.code_tag,
+            name: assets.find((a) => a.id === leaderId)?.name,
+            role: 'leader' as TrailerRole,
+            roleLabel: 'Líder (Leader)'
+          }] : []),
+          ...(followerId ? [{
+            id: followerId,
+            codeTag: assets.find((a) => a.id === followerId)?.code_tag,
+            name: assets.find((a) => a.id === followerId)?.name,
+            role: 'follower' as TrailerRole,
+            roleLabel: 'Seguidora (Follower)'
+          }] : [])
+        ],
+        performedByUserId: user?.id,
+        performedByUserName: user?.fullName || user?.email || 'Utilizador Responsável',
+        performedByUserEmail: user?.email,
+        reason: 'Desassociação de conjunto operacional'
+      });
+
       setActiveCombinations((previous) => previous.filter((combination) => combination.id !== combinationId));
-      setSuccessMessage('Conjunto desassociado com sucesso.');
+      setCombinationHistory(combinationService.getHistory(user?.tenantId));
+      setSuccessMessage(`Conjunto ${code} desassociado e registado no histórico com sucesso.`);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       console.error('Erro ao desassociar conjunto:', err);
@@ -1587,10 +1737,11 @@ export const AssetsPage: React.FC = () => {
 
   const tractorAssets = assets.filter((asset) => {
     const type = (asset.asset_type || asset.assetType || '').toLowerCase();
-    return type === 'camião trator' || type === 'caminhao trator' || asset.category === 'vehicle_heavy';
+    const cat = (asset.category || '').toLowerCase();
+    return type.includes('trator') || type.includes('tractor') || cat === 'cat-03' || cat === 'vehicle_heavy' || type.includes('camião') || type.includes('cavalo');
   });
   const trailerAssets = assets.filter((asset) => {
-    const categoryName = asset.category.toLowerCase();
+    const categoryName = (asset.category || '').toLowerCase();
     const type = `${asset.asset_type || asset.assetType || ''} ${asset.asset_subtype || asset.assetSubtype || ''}`.toLowerCase();
     return asset.category === 'CAT-06' || categoryName.includes('reboque') || categoryName.includes('semirreboque') || /trela|reboque|semirreboque|dolly/.test(type);
   });
@@ -1698,15 +1849,34 @@ export const AssetsPage: React.FC = () => {
               {domain === 'fleet' && (
                 <>
                   <button
+                    onClick={handleOpenCombinationsModal}
+                    className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold py-2.5 px-3.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+                    title="Associação e Gestão de Conjuntos (Camião + Trelas)"
+                  >
+                    <Link size={15} className="text-blue-700" />
+                    <span>Conjuntos (Camião + Trelas)</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedCombForReport(null);
+                      setIsReportsModalOpen(true);
+                    }}
+                    className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold py-2.5 px-3.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+                    title="Relatório operacional de Custos, Manutenção, Quilometragem e Disponibilidade"
+                  >
+                    <BarChart3 size={15} className="text-slate-600" />
+                    <span>Relatórios Operacionais</span>
+                  </button>
+                  <button
                     onClick={() => {
                       setBatchFile(null);
                       setParsedBatchData([]);
                       setBatchError(null);
                       setIsBatchImportModalOpen(true);
                     }}
-                    className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+                    className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-medium py-2.5 px-3.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
                   >
-                    <FileSpreadsheet size={16} className="text-slate-500" />
+                    <FileSpreadsheet size={15} className="text-slate-500" />
                     <span>Importar em Lote</span>
                   </button>
                 </>
@@ -1996,6 +2166,17 @@ export const AssetsPage: React.FC = () => {
             <div role="tabpanel" className="min-h-[280px]">
                 {activeTab === 0 && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {formData.category === 'CAT-06' && (
+                      <div className="md:col-span-3 p-3 bg-blue-50/90 border border-blue-200 rounded-md text-xs text-blue-900 flex items-start gap-2.5">
+                        <Info size={16} className="text-blue-700 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <strong className="block font-semibold text-blue-950">Regra Operacional para Trelas e Reboques:</strong>
+                          <p className="leading-relaxed text-blue-900">
+                            Cada trela ou semirreboque deve ser registada individualmente com o seu próprio código de ativo único, chassi e matrícula. <strong>Não cadastre duas trelas num só registo de equipamento.</strong> O papel operacional no conjunto rodoviário (Líder / Leader ou Seguidora / Follower) é atribuído dinamicamente na funcionalidade <strong>Conjuntos (Camião + Trelas)</strong>.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Categoria *</label>
                       {domain === 'fleet' ? (
@@ -2861,178 +3042,620 @@ export const AssetsPage: React.FC = () => {
       <SecondaryView
         isOpen={isCombinationsModalOpen}
         onClose={() => setIsCombinationsModalOpen(false)}
-        title="Gestão de Conjuntos (Camião + Trelas)"
-        subtitle="Associação dinâmica de cavalo mecânico, trela líder e trela seguidora"
+        title="Gestão de Conjuntos Rodoviários (Camião + Trelas)"
+        subtitle="Associação operacional flexível com histórico de auditoria e controle de ativos individuais"
         backLabel="Voltar para Ativos"
         icon={<Link size={18} />}
         maxWidthClass="max-w-5xl mx-auto"
       >
         <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden p-6 md:p-8 space-y-6">
-              <form onSubmit={handleCreateCombination} className="border border-slate-200 rounded-md p-4 space-y-4">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Nova Associação</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="combinationCode" className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Identificador do Conjunto *
-                    </label>
-                    <input
-                      id="combinationCode"
-                      required
-                      value={combCode}
-                      onChange={(event) => setCombCode(event.target.value)}
-                      placeholder="Ex: CONJ-001"
-                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="combTruck" className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Veículo Trator *
-                    </label>
-                    <select
-                      id="combTruck"
-                      required
-                      value={combTruckId}
-                      onChange={(event) => setCombTruckId(event.target.value)}
-                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
-                    >
-                      <option value="">Selecione o camião trator...</option>
-                      {tractorAssets.map((asset) => (
-                        <option key={asset.id} value={asset.id}>
-                          {asset.code_tag || asset.codeTag || asset.name} - {asset.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="combLeader" className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Trela Líder *
-                    </label>
-                    <select
-                      id="combLeader"
-                      required
-                      value={combLeaderId}
-                      onChange={(event) => {
-                        setCombLeaderId(event.target.value);
-                        if (event.target.value === combFollowerId) setCombFollowerId('');
-                      }}
-                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
-                    >
-                      <option value="">Selecione a trela líder...</option>
-                      {trailerAssets.map((asset) => (
-                        <option key={asset.id} value={asset.id}>
-                          {asset.code_tag || asset.codeTag || asset.name} - {asset.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="combFollower" className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Trela Seguidora (Opcional)
-                    </label>
-                    <select
-                      id="combFollower"
-                      value={combFollowerId}
-                      onChange={(event) => setCombFollowerId(event.target.value)}
-                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
-                    >
-                      <option value="">Sem trela seguidora</option>
-                      {trailerAssets.filter((asset) => asset.id !== combLeaderId).map((asset) => (
-                        <option key={asset.id} value={asset.id}>
-                          {asset.code_tag || asset.codeTag || asset.name} - {asset.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                {combinationError && (
-                  <p role="alert" className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-md p-2.5">
-                    {combinationError}
-                  </p>
-                )}
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={submittingCombination || !combCode.trim() || !combTruckId || !combLeaderId}
-                    className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {submittingCombination && <Loader2 size={14} className="animate-spin" />}
-                    <span>{submittingCombination ? 'A criar...' : 'Criar Conjunto'}</span>
-                  </button>
-                </div>
-              </form>
+          
+          {/* Barra Superior de Navegação por Abas e Ações */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setCombTab('active')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  combTab === 'active'
+                    ? 'bg-white text-blue-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>Conjuntos Ativos</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                  combTab === 'active' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {activeCombinations.length}
+                </span>
+              </button>
 
-              <section className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                    Conjuntos Ativos ({activeCombinations.length})
-                  </h3>
+              <button
+                type="button"
+                onClick={() => setCombTab('create')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  combTab === 'create'
+                    ? 'bg-white text-blue-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Plus size={13} />
+                <span>Nova Associação</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCombTab('history');
+                  setCombinationHistory(combinationService.getHistory(user?.tenantId));
+                }}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  combTab === 'history'
+                    ? 'bg-white text-blue-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <History size={13} />
+                <span>Histórico de Auditoria</span>
+                {combinationHistory.length > 0 && (
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                    combTab === 'history' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {combinationHistory.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCombForReport('all');
+                  setIsReportsModalOpen(true);
+                }}
+                className="px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Consultar custos, manutenção, quilometragem e documentação consolidados"
+              >
+                <BarChart3 size={14} />
+                <span>Relatórios de Operação</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  fetchCombinations();
+                  setCombinationHistory(combinationService.getHistory(user?.tenantId));
+                }}
+                disabled={loadingCombinations}
+                className="p-1.5 text-slate-600 hover:text-slate-900 border border-slate-300 rounded-md cursor-pointer disabled:opacity-50"
+                title="Atualizar dados"
+              >
+                <RefreshCw size={14} className={loadingCombinations ? 'animate-spin' : ''} />
+              </button>
+            </div>
+          </div>
+
+          {/* TAB 1: CONJUNTOS ATIVOS */}
+          {combTab === 'active' && (
+            <div className="space-y-4">
+              {loadingCombinations ? (
+                <div className="py-12 text-center text-xs text-slate-500">
+                  <Loader2 size={24} className="animate-spin mx-auto mb-2 text-blue-600" />
+                  A carregar conjuntos rodoviários...
+                </div>
+              ) : activeCombinations.length === 0 ? (
+                <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 p-6 space-y-3">
+                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto">
+                    <Link size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-800">Nenhum conjunto rodoviário ativo</h4>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                      Associe camiões tratores a uma ou mais trelas (simples, bitrem, rodotrem) para controle operacional e agregação de relatórios.
+                    </p>
+                  </div>
                   <button
                     type="button"
-                    onClick={fetchCombinations}
-                    disabled={loadingCombinations}
-                    className="p-2 text-slate-600 hover:text-slate-900 border border-slate-300 rounded-md cursor-pointer disabled:opacity-50"
-                    title="Atualizar conjuntos"
+                    onClick={() => setCombTab('create')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-md cursor-pointer transition-colors"
                   >
-                    <RefreshCw size={14} className={loadingCombinations ? 'animate-spin' : ''} />
+                    <Plus size={14} />
+                    <span>Criar Primeira Associação</span>
                   </button>
                 </div>
-                {loadingCombinations ? (
-                  <div className="py-8 text-center text-xs text-slate-500">
-                    <Loader2 size={20} className="animate-spin mx-auto mb-2" />
-                    A carregar conjuntos...
-                  </div>
-                ) : activeCombinations.length === 0 ? (
-                  <div className="py-8 text-center border border-dashed border-slate-300 rounded-md text-xs text-slate-500">
-                    Não existem conjuntos ativos.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto border border-slate-200 rounded-md">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 text-slate-600 uppercase text-[10px]">
-                        <tr>
-                          <th className="px-3 py-2.5">Código</th>
-                          <th className="px-3 py-2.5">Camião Trator</th>
-                          <th className="px-3 py-2.5">Trela Líder</th>
-                          <th className="px-3 py-2.5">Trela Seguidora</th>
-                          <th className="px-3 py-2.5">Data de Início</th>
-                          <th className="px-3 py-2.5 text-right">Ação</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {activeCombinations.map((combination) => {
-                          const truckId = combination.truck_id || combination.truckId || combination.tractor_id || combination.tractorId;
-                          const leaderId = combination.leader_trailer_id || combination.leaderTrailerId || combination.leader_id || combination.leaderId;
-                          const followerId = combination.follower_trailer_id || combination.followerTrailerId || combination.follower_id || combination.followerId;
-                          const combinationId = combination.id || combination._id;
-                          const startedAt = combination.started_at || combination.start_date || combination.created_at || combination.startedAt || combination.createdAt;
+              ) : (
+                <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] tracking-wider font-semibold border-b border-slate-200">
+                      <tr>
+                        <th className="px-4 py-3">Código do Conjunto</th>
+                        <th className="px-4 py-3">Camião Trator</th>
+                        <th className="px-4 py-3">Composição de Trelas & Papéis</th>
+                        <th className="px-4 py-3">Início</th>
+                        <th className="px-4 py-3 text-right">Ações Operacionais</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {activeCombinations.map((combination) => {
+                        const truckId = combination.truck_id || combination.truckId || combination.tractor_id || combination.tractorId;
+                        const combinationId = combination.id || combination._id;
+                        const startedAt = combination.started_at || combination.start_date || combination.created_at || combination.startedAt || combination.createdAt;
 
-                          return (
-                            <tr key={combinationId || combination.combination_code || combination.combinationCode}>
-                              <td className="px-3 py-3 font-mono font-semibold text-blue-700">{combination.combination_code || combination.combinationCode || combination.code || '—'}</td>
-                              <td className="px-3 py-3 text-slate-700">{getCombinationAssetName(truckId, combination.truck || combination.tractor)}</td>
-                              <td className="px-3 py-3 text-slate-700">{getCombinationAssetName(leaderId, combination.leader_trailer || combination.leaderTrailer || combination.leader)}</td>
-                              <td className="px-3 py-3 text-slate-700">{getCombinationAssetName(followerId, combination.follower_trailer || combination.followerTrailer || combination.follower)}</td>
-                              <td className="px-3 py-3 text-slate-600">{startedAt ? new Date(startedAt).toLocaleDateString('pt-MZ') : '—'}</td>
-                              <td className="px-3 py-3 text-right">
+                        // Determina trelas e papéis
+                        const hasDynamicTrailers = Array.isArray(combination.trailers) && combination.trailers.length > 0;
+                        const leaderId = combination.leader_trailer_id || combination.leaderTrailerId || combination.leader_id || combination.leaderId;
+                        const followerId = combination.follower_trailer_id || combination.followerTrailerId || combination.follower_id || combination.followerId;
+
+                        return (
+                          <tr key={combinationId || combination.combination_code || combination.combinationCode} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="px-4 py-3.5 align-top">
+                              <span className="font-mono font-bold text-blue-700 text-xs bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                {combination.combination_code || combination.combinationCode || combination.code || '—'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 align-top">
+                              <div className="font-semibold text-slate-800">
+                                {getCombinationAssetName(truckId, combination.truck || combination.tractor)}
+                              </div>
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                {assets.find((a) => a.id === truckId)?.code_tag || 'Camião Trator'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 align-top">
+                              <div className="space-y-1.5">
+                                {hasDynamicTrailers ? (
+                                  combination.trailers.map((t: any, idx: number) => {
+                                    const tId = t.trailer_id || t.trailerId || t.id;
+                                    const tAsset = assets.find((a) => a.id === tId) || t.trailer;
+                                    const roleStr = t.role || (idx === 0 ? 'leader' : 'follower');
+                                    return (
+                                      <div key={idx} className="flex items-center gap-1.5">
+                                        <span className={`inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold border ${
+                                          roleStr === 'leader'
+                                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                            : roleStr === 'follower'
+                                            ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                                        }`}>
+                                          {combinationService.getRoleLabel(roleStr)}
+                                        </span>
+                                        <span className="text-xs text-slate-700 font-medium">
+                                          {tAsset?.code_tag ? `[${tAsset.code_tag}] ` : ''}{tAsset?.name || tId}
+                                        </span>
+                                      </div>
+                                    );
+                                  })
+                                ) : (
+                                  <>
+                                    {leaderId && (
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                          Líder (Leader)
+                                        </span>
+                                        <span className="text-xs text-slate-700 font-medium">
+                                          {getCombinationAssetName(leaderId, combination.leader_trailer || combination.leaderTrailer || combination.leader)}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {followerId && (
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                          Seguidora (Follower)
+                                        </span>
+                                        <span className="text-xs text-slate-700 font-medium">
+                                          {getCombinationAssetName(followerId, combination.follower_trailer || combination.followerTrailer || combination.follower)}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {!leaderId && !followerId && (
+                                      <span className="text-xs text-slate-400 italic">Sem trelas vinculadas</span>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5 align-top text-slate-600">
+                              {startedAt ? new Date(startedAt).toLocaleDateString('pt-MZ') : '—'}
+                            </td>
+                            <td className="px-4 py-3.5 align-top text-right">
+                              <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   type="button"
-                                  onClick={() => combinationId && handleTerminateCombination(combinationId)}
+                                  onClick={() => {
+                                    setSelectedCombForReport(combinationId);
+                                    setIsReportsModalOpen(true);
+                                  }}
+                                  className="px-2.5 py-1.5 text-[11px] font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-colors cursor-pointer flex items-center gap-1"
+                                  title="Ver relatório de custos, manutenção e quilometragem"
+                                >
+                                  <BarChart3 size={12} />
+                                  <span>Relatório</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => combinationId && handleTerminateCombination(combinationId, combination)}
                                   disabled={!combinationId}
-                                  className="px-2.5 py-1.5 text-[10px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md cursor-pointer disabled:opacity-50"
+                                  className="px-2.5 py-1.5 text-[11px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                                  title="Desassociar e registar término no histórico de auditoria"
                                 >
                                   Desassociar (Terminar)
                                 </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </section>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-        </SecondaryView>
+          )}
+
+          {/* TAB 2: NOVA ASSOCIAÇÃO DINÂMICA */}
+          {combTab === 'create' && (
+            <form onSubmit={handleCreateCombination} className="space-y-6">
+              
+              {/* Nota de boas práticas operacionais */}
+              <div className="bg-blue-50/60 border border-blue-200 rounded-lg p-3.5 text-xs text-blue-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <Info size={14} className="text-blue-600" />
+                  <span>Regra Operacional para Trelas e Conjuntos:</span>
+                </div>
+                <p className="text-blue-800 leading-relaxed">
+                  Cada camião e cada trela possuem registo de equipamento individual e código de ativo único. O papel da trela (Líder / Seguidora) é uma associação operacional dinâmica e configurável, permitindo 1 trela simples, 2 trelas (Bitrem) ou mais (Rodotrem).
+                </p>
+              </div>
+
+              {/* Bloco 1: Código e Camião Trator */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="combinationCode" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Identificador / Código do Conjunto *
+                  </label>
+                  <input
+                    id="combinationCode"
+                    required
+                    value={combCode}
+                    onChange={(event) => setCombCode(event.target.value)}
+                    placeholder="Ex: CONJ-001, BITREM-01"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">Código de identificação operacional do conjunto rodoviário.</p>
+                </div>
+
+                <div>
+                  <label htmlFor="combTruck" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Veículo Trator (Camião / Cavalo Mecânico) *
+                  </label>
+                  <select
+                    id="combTruck"
+                    required
+                    value={combTruckId}
+                    onChange={(event) => setCombTruckId(event.target.value)}
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
+                  >
+                    <option value="">Selecione o veículo trator...</option>
+                    {tractorAssets.map((asset) => {
+                      const occ = combinationService.checkTruckOccupied(asset.id, activeCombinations);
+                      return (
+                        <option key={asset.id} value={asset.id}>
+                          {asset.code_tag || asset.codeTag || asset.name} - {asset.name}
+                          {occ.isOccupied ? ` (Já em uso no conjunto ${occ.activeCombinationCode})` : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {combTruckId && combinationService.checkTruckOccupied(combTruckId, activeCombinations).isOccupied && (
+                    <p className="text-[10px] text-amber-700 font-medium mt-1 flex items-center gap-1">
+                      <AlertTriangle size={11} />
+                      Este camião já está associado a outro conjunto ativo. Exceção operacional necessária.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Bloco 2: Trelas e Papéis Operacionais (Regras 5 e 6) */}
+              <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/40 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                      Trelas e Semirreboques Acoplados
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Configure o papel de cada trela no conjunto rodoviário. O sistema suporta 1 ou mais trelas acopladas.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddTrailerSlot}
+                    className="px-2.5 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors cursor-pointer flex items-center gap-1"
+                  >
+                    <Plus size={13} />
+                    <span>Adicionar Trela</span>
+                  </button>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  {combTrailers.map((slot, index) => {
+                    const occ = slot.trailerId ? combinationService.checkTrailerOccupied(slot.trailerId, activeCombinations) : { isOccupied: false };
+                    return (
+                      <div key={index} className="bg-white border border-slate-200 rounded-md p-3 shadow-2xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-slate-600 uppercase">
+                            Posição #{index + 1}
+                          </span>
+                          {combTrailers.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTrailerSlot(index)}
+                              className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1 cursor-pointer"
+                              title="Remover esta trela"
+                            >
+                              <Trash2 size={12} />
+                              <span>Remover</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                          <div className="md:col-span-7">
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                              Equipamento Trela / Reboque *
+                            </label>
+                            <select
+                              required
+                              value={slot.trailerId}
+                              onChange={(e) => handleUpdateTrailerSlot(index, 'trailerId', e.target.value)}
+                              className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer"
+                            >
+                              <option value="">Selecione a trela...</option>
+                              {trailerAssets.map((asset) => {
+                                const trOcc = combinationService.checkTrailerOccupied(asset.id, activeCombinations);
+                                return (
+                                  <option key={asset.id} value={asset.id}>
+                                    {asset.code_tag || asset.codeTag || asset.name} - {asset.name}
+                                    {trOcc.isOccupied ? ` (Já no conjunto ${trOcc.activeCombinationCode})` : ''}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                            {occ.isOccupied && (
+                              <p className="text-[10px] text-amber-700 font-medium mt-1 flex items-center gap-1">
+                                <AlertTriangle size={11} />
+                                Já associada ao conjunto ativo "{occ.activeCombinationCode}".
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="md:col-span-5">
+                            {/* RÓTULO EXATO EXIGIDO PELA ESPECIFICAÇÃO */}
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                              Papel da trela no conjunto *
+                            </label>
+                            <select
+                              required
+                              value={slot.role}
+                              onChange={(e) => handleUpdateTrailerSlot(index, 'role', e.target.value as TrailerRole)}
+                              className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none cursor-pointer font-medium"
+                            >
+                              <option value="leader">Líder (Leader)</option>
+                              <option value="follower">Seguidora (Follower)</option>
+                              <option value="dolly">Dolly / Intermediária (Dolly / Intermediate)</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Bloco 3: Exceção Operacional Validada (Regra 4) */}
+              {(combinationService.checkTruckOccupied(combTruckId, activeCombinations).isOccupied ||
+                combTrailers.some((t) => t.trailerId && combinationService.checkTrailerOccupied(t.trailerId, activeCombinations).isOccupied)) && (
+                <div className="border border-amber-300 bg-amber-50/70 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start gap-2">
+                    <ShieldAlert size={18} className="text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-xs font-bold text-amber-900 uppercase">
+                        Autorização de Exceção Operacional Necessária
+                      </h4>
+                      <p className="text-xs text-amber-800 mt-0.5">
+                        Por regra, uma trela ou camião não pode estar simultaneamente em dois conjuntos ativos. Para transferir ou sobrepor este ativo, deve validar expressamente a exceção operacional com justificativa formal.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={allowOperationalOverride}
+                        onChange={(e) => setAllowOperationalOverride(e.target.checked)}
+                        className="rounded border-amber-400 text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-xs font-bold text-amber-950">
+                        Autorizar exceção operacional e reatribuição de ativo em conjunto
+                      </span>
+                    </label>
+
+                    {allowOperationalOverride && (
+                      <div className="mt-3">
+                        <label className="block text-xs font-semibold text-amber-900 mb-1">
+                          Justificativa Operacional e Validação *
+                        </label>
+                        <textarea
+                          required
+                          value={overrideJustification}
+                          onChange={(e) => setOverrideJustification(e.target.value)}
+                          placeholder="Informe o motivo formal da exceção (ex: substituição emergencial de cavalo mecânico na rota X, autorizada pela gerência)..."
+                          rows={2}
+                          className="w-full bg-white border border-amber-300 focus:border-amber-600 focus:ring-1 focus:ring-amber-600 rounded-md p-2.5 text-xs text-slate-900 focus:outline-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {combinationError && (
+                <div role="alert" className="text-xs text-red-800 bg-red-50 border border-red-200 rounded-md p-3 flex items-start gap-2">
+                  <AlertTriangle size={15} className="text-red-600 shrink-0 mt-0.5" />
+                  <span>{combinationError}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCombTab('active')}
+                  className="px-4 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingCombination || !combCode.trim() || !combTruckId || combTrailers.every((t) => !t.trailerId)}
+                  className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold py-2 px-5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
+                >
+                  {submittingCombination && <Loader2 size={14} className="animate-spin" />}
+                  <span>{submittingCombination ? 'A associar...' : 'Ativar e Registar Conjunto'}</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* TAB 3: HISTÓRICO DE AUDITORIA (REGRA 3) */}
+          {combTab === 'history' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                    Histórico de Alterações e Associações
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Registo rastreável de todas as associações e desassociações com data, hora, utilizador responsável e composição.
+                  </p>
+                </div>
+                {combinationHistory.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Deseja limpar o histórico local de auditoria?')) {
+                        combinationService.clearHistory(user?.tenantId);
+                        setCombinationHistory([]);
+                      }
+                    }}
+                    className="text-[11px] text-slate-500 hover:text-red-600 cursor-pointer flex items-center gap-1"
+                  >
+                    <Trash2 size={12} />
+                    <span>Limpar histórico</span>
+                  </button>
+                )}
+              </div>
+
+              {combinationHistory.length === 0 ? (
+                <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 p-6 space-y-2">
+                  <History size={24} className="mx-auto text-slate-400" />
+                  <p className="text-xs text-slate-500">
+                    Nenhum registo de alteração no histórico até ao momento. Todas as associações e desassociações efetuadas serão registradas aqui automaticamente.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] tracking-wider font-semibold border-b border-slate-200">
+                      <tr>
+                        <th className="px-3.5 py-3">Data e Hora</th>
+                        <th className="px-3.5 py-3">Operação</th>
+                        <th className="px-3.5 py-3">Conjunto</th>
+                        <th className="px-3.5 py-3">Camião Trator</th>
+                        <th className="px-3.5 py-3">Trelas e Papéis</th>
+                        <th className="px-3.5 py-3">Utilizador Responsável</th>
+                        <th className="px-3.5 py-3">Observações / Validação</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {combinationHistory.map((item) => (
+                        <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="px-3.5 py-3 text-slate-600 whitespace-nowrap font-mono text-[11px]">
+                            {new Date(item.timestamp).toLocaleString('pt-MZ', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit'
+                            })}
+                          </td>
+                          <td className="px-3.5 py-3 whitespace-nowrap">
+                            {item.action === 'association' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                Associação
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                Desassociação
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3.5 py-3 font-mono font-bold text-slate-800">
+                            {item.combinationCode}
+                          </td>
+                          <td className="px-3.5 py-3 text-slate-800">
+                            {item.truckCodeTag ? `[${item.truckCodeTag}] ` : ''}{item.truckName || '—'}
+                          </td>
+                          <td className="px-3.5 py-3">
+                            <div className="space-y-1">
+                              {item.trailers.map((tr, idx) => (
+                                <div key={idx} className="flex items-center gap-1.5 text-[11px]">
+                                  <span className={`inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-semibold border ${
+                                    tr.role === 'leader'
+                                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                      : tr.role === 'follower'
+                                      ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                                  }`}>
+                                    {tr.roleLabel || tr.role}
+                                  </span>
+                                  <span className="text-slate-700">
+                                    {tr.codeTag ? `[${tr.codeTag}] ` : ''}{tr.name || tr.id}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-3.5 py-3">
+                            <div className="font-semibold text-slate-800">{item.performedByUserName}</div>
+                            {item.performedByUserEmail && (
+                              <div className="text-[10px] text-slate-500">{item.performedByUserEmail}</div>
+                            )}
+                          </td>
+                          <td className="px-3.5 py-3 text-[11px] text-slate-600 max-w-xs truncate">
+                            {item.reason || '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+      </SecondaryView>
+
+      {/* Modal Operacional de Relatórios Consolidados (Regra 7) */}
+      <FleetOperationsReportModal
+        isOpen={isReportsModalOpen}
+        onClose={() => setIsReportsModalOpen(false)}
+        activeCombinations={activeCombinations}
+        assets={assets}
+        preselectedCombinationId={selectedCombForReport}
+      />
 
       {/* Modal de Confirmação para Salvar como Rascunho */}
       <DraftConfirmModal
