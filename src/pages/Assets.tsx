@@ -620,24 +620,37 @@ export const AssetsPage: React.FC = () => {
   };
 
   const validateForm = (): boolean => {
+    // ---------------------------------------------------------------
+    // 1. Identificação Geral (Etapa 1 / Tab 0)
+    // ---------------------------------------------------------------
     if (!formData.name.trim()) {
       setActiveTab(0);
-      showAlert({ title: 'Campo Obrigatório', message: 'O Nome do Ativo é obrigatório.', type: 'warning' });
+      showAlert({ title: 'Campo Obrigatório', message: 'O Nome / Designação do Ativo é obrigatório.', type: 'warning' });
+      return false;
+    }
+    if (!formData.code_tag.trim()) {
+      setActiveTab(0);
+      showAlert({ title: 'Campo Obrigatório', message: 'O Código / Tag do Ativo é obrigatório para identificação física e etiquetas QR Code.', type: 'warning' });
       return false;
     }
     if (!formData.cost_center.trim()) {
       setActiveTab(0);
-      showAlert({ title: 'Campo Obrigatório', message: 'O Centro de Custo é obrigatório.', type: 'warning' });
+      showAlert({ title: 'Campo Obrigatório', message: 'O Centro de Custo é obrigatório para apropriação contabilística.', type: 'warning' });
       return false;
     }
-    if (!formData.model.trim()) {
-      setActiveTab(1);
-      showAlert({ title: 'Campo Obrigatório', message: 'O Modelo é obrigatório.', type: 'warning' });
+    if (!formData.status?.trim()) {
+      setActiveTab(0);
+      showAlert({ title: 'Campo Obrigatório', message: 'A Situação Operacional / Estado do Ativo é obrigatória.', type: 'warning' });
+      return false;
+    }
+    if (!formData.criticality_level?.trim()) {
+      setActiveTab(0);
+      showAlert({ title: 'Campo Obrigatório', message: 'O Nível de Criticidade do Ativo é obrigatório.', type: 'warning' });
       return false;
     }
     if (domain === 'fleet' && !formData.asset_type.trim()) {
       setActiveTab(0);
-      showAlert({ title: 'Campo Obrigatório', message: 'O Tipo de Equipamento é obrigatório.', type: 'warning' });
+      showAlert({ title: 'Campo Obrigatório', message: 'O Tipo de Equipamento é obrigatório para viaturas de frota.', type: 'warning' });
       return false;
     }
     if (domain === 'fleet' && formData.asset_type === 'Outro tipo (especificar)' && !formData.custom_asset_type?.trim()) {
@@ -650,6 +663,84 @@ export const AssetsPage: React.FC = () => {
       showAlert({ title: 'Campo Obrigatório', message: 'Por favor, especifique o Subtipo / Configuração.', type: 'warning' });
       return false;
     }
+
+    // ---------------------------------------------------------------
+    // 2. Fabricante e Modelo (Etapa 2 / Tab 1)
+    // ---------------------------------------------------------------
+    if (!formData.brand.trim()) {
+      setActiveTab(1);
+      showAlert({ title: 'Campo Obrigatório', message: 'A Marca / Fabricante do Ativo é obrigatória.', type: 'warning' });
+      return false;
+    }
+    if (!formData.model.trim()) {
+      setActiveTab(1);
+      showAlert({ title: 'Campo Obrigatório', message: 'O Modelo do Ativo é obrigatório.', type: 'warning' });
+      return false;
+    }
+
+    // Validações específicas de Veículos / Frotas
+    if (domain === 'fleet') {
+      if (!formData.license_plate.trim()) {
+        setActiveTab(1);
+        showAlert({ title: 'Campo Obrigatório', message: 'A Matrícula Regulamentar é obrigatória para viaturas de frota.', type: 'warning' });
+        return false;
+      }
+      if (!formData.chassis_vin.trim()) {
+        setActiveTab(1);
+        showAlert({ title: 'Campo Obrigatório', message: 'O Número de Chassis / VIN é obrigatório para viaturas de frota.', type: 'warning' });
+        return false;
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // 3. Características Técnicas (Etapa 3 / Tab 2)
+    // ---------------------------------------------------------------
+    if (domain === 'fleet') {
+      const fuelValue = formData.technical_specs?.fuel?.trim() || formData.energy_type?.trim();
+      if (!fuelValue) {
+        setActiveTab(2);
+        showAlert({ title: 'Campo Obrigatório', message: 'O Tipo de Combustível / Energia é obrigatório para viaturas de frota.', type: 'warning' });
+        return false;
+      }
+    }
+
+    if (domain === 'plant') {
+      if (!formData.plant_sector.trim()) {
+        setActiveTab(2);
+        showAlert({ title: 'Campo Obrigatório', message: 'O Setor Fabril / Linha de Produção é obrigatório para equipamentos industriais.', type: 'warning' });
+        return false;
+      }
+      if (!formData.power_kw_kva || formData.power_kw_kva.trim() === '') {
+        setActiveTab(2);
+        showAlert({ title: 'Campo Obrigatório', message: 'A Potência (kW / kVA) é obrigatória para equipamentos industriais.', type: 'warning' });
+        return false;
+      }
+      if (!formData.voltage_specs.trim()) {
+        setActiveTab(2);
+        showAlert({ title: 'Campo Obrigatório', message: 'A Especificação de Tensão / Voltagem é obrigatória para equipamentos industriais.', type: 'warning' });
+        return false;
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // 4. Operação & Medidores (Etapa 4 / Tab 3)
+    // ---------------------------------------------------------------
+    if (domain === 'fleet') {
+      if (formData.current_meter === '' || formData.current_meter === undefined || formData.current_meter === null) {
+        setActiveTab(3);
+        showAlert({ title: 'Campo Obrigatório', message: 'O Medidor / Odómetro Atual é obrigatório para viaturas de frota.', type: 'warning' });
+        return false;
+      }
+    }
+
+    if (domain === 'plant') {
+      if (formData.initial_meter === '' || formData.initial_meter === undefined || formData.initial_meter === null) {
+        setActiveTab(3);
+        showAlert({ title: 'Campo Obrigatório', message: 'O Medidor / Horímetro Inicial é obrigatório para equipamentos industriais.', type: 'warning' });
+        return false;
+      }
+    }
+
     return true;
   };
 
@@ -718,7 +809,12 @@ export const AssetsPage: React.FC = () => {
       ...formData,
       // Categoria convertida para o conjunto canónico aceite pelo backend.
       category: modalMode === 'create' ? toBackendCategory(formData.category, domain) : undefined,
-      codeTag: formData.code_tag,
+      code_tag: formData.code_tag.trim(),
+      codeTag: formData.code_tag.trim(),
+      name: formData.name.trim(),
+      brand: formData.brand.trim(),
+      model: formData.model.trim(),
+      asset_type: finalAssetType || undefined,
       assetType: finalAssetType || undefined,
       asset_subtype: finalAssetSubtype || undefined,
       assetSubtype: finalAssetSubtype || undefined,
@@ -728,13 +824,16 @@ export const AssetsPage: React.FC = () => {
       ownershipType: formData.ownership_type,
       axle_config: axleConfig,
       axleConfig,
+      criticality_level: formData.criticality_level,
       criticalityLevel: formData.criticality_level,
       manufacture_year: manufactureYear,
       manufactureYear,
-      costCenter: formData.cost_center,
+      cost_center: formData.cost_center.trim(),
+      costCenter: formData.cost_center.trim(),
       meter_kind: meterKind,
       meterKind,
       initial_meter: initialMeter,
+      initialMeter,
       current_meter: currentMeter,
       currentMeter,
       measurement_unit: formData.meter_unit || undefined,
@@ -748,13 +847,18 @@ export const AssetsPage: React.FC = () => {
       color_config: formData.color || undefined,
       acquisition_value: acquisitionValue,
       acquisitionValue,
-      licensePlate: formData.license_plate,
-      chassisVin: formData.chassis_vin,
-      engineNumber: formData.engine_number,
+      license_plate: formData.license_plate.trim() || undefined,
+      licensePlate: formData.license_plate.trim() || undefined,
+      chassis_vin: formData.chassis_vin.trim() || undefined,
+      chassisVin: formData.chassis_vin.trim() || undefined,
+      engine_number: formData.engine_number.trim() || undefined,
+      engineNumber: formData.engine_number.trim() || undefined,
       fuel_tank_capacity_liters: fuelTankCapacityLiters,
       fuelTankCapacityLiters,
-      plantSector: formData.plant_sector,
-      voltageSpecs: formData.voltage_specs,
+      plant_sector: formData.plant_sector.trim() || undefined,
+      plantSector: formData.plant_sector.trim() || undefined,
+      voltage_specs: formData.voltage_specs.trim() || undefined,
+      voltageSpecs: formData.voltage_specs.trim() || undefined,
       power_kw_kva: powerKwKva,
       powerKwKva,
       inatro_inspection_expiry: isVehicle ? formData.inspection_expiry || undefined : undefined,
@@ -1334,16 +1438,46 @@ export const AssetsPage: React.FC = () => {
   };
 
   const fieldClass = 'w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none';
-  const renderInput = (label: string, field: Exclude<keyof AssetFormData, 'technical_specs' | 'safety_checks'>, type = 'text', placeholder = '') => (
+  const renderInput = (
+    label: string,
+    field: Exclude<keyof AssetFormData, 'technical_specs' | 'safety_checks'>,
+    type = 'text',
+    placeholder = '',
+    required = false
+  ) => (
     <div>
-      <label className="block text-xs font-semibold text-slate-600 mb-1.5">{label}</label>
-      <input type={type} value={formData[field]} placeholder={placeholder} onChange={(e) => updateFormField(field, e.target.value)} className={fieldClass} />
+      <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+        {label}
+        {required && !label.includes('*') && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      <input
+        type={type}
+        required={required}
+        value={formData[field]}
+        placeholder={placeholder}
+        onChange={(e) => updateFormField(field, e.target.value)}
+        className={fieldClass}
+      />
     </div>
   );
-  const renderTechnicalInput = (label: string, field: keyof AssetFormData['technical_specs'], type = 'text') => (
+  const renderTechnicalInput = (
+    label: string,
+    field: keyof AssetFormData['technical_specs'],
+    type = 'text',
+    required = false
+  ) => (
     <div>
-      <label className="block text-xs font-semibold text-slate-600 mb-1.5">{label}</label>
-      <input type={type} value={formData.technical_specs[field]} onChange={(e) => updateTechnicalSpec(field, e.target.value)} className={fieldClass} />
+      <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+        {label}
+        {required && !label.includes('*') && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      <input
+        type={type}
+        required={required}
+        value={formData.technical_specs[field]}
+        onChange={(e) => updateTechnicalSpec(field, e.target.value)}
+        className={fieldClass}
+      />
     </div>
   );
   const renderSafetyInput = (label: string, field: keyof AssetFormData['safety_checks'], type = 'text') => (
@@ -1745,19 +1879,19 @@ export const AssetsPage: React.FC = () => {
                         </>
                       );
                     })()}
-                    {renderInput('Código do ativo', 'code_tag', 'text', 'Gerado automaticamente se vazio')}
-                    {renderInput('Nome / Designação *', 'name', 'text', 'Nome do equipamento')}
+                    {renderInput('Código do Ativo / Tag *', 'code_tag', 'text', 'ex: CAM-001, GER-01', true)}
+                    {renderInput('Nome / Designação *', 'name', 'text', 'Nome do equipamento', true)}
                     {renderInput('Empresa', 'company')}
                     {renderInput('Departamento', 'department')}
-                    {renderInput('Centro de custo *', 'cost_center')}
+                    {renderInput('Centro de Custo *', 'cost_center', 'text', 'ex: LOG-2026, OPER-01', true)}
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Estado</label>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Estado / Situação Operacional *</label>
                       <select value={formData.status} onChange={(e) => updateFormField('status', e.target.value)} className={fieldClass}>
                         <option value="operational">Operacional</option><option value="under_maintenance">Em manutenção</option><option value="breakdown">Avariado</option><option value="decommissioned">Abatido</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Criticidade</label>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Nível de Criticidade *</label>
                       <select value={formData.criticality_level} onChange={(e) => updateFormField('criticality_level', e.target.value)} className={fieldClass}>
                         <option value="A">A - Alta</option><option value="B">B - Média</option><option value="C">C - Baixa</option>
                       </select>
@@ -1800,20 +1934,20 @@ export const AssetsPage: React.FC = () => {
                 )}
 
                 {activeTab === 1 && <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {renderInput('Marca', 'brand')}
-                  {renderInput('Modelo *', 'model')}
+                  {renderInput('Marca / Fabricante *', 'brand', 'text', 'ex: Scania, Caterpillar, Volvo', true)}
+                  {renderInput('Modelo *', 'model', 'text', 'ex: R450, 320D', true)}
                   {renderInput('Ano de fabrico', 'manufacture_year', 'number')}
                   {renderInput('Nº de série', 'serial_number')}
-                  {renderInput('Chassis / VIN', 'chassis_vin')}
+                  {renderInput(domain === 'fleet' ? 'Chassis / VIN *' : 'Chassis / VIN', 'chassis_vin', 'text', 'ex: 9BWZZZ...', domain === 'fleet')}
                   {renderInput('Nº do motor', 'engine_number')}
                   {renderInput('Cor', 'color')}
-                  {renderInput('Matrícula / Identificação', 'license_plate')}
+                  {renderInput(domain === 'fleet' ? 'Matrícula Regulamentar *' : 'Matrícula / Identificação', 'license_plate', 'text', 'ex: ABC 123 MC', domain === 'fleet')}
                 </div>}
 
                 {activeTab === 2 && <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {renderTechnicalInput('Motor', 'engine_type')}
                   {renderTechnicalInput('Potência', 'power')}
-                  {renderTechnicalInput('Combustível', 'fuel')}
+                  {renderTechnicalInput(domain === 'fleet' ? 'Combustível / Energia *' : 'Combustível', 'fuel', 'text', domain === 'fleet')}
                   {renderTechnicalInput('Transmissão', 'transmission')}
                   {renderTechnicalInput('Tração', 'traction')}
                   {renderTechnicalInput('Eixos', 'axles')}
@@ -1822,15 +1956,27 @@ export const AssetsPage: React.FC = () => {
                   {renderTechnicalInput('Consumo', 'consumption')}
                   {renderTechnicalInput('Pneus', 'tire_size')}
                   {domain === 'plant' && <>
-                    {renderInput('Setor fabril', 'plant_sector')}
-                    {renderInput('Especificação de tensão', 'voltage_specs')}
-                    {renderInput('Potência (kW/kVA)', 'power_kw_kva', 'number')}
+                    {renderInput('Setor Fabril / Linha de Produção *', 'plant_sector', 'text', 'ex: Linha de Embalamento, Moagem', true)}
+                    {renderInput('Especificação de Tensão / Voltagem *', 'voltage_specs', 'text', 'ex: 380V / 50Hz Trifásico', true)}
+                    {renderInput('Potência (kW / kVA) *', 'power_kw_kva', 'number', 'ex: 250', true)}
                   </>}
                 </div>}
 
                 {activeTab === 3 && <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderInput(`Medidor inicial (${formData.meter_unit})`, 'initial_meter', 'number')}
-                  {renderInput(`Medidor atual (${formData.meter_unit})`, 'current_meter', 'number')}
+                  {renderInput(
+                    `Medidor inicial (${formData.meter_unit})${domain === 'plant' ? ' *' : ''}`,
+                    'initial_meter',
+                    'number',
+                    '0',
+                    domain === 'plant'
+                  )}
+                  {renderInput(
+                    `Medidor atual (${formData.meter_unit})${domain === 'fleet' ? ' *' : ''}`,
+                    'current_meter',
+                    'number',
+                    '0',
+                    domain === 'fleet'
+                  )}
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1.5">Unidade de medida</label>
                     <select value={formData.meter_unit} onChange={(e) => updateFormField('meter_unit', e.target.value)} className={fieldClass}>
