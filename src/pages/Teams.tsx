@@ -92,8 +92,7 @@ export const TeamsPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
-            <Users className="text-blue-700" size={24} />
-            <span>Equipes Técnicas & Operacionais</span>
+            <span>Equipe Técnica</span>
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
           <p className="text-slate-500 text-xs mt-1 leading-relaxed">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../services/api';
+import { api, getApiErrorMessage } from '../services/api';
 import { useAuth, useSuspensionGuard } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -241,8 +241,8 @@ export const UsersPage: React.FC = () => {
       return;
     }
 
-    if (modalMode === 'create' && !password.trim()) {
-      alert('A palavra-passe é obrigatória para novos utilizadores.');
+    if (modalMode === 'create' && (!password || password.trim().length < 8)) {
+      alert('A palavra-passe é obrigatória e deve ter pelo menos 8 caracteres.');
       return;
     }
     if (modalMode === 'create' && !canSelectAllScopes && (currentUserScope === 'fleet' || currentUserScope === 'plant') && operationalScope !== currentUserScope) {
@@ -308,7 +308,7 @@ export const UsersPage: React.FC = () => {
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       console.error('Erro ao salvar utilizador:', err);
-      alert(err.response?.data?.message || err.response?.data?.error || err.message || 'Erro ao gravar utilizador.');
+      alert(getApiErrorMessage(err, 'Erro ao gravar utilizador.'));
     } finally {
       setSubmitting(false);
     }
@@ -760,7 +760,8 @@ export const UsersPage: React.FC = () => {
                     required={modalMode === 'create'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder={modalMode === 'create' ? 'Mínimo 6 caracteres' : '••••••••'}
+                    minLength={modalMode === 'create' ? 8 : undefined}
+                    placeholder={modalMode === 'create' ? 'Mínimo 8 caracteres' : '••••••••'}
                     className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md pl-9 pr-3 py-2 text-xs text-slate-900 focus:outline-none transition-colors font-mono"
                   />
                 </div>

@@ -301,7 +301,7 @@ export const Layout: React.FC = () => {
 
     // Primeiro elemento para todos os utilizadores operacionais
     items.push({
-      name: 'Visão Geral',
+      name: 'Dashboard',
       path: '/app/dashboard',
       icon: LayoutDashboard,
       description: 'Indicadores e estado operacional'

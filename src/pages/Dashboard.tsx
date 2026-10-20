@@ -4,7 +4,6 @@ import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { FLEET_CATEGORIES } from '../config/fleetCategories';
 import {
-  LayoutDashboard,
   RefreshCw,
   Activity,
   ClipboardList,
@@ -173,9 +172,8 @@ export const DashboardPage: React.FC = () => {
       {/* CABEÇALHO */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
-            <LayoutDashboard className="text-[#0066FF]" size={24} />
-            Visão Geral Operacional
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900">
+            Dashboard
           </h1>
           <p className="text-slate-500 text-xs mt-1 leading-relaxed">
             {isPlant ? 'Monitorização do Chão de Fábrica e Equipamentos Industriais' : 'Monitorização de Frota e Manutenção de Viaturas'}
