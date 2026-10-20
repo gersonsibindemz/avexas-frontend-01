@@ -69,6 +69,9 @@ import {
   Printer
 } from 'lucide-react';
 import { MaintenanceNotificationModal } from '../components/MaintenanceNotificationModal';
+import { draftService } from '../services/draftService';
+import { DraftConfirmModal } from '../components/DraftConfirmModal';
+import { DraftBanner } from '../components/DraftBanner';
 
 interface Asset {
   id: string;
@@ -233,6 +236,9 @@ export const WorkOrdersPage: React.FC = () => {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [editingOrderId, setEditingEditingOrderId] = useState<string | null>(null);
+  const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
 
   // Modal Novo Técnico
   const [isTechModalOpen, setIsTechModalOpen] = useState(false);
@@ -889,12 +895,105 @@ export const WorkOrdersPage: React.FC = () => {
 
   // Abre criação de OS
   const handleOpenCreateModal = () => {
-      if (checkSuspension()) return;
+    if (checkSuspension()) return;
     setFormMode('create');
     setEditingEditingOrderId(null);
+
+    const draft = draftService.getDraft<any>('work_orders', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    if (draft && draft.data) {
+      setFormData(draft.data.formData || {
+        assetId: assets.length > 0 ? assets[0].id : '',
+        asset_id: assets.length > 0 ? assets[0].id : '',
+        title: '',
+        description: '',
+        orderType: 'corrective',
+        order_type: 'corrective',
+        priority: 'medium',
+        meterAtService: '',
+        meter_at_service: '',
+        assignedTo: '',
+        technicianId: '',
+        technician_id: ''
+      });
+      setSelectedPartsList(draft.data.selectedPartsList || []);
+      setHasRestoredDraft(true);
+      setDraftSavedAt(draft.timestamp);
+    } else {
+      const initialAssetId = assets.length > 0 ? assets[0].id : '';
+      const initialMeter = assets.length > 0 ? (assets[0].current_meter ?? assets[0].currentMeter ?? 0) : '';
+      
+      setFormData({
+        assetId: initialAssetId,
+        asset_id: initialAssetId,
+        title: '',
+        description: '',
+        orderType: 'corrective',
+        order_type: 'corrective',
+        priority: 'medium',
+        meterAtService: initialMeter,
+        meter_at_service: initialMeter,
+        assignedTo: '',
+        technicianId: '',
+        technician_id: ''
+      });
+      setSelectedPartsList([]);
+      setHasRestoredDraft(false);
+      setDraftSavedAt(null);
+    }
+
+    setPartsDirty(false);
+    setModalSelectedPartId('');
+    setSelectedPartId('');
+    setModalPartQty(1);
+    setIsFormModalOpen(true);
+  };
+
+  const hasFormInput = () => {
+    if (formMode !== 'create') return false;
+    return (
+      Boolean(formData.title && formData.title.trim() !== '') ||
+      Boolean(formData.description && formData.description.trim() !== '') ||
+      Boolean(formData.assignedTo && formData.assignedTo !== '') ||
+      (selectedPartsList && selectedPartsList.length > 0)
+    );
+  };
+
+  const handleRequestCloseModal = () => {
+    if (formMode === 'create' && hasFormInput()) {
+      setIsDraftConfirmOpen(true);
+    } else {
+      setIsFormModalOpen(false);
+    }
+  };
+
+  useEscapeKey(handleRequestCloseModal, isFormModalOpen);
+
+  const handleSaveDraft = (closeModal: boolean = true) => {
+    draftService.saveDraft('work_orders', {
+      formData,
+      selectedPartsList
+    }, user?.tenantId || (user as any)?.tenant_id, user?.id);
+    setIsDraftConfirmOpen(false);
+    if (closeModal) {
+      setIsFormModalOpen(false);
+    }
+    setDraftSavedAt(Date.now());
+    setHasRestoredDraft(true);
+    setSuccessMessage('Rascunho de Ordem de Serviço guardado com sucesso!');
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleDiscardDraft = () => {
+    draftService.clearDraft('work_orders', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    setIsDraftConfirmOpen(false);
+    setIsFormModalOpen(false);
+    setHasRestoredDraft(false);
+  };
+
+  const handleDiscardRestoredDraft = () => {
+    draftService.clearDraft('work_orders', user?.tenantId || (user as any)?.tenant_id, user?.id);
     const initialAssetId = assets.length > 0 ? assets[0].id : '';
     const initialMeter = assets.length > 0 ? (assets[0].current_meter ?? assets[0].currentMeter ?? 0) : '';
-    
     setFormData({
       assetId: initialAssetId,
       asset_id: initialAssetId,
@@ -910,11 +1009,8 @@ export const WorkOrdersPage: React.FC = () => {
       technician_id: ''
     });
     setSelectedPartsList([]);
-    setPartsDirty(false);
-    setModalSelectedPartId('');
-    setSelectedPartId('');
-    setModalPartQty(1);
-    setIsFormModalOpen(true);
+    setHasRestoredDraft(false);
+    setDraftSavedAt(null);
   };
 
   // Abre edição de OS
@@ -1100,6 +1196,8 @@ export const WorkOrdersPage: React.FC = () => {
       if (formMode === 'create') {
         const res = await api.post('/work-orders', payload);
         const createdWO = res.data?.workOrder || res.data?.order || res.data || payload;
+        draftService.clearDraft('work_orders', user?.tenantId || (user as any)?.tenant_id, user?.id);
+        setHasRestoredDraft(false);
         setSuccessMessage('Nova Ordem de Serviço aberta com sucesso!');
         setIsFormModalOpen(false);
         await fetchWorkOrders();
@@ -2054,13 +2152,19 @@ export const WorkOrdersPage: React.FC = () => {
           ========================================== */}
       <SecondaryView
         isOpen={isFormModalOpen}
-        onClose={() => setIsFormModalOpen(false)}
+        onClose={handleRequestCloseModal}
         title={formMode === 'create' ? 'Abrir Ordem de Serviço' : 'Editar Ficha da OS'}
         subtitle="Gestão de intervenção corretiva/preventiva, plano de execução e apontamento de custos"
         icon={<Wrench className="text-blue-700" size={18} />}
         maxWidth="max-w-4xl"
       >
         <div className="p-6">
+          {hasRestoredDraft && formMode === 'create' && (
+            <DraftBanner
+              savedAt={draftSavedAt}
+              onDiscard={handleDiscardRestoredDraft}
+            />
+          )}
           <form onSubmit={handleSaveOrder} className="space-y-4">
               
               <div>
@@ -2308,15 +2412,25 @@ export const WorkOrdersPage: React.FC = () => {
               </div>
 
               <div className="flex justify-between items-center border-t border-slate-200 pt-5 mt-2">
-                <div>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setIsFormModalOpen(false)}
+                    onClick={handleRequestCloseModal}
                     disabled={submittingForm}
                     className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium transition-all cursor-pointer"
                   >
                     Cancelar
                   </button>
+                  {formMode === 'create' && hasFormInput() && (
+                    <button
+                      type="button"
+                      onClick={() => handleSaveDraft(true)}
+                      disabled={submittingForm}
+                      className="px-4 py-2 bg-amber-50 border border-amber-300 hover:bg-amber-100 text-amber-800 rounded-md text-xs font-medium transition-colors cursor-pointer"
+                    >
+                      Salvar Rascunho
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <button
@@ -3441,6 +3555,15 @@ export const WorkOrdersPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de Confirmação de Rascunho */}
+      <DraftConfirmModal
+        isOpen={isDraftConfirmOpen}
+        moduleName="Ordem de Serviço"
+        onSaveDraft={handleSaveDraft}
+        onDiscard={handleDiscardDraft}
+        onCancel={() => setIsDraftConfirmOpen(false)}
+      />
 
     </div>
   );

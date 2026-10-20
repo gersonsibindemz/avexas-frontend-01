@@ -131,27 +131,31 @@ export const Layout: React.FC = () => {
       const response = await api.get('/notifications');
       const data = response.data;
       let list: NotificationItem[] = [];
-      let count = 0;
 
       if (Array.isArray(data)) {
         list = data;
-        count = list.filter(n => !(n.is_read ?? n.read ?? n.isRead)).length;
       } else if (data && typeof data === 'object') {
         const possibleList = data.notifications || data.data || data.items || [];
         if (Array.isArray(possibleList)) {
           list = possibleList;
         }
-        if (typeof data.unreadCount === 'number') {
-          count = data.unreadCount;
-        } else if (typeof data.unread_count === 'number') {
-          count = data.unread_count;
-        } else {
-          count = list.filter(n => !(n.is_read ?? n.read ?? n.isRead)).length;
+      }
+
+      // Deduplica exclusivamente notificações que compartilham o mesmo ID real
+      const seen = new Set<string>();
+      const deduped: NotificationItem[] = [];
+      for (const item of list) {
+        const key = item.id ? String(item.id) : `${item.title || ''}-${item.message || ''}-${item.created_at || ''}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          deduped.push(item);
         }
       }
 
-      setNotifications(list.slice(0, 25));
-      setUnreadCount(count);
+      const finalList = deduped.slice(0, 25);
+      setNotifications(finalList);
+      const unread = finalList.filter(n => !(n.is_read ?? n.read ?? n.isRead)).length;
+      setUnreadCount(unread);
     } catch (err) {
       console.warn('Não foi possível obter as notificações:', err);
     }
@@ -382,17 +386,8 @@ export const Layout: React.FC = () => {
 
   const navigationItems = getNavigationItems();
 
-  const uniqueNotifications = notifications.filter((notification, index, allNotifications) => {
-    const title = notification.title || notification.titulo || 'Notificação';
-    const message = notification.message || notification.mensagem || '';
-    const assetId = notification.asset_id || notification.assetId || '';
-
-    return index === allNotifications.findIndex((candidate) =>
-      (candidate.title || candidate.titulo || 'Notificação') === title &&
-      (candidate.message || candidate.mensagem || '') === message &&
-      (candidate.asset_id || candidate.assetId || '') === assetId
-    );
-  });
+  // Notificações exibidas 100% sincronizadas com a lista e o contador
+  const uniqueNotifications = notifications;
 
   // Identificação da página atual para exibição de breadcrumbs
   const getActivePageName = () => {
@@ -780,7 +775,13 @@ export const Layout: React.FC = () => {
             {/* Ícone de Notificações com Dropdown Popover */}
             <div className="relative" ref={notificationRef}>
               <button 
-                onClick={() => setIsNotificationOpen(prev => !prev)}
+                onClick={() => {
+                  setIsNotificationOpen(prev => {
+                    const next = !prev;
+                    if (next) fetchNotifications();
+                    return next;
+                  });
+                }}
                 className="p-2 text-slate-500 hover:text-slate-800 rounded-md hover:bg-slate-100 transition-all relative border border-transparent hover:border-slate-200 cursor-pointer flex items-center justify-center"
                 aria-label="Visualizar notificações"
               >

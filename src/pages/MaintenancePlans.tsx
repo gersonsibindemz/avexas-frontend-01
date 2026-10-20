@@ -23,8 +23,12 @@ import {
   Layers,
   X,
   User,
-  AlertCircle
+  AlertCircle,
+  Save
 } from 'lucide-react';
+import { draftService } from '../services/draftService';
+import { DraftConfirmModal } from '../components/DraftConfirmModal';
+import { DraftBanner } from '../components/DraftBanner';
 
 export interface Asset {
   id: string;
@@ -104,7 +108,11 @@ export const MaintenancePlansPage: React.FC = () => {
   // Modal de Criação / Edição
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingPlan, setEditingPlan] = useState<MaintenancePlan | null>(null);
-  useEscapeKey(() => setIsModalOpen(false), isModalOpen);
+
+  // Estados de Rascunho (Drafts)
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
 
   // Campos do Formulário
   const [title, setTitle] = useState<string>('');
@@ -200,6 +208,76 @@ export const MaintenancePlansPage: React.FC = () => {
 
   const handleOpenCreateModal = () => {
     setEditingPlan(null);
+    const draft = draftService.getDraft<any>('maintenance_plans', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    if (draft && draft.data) {
+      setTitle(draft.data.title || '');
+      setAssetId(draft.data.assetId || '');
+      setTriggerType(draft.data.triggerType || 'meter');
+      setIntervalDays(draft.data.intervalDays || 90);
+      setIntervalMeter(draft.data.intervalMeter || 10000);
+      setPriority(draft.data.priority || 'medium');
+      setAssignedTechnicianId(draft.data.assignedTechnicianId || '');
+      if (Array.isArray(draft.data.checklist)) {
+        setChecklist(draft.data.checklist);
+      }
+      setHasRestoredDraft(true);
+      setDraftSavedAt(draft.timestamp);
+    } else {
+      setTitle('');
+      setTriggerType('meter');
+      setIntervalDays(90);
+      setIntervalMeter(10000);
+      setPriority('medium');
+      setChecklist([
+        { id: '1', task: 'Verificar nível de óleo e filtros de substituição' },
+        { id: '2', task: 'Inspeção técnica dos travões e fixações mecânicas' }
+      ]);
+      setHasRestoredDraft(false);
+      setDraftSavedAt(null);
+    }
+    setIsModalOpen(true);
+    loadModalDependencies();
+  };
+
+  const handleRequestCloseModal = () => {
+    if (editingPlan) {
+      setIsModalOpen(false);
+      return;
+    }
+    const hasData = title.trim() !== '' || (checklist.length > 2 || (checklist.length > 0 && checklist[0].task !== 'Verificar nível de óleo e filtros de substituição'));
+    if (hasData) {
+      setIsDraftConfirmOpen(true);
+    } else {
+      setIsModalOpen(false);
+    }
+  };
+
+  const handleSaveDraft = () => {
+    draftService.saveDraft('maintenance_plans', {
+      title,
+      assetId,
+      triggerType,
+      intervalDays,
+      intervalMeter,
+      priority,
+      assignedTechnicianId,
+      checklist
+    }, user?.tenantId || (user as any)?.tenant_id, user?.id);
+    setIsDraftConfirmOpen(false);
+    setIsModalOpen(false);
+    setSuccessMessage('Rascunho de plano preventivo guardado com sucesso!');
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleDiscardDraft = () => {
+    draftService.clearDraft('maintenance_plans', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    setIsDraftConfirmOpen(false);
+    setIsModalOpen(false);
+    setHasRestoredDraft(false);
+  };
+
+  const handleDiscardRestoredDraft = () => {
+    draftService.clearDraft('maintenance_plans', user?.tenantId || (user as any)?.tenant_id, user?.id);
     setTitle('');
     setTriggerType('meter');
     setIntervalDays(90);
@@ -209,9 +287,12 @@ export const MaintenancePlansPage: React.FC = () => {
       { id: '1', task: 'Verificar nível de óleo e filtros de substituição' },
       { id: '2', task: 'Inspeção técnica dos travões e fixações mecânicas' }
     ]);
-    setIsModalOpen(true);
-    loadModalDependencies();
+    setHasRestoredDraft(false);
   };
+
+  // Tecla ESC com verificação de rascunhos
+  useEscapeKey(handleRequestCloseModal, isModalOpen && !isDraftConfirmOpen);
+  useEscapeKey(() => setIsDraftConfirmOpen(false), isDraftConfirmOpen);
 
   const handleOpenEditModal = (plan: MaintenancePlan) => {
     setEditingPlan(plan);
@@ -276,6 +357,7 @@ export const MaintenancePlansPage: React.FC = () => {
         await api.post('/maintenance-plans', payload);
         setSuccessMessage('Novo plano de manutenção preventivo criado com sucesso!');
       }
+      draftService.clearDraft('maintenance_plans', user?.tenantId || (user as any)?.tenant_id, user?.id);
       setIsModalOpen(false);
       fetchPlans();
       setTimeout(() => setSuccessMessage(null), 4000);
@@ -642,13 +724,21 @@ export const MaintenancePlansPage: React.FC = () => {
       {/* CAMADA SECUNDÁRIA: CRIAÇÃO / EDIÇÃO DE PLANO PREVENTIVO */}
       <SecondaryView
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleRequestCloseModal}
         title={editingPlan ? 'Editar Plano Preventivo' : 'Novo Plano de Manutenção Preventiva'}
         subtitle="Configuração de periodicidade, checklists e atribuição de técnicos"
         icon={<CalendarClock className="text-blue-700" size={20} />}
         maxWidth="max-w-3xl"
       >
         <div className="p-6">
+          {hasRestoredDraft && (
+            <div className="mb-4">
+              <DraftBanner
+                onDiscard={handleDiscardRestoredDraft}
+                savedAt={draftSavedAt || undefined}
+              />
+            </div>
+          )}
           <form onSubmit={handleSavePlan} className="space-y-4 text-xs">
               
               {loadingFormData ? (
@@ -833,13 +923,26 @@ export const MaintenancePlansPage: React.FC = () => {
 
               {/* FOOTER DO MODAL */}
               <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-md text-xs cursor-pointer"
-                >
-                  Cancelar
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRequestCloseModal}
+                    className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-md text-xs cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  {!editingPlan && (
+                    <button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-md text-xs cursor-pointer flex items-center gap-1.5 transition-colors shadow-2xs"
+                      title="Salvar como rascunho para concluir depois"
+                    >
+                      <Save size={13} className="text-blue-700" />
+                      <span>Salvar Rascunho</span>
+                    </button>
+                  )}
+                </div>
                 <button
                   type="submit"
                   disabled={loadingFormData}
@@ -851,6 +954,15 @@ export const MaintenancePlansPage: React.FC = () => {
             </form>
         </div>
       </SecondaryView>
+
+      {/* Modal de Confirmação para Salvar como Rascunho */}
+      <DraftConfirmModal
+        isOpen={isDraftConfirmOpen}
+        moduleName="Plano de Manutenção Preventiva"
+        onSaveDraft={handleSaveDraft}
+        onDiscard={handleDiscardDraft}
+        onCancel={() => setIsDraftConfirmOpen(false)}
+      />
     </div>
   );
 };

@@ -17,10 +17,14 @@ import {
   Sparkles,
   Info,
   DollarSign,
-  Fuel,
   TrendingUp,
-  Award
+  Award,
+  Save,
+  Fuel
 } from 'lucide-react';
+import { draftService } from '../services/draftService';
+import { DraftConfirmModal } from '../components/DraftConfirmModal';
+import { DraftBanner } from '../components/DraftBanner';
 
 interface Asset {
   id: string;
@@ -61,7 +65,7 @@ interface FuelLog {
 }
 
 export const FuelPage: React.FC = () => {
-  const { currentScope } = useAuth();
+  const { user, currentScope } = useAuth();
   const { checkSuspension, handleActionClick } = useSuspensionGuard();
   const [logs, setLogs] = useState<FuelLog[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -74,9 +78,13 @@ export const FuelPage: React.FC = () => {
 
   // Modais e Toasts
   const [isModalOpen, setIsModalOpen] = useState(false);
-  useEscapeKey(() => setIsModalOpen(false), isModalOpen);
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Estados de Rascunho (Drafts)
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
 
   // Campos do Formulário
   const [selectedAssetId, setSelectedAssetId] = useState('');
@@ -260,6 +268,7 @@ export const FuelPage: React.FC = () => {
 
     try {
       await api.post('/fuel', payload);
+      draftService.clearDraft('fuel', user?.tenantId || (user as any)?.tenant_id, user?.id);
       setSuccessMessage('Abastecimento registado com sucesso no servidor!');
       setIsModalOpen(false);
 
@@ -269,6 +278,7 @@ export const FuelPage: React.FC = () => {
       setCurrentMeter('');
       setStationName('');
       setReceiptDocRef('');
+      setHasRestoredDraft(false);
 
       // Recarrega os dados de histórico e lista de ativos com novo contador
       await fetchFuelLogs();
@@ -282,6 +292,88 @@ export const FuelPage: React.FC = () => {
       setSubmitting(false);
     }
   };
+
+  const handleOpenCreateModal = () => {
+    fetchAssetsForDropdown();
+    const draft = draftService.getDraft<any>('fuel', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    if (draft && draft.data) {
+      setSelectedAssetId(draft.data.selectedAssetId || '');
+      setFuelType(draft.data.fuelType || 'Diesel');
+      setLiters(draft.data.liters ?? '');
+      setPricePerLiterMzn(draft.data.pricePerLiterMzn ?? '');
+      setCurrentMeter(draft.data.currentMeter ?? '');
+      setStationName(draft.data.stationName || '');
+      setReceiptDocRef(draft.data.receiptDocRef || '');
+      setHasRestoredDraft(true);
+      setDraftSavedAt(draft.timestamp);
+    } else {
+      setLiters('');
+      setPricePerLiterMzn('');
+      setCurrentMeter('');
+      setStationName('');
+      setReceiptDocRef('');
+      setHasRestoredDraft(false);
+      setDraftSavedAt(null);
+    }
+    setIsModalOpen(true);
+  };
+
+  const hasFormInput = () => {
+    return liters !== '' || pricePerLiterMzn !== '' || currentMeter !== '' || stationName.trim() !== '' || receiptDocRef.trim() !== '';
+  };
+
+  const handleRequestCloseModal = () => {
+    if (hasFormInput()) {
+      setIsDraftConfirmOpen(true);
+    } else {
+      setIsModalOpen(false);
+    }
+  };
+
+  const handleSaveDraft = (closeModal: boolean = true) => {
+    draftService.saveDraft('fuel', {
+      selectedAssetId,
+      fuelType,
+      liters,
+      pricePerLiterMzn,
+      currentMeter,
+      stationName,
+      receiptDocRef
+    }, user?.tenantId || (user as any)?.tenant_id, user?.id);
+    setIsDraftConfirmOpen(false);
+    if (closeModal) {
+      setIsModalOpen(false);
+    }
+    setDraftSavedAt(Date.now());
+    setHasRestoredDraft(true);
+    setSuccessMessage('Rascunho de abastecimento guardado com sucesso!');
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleDiscardDraft = () => {
+    draftService.clearDraft('fuel', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    setIsDraftConfirmOpen(false);
+    setIsModalOpen(false);
+    setLiters('');
+    setPricePerLiterMzn('');
+    setCurrentMeter('');
+    setStationName('');
+    setReceiptDocRef('');
+    setHasRestoredDraft(false);
+  };
+
+  const handleDiscardRestoredDraft = () => {
+    draftService.clearDraft('fuel', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    setLiters('');
+    setPricePerLiterMzn('');
+    setCurrentMeter('');
+    setStationName('');
+    setReceiptDocRef('');
+    setHasRestoredDraft(false);
+  };
+
+  useEscapeKey(handleRequestCloseModal, isModalOpen && !isDraftConfirmOpen);
+  useEscapeKey(() => setIsDraftConfirmOpen(false), isDraftConfirmOpen);
 
   // Filtros aplicados localmente
   const filteredLogs = logs.filter((log) => {
@@ -347,10 +439,7 @@ export const FuelPage: React.FC = () => {
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
           <button
-            onClick={() => handleActionClick(() => {
-              fetchAssetsForDropdown();
-              setIsModalOpen(true);
-            })}
+            onClick={() => handleActionClick(() => handleOpenCreateModal())}
             className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
           >
             <Plus size={16} />
@@ -543,13 +632,21 @@ export const FuelPage: React.FC = () => {
       {/* CAMADA SECUNDÁRIA: REGISTAR ABASTECIMENTO */}
       <SecondaryView
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleRequestCloseModal}
         title="Registar Abastecimento"
         subtitle="Registo de combustível, odómetro e apuramento de consumo médio"
         icon={<Fuel className="text-blue-700" size={18} />}
         maxWidth="max-w-2xl"
       >
         <div className="p-6">
+          {hasRestoredDraft && (
+            <div className="mb-4">
+              <DraftBanner
+                onDiscard={handleDiscardRestoredDraft}
+                savedAt={draftSavedAt || undefined}
+              />
+            </div>
+          )}
           <form onSubmit={handleRegisterFuel} className="space-y-4">
               
               {(() => {
@@ -734,12 +831,22 @@ export const FuelPage: React.FC = () => {
                     <div className="flex justify-end gap-3 border-t border-slate-200 pt-4 mt-2">
                       <button
                         type="button"
-                        onClick={() => setIsModalOpen(false)}
+                        onClick={handleRequestCloseModal}
                         disabled={submitting}
                         className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md text-xs font-medium transition-colors cursor-pointer"
                       >
                         Cancelar
                       </button>
+                      {hasFormInput() && (
+                        <button
+                          type="button"
+                          onClick={() => handleSaveDraft(true)}
+                          disabled={submitting}
+                          className="px-4 py-2 bg-amber-50 border border-amber-300 hover:bg-amber-100 text-amber-800 rounded-md text-xs font-medium transition-colors cursor-pointer"
+                        >
+                          Salvar Rascunho
+                        </button>
+                      )}
                       <button
                         type="submit"
                         disabled={submitting || hasCapacityError || hasMeterError}
@@ -762,6 +869,13 @@ export const FuelPage: React.FC = () => {
         </div>
       </SecondaryView>
 
+      <DraftConfirmModal
+        isOpen={isDraftConfirmOpen}
+        moduleName="Registo de Combustível"
+        onSaveDraft={handleSaveDraft}
+        onDiscard={handleDiscardDraft}
+        onCancel={() => setIsDraftConfirmOpen(false)}
+      />
     </div>
   );
 };

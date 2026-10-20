@@ -3,6 +3,10 @@ import { api, getApiErrorMessage } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import SecondaryView from '../components/SecondaryView';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { draftService } from '../services/draftService';
+import { DraftConfirmModal } from '../components/DraftConfirmModal';
+import { DraftBanner } from '../components/DraftBanner';
 import {
   Plus,
   Layers,
@@ -81,6 +85,10 @@ export const InventoryPage: React.FC = () => {
   const [formUnitCost, setFormUnitCost] = useState<number | ''>('');
   const [submittingPart, setSubmittingPart] = useState(false);
 
+  const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+
   // Carregar Peças (Requisito 6.2)
   const fetchInventory = async () => {
     setLoading(true);
@@ -123,6 +131,8 @@ export const InventoryPage: React.FC = () => {
     try {
       if (partModalMode === 'create') {
         await api.post('/parts', payload);
+        draftService.clearDraft('inventory', user?.tenantId || (user as any)?.tenant_id, user?.id);
+        setHasRestoredDraft(false);
         setSuccessMessage('Nova peça adicionada com sucesso ao inventário!');
       } else {
         await api.put(`/parts/${editingPartId}`, payload);
@@ -158,9 +168,81 @@ export const InventoryPage: React.FC = () => {
   };
 
   const handleOpenCreateModal = () => {
-    resetPartForm();
+    const draft = draftService.getDraft<any>('inventory', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    if (draft && draft.data) {
+      setFormOemReference(draft.data.formOemReference || '');
+      setFormName(draft.data.formName || '');
+      setFormCategory(draft.data.formCategory || partCategories[0]?.value || 'mechanical');
+      setFormWarehouseLocation(draft.data.formWarehouseLocation || '');
+      setFormCurrentStock(draft.data.formCurrentStock ?? '');
+      setFormMinStock(draft.data.formMinStock ?? '');
+      setFormUnitCost(draft.data.formUnitCost ?? '');
+      setHasRestoredDraft(true);
+      setDraftSavedAt(draft.timestamp);
+    } else {
+      resetPartForm();
+      setHasRestoredDraft(false);
+      setDraftSavedAt(null);
+    }
     setPartModalMode('create');
     setIsPartModalOpen(true);
+  };
+
+  const hasFormInput = () => {
+    if (partModalMode !== 'create') return false;
+    return (
+      formOemReference.trim() !== '' ||
+      formName.trim() !== '' ||
+      formWarehouseLocation.trim() !== '' ||
+      formCurrentStock !== '' ||
+      formMinStock !== '' ||
+      formUnitCost !== ''
+    );
+  };
+
+  const handleRequestCloseModal = () => {
+    if (partModalMode === 'create' && hasFormInput()) {
+      setIsDraftConfirmOpen(true);
+    } else {
+      setIsPartModalOpen(false);
+    }
+  };
+
+  useEscapeKey(handleRequestCloseModal, isPartModalOpen);
+
+  const handleSaveDraft = (closeModal: boolean = true) => {
+    draftService.saveDraft('inventory', {
+      formOemReference,
+      formName,
+      formCategory,
+      formWarehouseLocation,
+      formCurrentStock,
+      formMinStock,
+      formUnitCost
+    }, user?.tenantId || (user as any)?.tenant_id, user?.id);
+    setIsDraftConfirmOpen(false);
+    if (closeModal) {
+      setIsPartModalOpen(false);
+    }
+    setDraftSavedAt(Date.now());
+    setHasRestoredDraft(true);
+    setSuccessMessage('Rascunho de Peça/Inventário guardado com sucesso!');
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleDiscardDraft = () => {
+    draftService.clearDraft('inventory', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    setIsDraftConfirmOpen(false);
+    setIsPartModalOpen(false);
+    resetPartForm();
+    setHasRestoredDraft(false);
+  };
+
+  const handleDiscardRestoredDraft = () => {
+    draftService.clearDraft('inventory', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    resetPartForm();
+    setHasRestoredDraft(false);
+    setDraftSavedAt(null);
   };
 
   const handleOpenEditModal = (part: Part) => {
@@ -562,13 +644,19 @@ export const InventoryPage: React.FC = () => {
           ========================================== */}
       <SecondaryView
         isOpen={isPartModalOpen}
-        onClose={() => setIsPartModalOpen(false)}
+        onClose={handleRequestCloseModal}
         title={partModalMode === 'create' ? 'Cadastrar Peça de Reposição' : 'Editar Ficha da Peça'}
         subtitle="Gestão de referências, fornecedores, localização e níveis de stock"
         icon={<Package className="text-blue-700" size={18} />}
         maxWidth="max-w-xl"
       >
         <div className="p-6">
+          {hasRestoredDraft && partModalMode === 'create' && (
+            <DraftBanner
+              savedAt={draftSavedAt}
+              onDiscard={handleDiscardRestoredDraft}
+            />
+          )}
           <form onSubmit={handleSavePart} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -665,11 +753,21 @@ export const InventoryPage: React.FC = () => {
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
-                  onClick={() => setIsPartModalOpen(false)}
+                  onClick={handleRequestCloseModal}
                   className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-md transition-colors"
                 >
                   Cancelar
                 </button>
+                {partModalMode === 'create' && hasFormInput() && (
+                  <button
+                    type="button"
+                    onClick={() => handleSaveDraft(true)}
+                    disabled={submittingPart}
+                    className="px-4 py-2 bg-amber-50 border border-amber-300 hover:bg-amber-100 text-amber-800 text-xs font-medium rounded-md transition-colors cursor-pointer"
+                  >
+                    Salvar Rascunho
+                  </button>
+                )}
                 <button
                   type="submit"
                   disabled={submittingPart}
@@ -837,6 +935,14 @@ export const InventoryPage: React.FC = () => {
           </div>
         )}
       </SecondaryView>
+
+      <DraftConfirmModal
+        isOpen={isDraftConfirmOpen}
+        moduleName="Registo de Peça / Inventário"
+        onSaveDraft={handleSaveDraft}
+        onDiscard={handleDiscardDraft}
+        onCancel={() => setIsDraftConfirmOpen(false)}
+      />
 
     </div>
   );

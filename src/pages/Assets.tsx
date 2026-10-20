@@ -30,8 +30,13 @@ import {
   Eye,
   Trash,
   FileSpreadsheet,
-  Link
+  Link,
+  Camera,
+  Save
 } from 'lucide-react';
+import { draftService } from '../services/draftService';
+import { DraftConfirmModal } from '../components/DraftConfirmModal';
+import { DraftBanner } from '../components/DraftBanner';
 
 interface Document {
   id: string;
@@ -303,7 +308,6 @@ export const AssetsPage: React.FC = () => {
   const [combinationError, setCombinationError] = useState<string | null>(null);
 
   // Ativação da tecla ESC nos modais de Ativos
-  useEscapeKey(() => setIsModalOpen(false), isModalOpen);
   useEscapeKey(() => setIsDocModalOpen(false), isDocModalOpen);
   useEscapeKey(() => setIsQrModalOpen(false), isQrModalOpen);
   useEscapeKey(() => setIsDeleteModalOpen(false), isDeleteModalOpen);
@@ -346,6 +350,17 @@ export const AssetsPage: React.FC = () => {
   // Etapa 4: Documento Inicial
   const [wizardFile, setWizardFile] = useState<File | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
+
+  // QR Code personalizado e Fotografia do Ativo
+  const [customQrFile, setCustomQrFile] = useState<File | null>(null);
+  const [customQrPreview, setCustomQrPreview] = useState<string | null>(null);
+  const [assetPhotoFile, setAssetPhotoFile] = useState<File | null>(null);
+  const [assetPhotoPreview, setAssetPhotoPreview] = useState<string | null>(null);
+
+  // Estados de Rascunho (Drafts)
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
 
   // ==========================================
   // ESTADOS DE DOCUMENTAÇÃO ADICIONAL
@@ -915,13 +930,43 @@ export const AssetsPage: React.FC = () => {
               type: 'warning',
             });
           }
-        } else {
-          showAlert({
-            title: 'Ativo Cadastrado',
-            message: 'Ativo cadastrado com sucesso no CMMS!',
-            type: 'success',
-          });
         }
+
+        // Upload de QR Code personalizado (se fornecido pelo utilizador)
+        if (assetId && customQrFile) {
+          try {
+            const qrFormData = new FormData();
+            qrFormData.append('file', customQrFile);
+            qrFormData.append('documentType', 'qr_code');
+            qrFormData.append('document_type', 'qr_code');
+            qrFormData.append('title', 'QR Code / Etiqueta');
+            qrFormData.append('name', customQrFile.name || 'qrcode.png');
+            await api.post(`/assets/${assetId}/documents`, qrFormData);
+          } catch (qrErr) {
+            console.warn('Erro ao anexar QR code personalizado:', qrErr);
+          }
+        }
+
+        // Upload da fotografia do ativo (se capturada ou carregada)
+        if (assetId && assetPhotoFile) {
+          try {
+            const photoFormData = new FormData();
+            photoFormData.append('file', assetPhotoFile);
+            photoFormData.append('documentType', 'asset_photo');
+            photoFormData.append('document_type', 'asset_photo');
+            photoFormData.append('title', 'Fotografia do Ativo');
+            photoFormData.append('name', assetPhotoFile.name || 'fotografia.jpg');
+            await api.post(`/assets/${assetId}/documents`, photoFormData);
+          } catch (photoErr) {
+            console.warn('Erro ao anexar fotografia do ativo:', photoErr);
+          }
+        }
+
+        showAlert({
+          title: 'Ativo Cadastrado',
+          message: 'Ativo cadastrado com sucesso no CMMS!',
+          type: 'success',
+        });
         setSuccessMessage('Ativo cadastrado com sucesso no CMMS!');
       } else {
         await api.put(`/assets/${editingAssetId}`, payload);
@@ -933,6 +978,8 @@ export const AssetsPage: React.FC = () => {
         setSuccessMessage('Dados do Ativo atualizados com sucesso!');
       }
 
+      // Limpar rascunho persistido após submissão com sucesso
+      draftService.clearDraft('assets', user?.tenantId || (user as any)?.tenant_id, user?.id);
       setIsModalOpen(false);
       resetWizardForm();
       await fetchAssets();
@@ -955,7 +1002,112 @@ export const AssetsPage: React.FC = () => {
     setWizardFile(null);
     setIsDragActive(false);
     setEditingAssetId(null);
+    setCustomQrFile(null);
+    setCustomQrPreview(null);
+    setAssetPhotoFile(null);
+    setAssetPhotoPreview(null);
+    setHasRestoredDraft(false);
+    setDraftSavedAt(null);
   };
+
+  const handleCustomQrChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setCustomQrFile(file);
+      setCustomQrPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleAssetPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAssetPhotoFile(file);
+      setAssetPhotoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleOpenCreateModal = () => {
+    // Verificar se existe rascunho previamente salvo
+    const draft = draftService.getDraft<AssetFormData>('assets', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    if (draft && draft.data) {
+      setFormData(draft.data);
+      setActiveTab(draft.meta?.activeTab || 0);
+      setHasRestoredDraft(true);
+      setDraftSavedAt(draft.timestamp);
+    } else {
+      resetWizardForm();
+      setActiveTab(0);
+      setHasRestoredDraft(false);
+      setDraftSavedAt(null);
+    }
+    setCustomQrFile(null);
+    setCustomQrPreview(null);
+    setAssetPhotoFile(null);
+    setAssetPhotoPreview(null);
+    setModalOpenMode('create');
+    setIsModalOpen(true);
+  };
+
+  const handleRequestCloseModal = () => {
+    if (modalMode === 'edit') {
+      setIsModalOpen(false);
+      resetWizardForm();
+      return;
+    }
+
+    const hasContent = draftService.hasMeaningfulContent(formData, [
+      'category',
+      'status',
+      'criticality_level',
+      'currency',
+      'energy_type',
+      'ownership_type',
+      'meter_unit',
+      'manufacture_year',
+      'initial_meter',
+      'current_meter'
+    ]) || !!customQrFile || !!assetPhotoFile || !!wizardFile;
+
+    if (hasContent) {
+      setIsDraftConfirmOpen(true);
+    } else {
+      setIsModalOpen(false);
+      resetWizardForm();
+    }
+  };
+
+  const handleSaveDraft = () => {
+    draftService.saveDraft('assets', formData, user?.tenantId || (user as any)?.tenant_id, user?.id, { activeTab });
+    setIsDraftConfirmOpen(false);
+    setIsModalOpen(false);
+    resetWizardForm();
+    showAlert({
+      title: 'Rascunho Guardado',
+      message: 'O rascunho do ativo foi guardado. Poderá continuar o registo mais tarde.',
+      type: 'success'
+    });
+  };
+
+  const handleDiscardDraft = () => {
+    draftService.clearDraft('assets', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    setIsDraftConfirmOpen(false);
+    setIsModalOpen(false);
+    resetWizardForm();
+  };
+
+  const handleDiscardRestoredDraft = () => {
+    draftService.clearDraft('assets', user?.tenantId || (user as any)?.tenant_id, user?.id);
+    resetWizardForm();
+    showAlert({
+      title: 'Rascunho Eliminado',
+      message: 'O rascunho foi descartado e o formulário limpo.',
+      type: 'info'
+    });
+  };
+
+  // Ativação da tecla ESC no modal de ativos com salvaguarda de rascunhos
+  useEscapeKey(handleRequestCloseModal, isModalOpen && !isDraftConfirmOpen);
+  useEscapeKey(() => setIsDraftConfirmOpen(false), isDraftConfirmOpen);
 
   const handleOpenEditModal = (asset: Asset) => {
     resetWizardForm();
@@ -1557,20 +1709,15 @@ export const AssetsPage: React.FC = () => {
                     <FileSpreadsheet size={16} className="text-slate-500" />
                     <span>Importar em Lote</span>
                   </button>
-                  <button
-                    onClick={() => {
-                      resetWizardForm();
-                      setModalOpenMode('create');
-                      setActiveTab(0);
-                      setIsModalOpen(true);
-                    }}
-                    className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
-                  >
-                    <Plus size={16} />
-                    <span>Cadastrar Ativo</span>
-                  </button>
                 </>
               )}
+              <button
+                onClick={handleOpenCreateModal}
+                className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+              >
+                <Plus size={16} />
+                <span>{domain === 'plant' ? 'Cadastrar Equipamento' : 'Cadastrar Ativo'}</span>
+              </button>
             </>
           )}
         </div>
@@ -1753,7 +1900,7 @@ export const AssetsPage: React.FC = () => {
       {/* Camada Secundária: Cadastro e Edição da Ficha Técnica */}
       <SecondaryView
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleRequestCloseModal}
         title={modalMode === 'create' ? 'Cadastrar Novo Ativo' : 'Editar Ativo Corporativo'}
         subtitle="Ficha Técnica & Operacional do Equipamento"
         backLabel="Voltar para a Lista"
@@ -1773,6 +1920,13 @@ export const AssetsPage: React.FC = () => {
           }}
           className="space-y-6 pb-8"
         >
+          {hasRestoredDraft && (
+            <DraftBanner
+              onDiscard={handleDiscardRestoredDraft}
+              savedAt={draftSavedAt || undefined}
+            />
+          )}
+
           {/* Indicador e Numeração Elegante das Etapas */}
           <div className="border-b border-slate-200 pb-5 mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 mb-2.5">
@@ -1991,6 +2145,115 @@ export const AssetsPage: React.FC = () => {
                         </p>
                       )}
                     </div>
+
+                    {/* Campo QR Code / Etiqueta */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <QrCode size={14} className="text-blue-700" />
+                        <span>QR Code / Etiqueta</span>
+                      </label>
+                      <div className="border border-slate-200 rounded-md p-2.5 bg-slate-50/70 hover:bg-slate-50 transition-colors">
+                        {customQrPreview ? (
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={customQrPreview}
+                              alt="Pré-visualização QR Code"
+                              className="w-10 h-10 object-contain bg-white border border-slate-200 rounded p-0.5 shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-[11px] font-semibold text-slate-800 block truncate">
+                                {customQrFile?.name || 'QR Code selecionado'}
+                              </span>
+                              <span className="text-[10px] text-emerald-600 font-medium block">
+                                Ficheiro pronto para upload
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCustomQrFile(null);
+                                setCustomQrPreview(null);
+                              }}
+                              className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer shrink-0"
+                              title="Remover e usar geração automática"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <label className="flex items-center justify-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-xs font-medium cursor-pointer transition-colors shadow-2xs">
+                              <UploadCloud size={13} className="text-blue-700" />
+                              <span>Upload de QR Code existente</span>
+                              <input
+                                type="file"
+                                accept="image/*,.pdf"
+                                onChange={handleCustomQrChange}
+                                className="hidden"
+                              />
+                            </label>
+                            <span className="text-[10px] text-slate-500 block leading-tight">
+                              Se não anexar, o sistema gerará automaticamente para o ativo.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Campo Fotografia do Ativo */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <Camera size={14} className="text-blue-700" />
+                        <span>Fotografia do Ativo</span>
+                      </label>
+                      <div className="border border-slate-200 rounded-md p-2.5 bg-slate-50/70 hover:bg-slate-50 transition-colors">
+                        {assetPhotoPreview ? (
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={assetPhotoPreview}
+                              alt="Foto do ativo"
+                              className="w-10 h-10 object-cover bg-white border border-slate-200 rounded shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-[11px] font-semibold text-slate-800 block truncate">
+                                {assetPhotoFile?.name || 'Foto carregada'}
+                              </span>
+                              <span className="text-[10px] text-emerald-600 font-medium block">
+                                Foto associada ao ativo
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAssetPhotoFile(null);
+                                setAssetPhotoPreview(null);
+                              }}
+                              className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer shrink-0"
+                              title="Remover fotografia"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <label className="flex items-center justify-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-xs font-medium cursor-pointer transition-colors shadow-2xs">
+                              <Camera size={13} className="text-blue-700" />
+                              <span>Tirar foto ou carregar</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                onChange={handleAssetPhotoChange}
+                                className="hidden"
+                              />
+                            </label>
+                            <span className="text-[10px] text-slate-500 block leading-tight">
+                              No móvel aciona a câmara; no PC abre seletor de ficheiros.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -2127,12 +2390,24 @@ export const AssetsPage: React.FC = () => {
                   <button
                     key="btn-wizard-cancel"
                     type="button"
-                    onClick={() => setIsModalOpen(false)}
+                    onClick={handleRequestCloseModal}
                     disabled={submitting}
                     className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium cursor-pointer"
                   >
                     Cancelar
                   </button>
+                  {modalMode === 'create' && (
+                    <button
+                      key="btn-wizard-draft"
+                      type="button"
+                      onClick={handleSaveDraft}
+                      className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-semibold cursor-pointer transition-colors shadow-2xs flex items-center gap-1.5"
+                      title="Salvar progresso como rascunho"
+                    >
+                      <Save size={13} className="text-blue-700" />
+                      <span>Salvar Rascunho</span>
+                    </button>
+                  )}
                   {activeTab < 6 ? (
                     <button
                       key="btn-wizard-next"
@@ -2758,6 +3033,15 @@ export const AssetsPage: React.FC = () => {
               </section>
             </div>
         </SecondaryView>
+
+      {/* Modal de Confirmação para Salvar como Rascunho */}
+      <DraftConfirmModal
+        isOpen={isDraftConfirmOpen}
+        moduleName={domain === 'plant' ? 'Equipamento' : 'Ativo'}
+        onSaveDraft={handleSaveDraft}
+        onDiscard={handleDiscardDraft}
+        onCancel={() => setIsDraftConfirmOpen(false)}
+      />
 
     </div>
   );
