@@ -3,6 +3,7 @@ import { api, getApiErrorMessage } from '../services/api';
 import { useAuth, useSuspensionGuard } from '../contexts/AuthContext';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { formatMoney } from '../config/countriesCurrencies';
+import SecondaryView from '../components/SecondaryView';
 import {
   Plus,
   AlertTriangle,
@@ -539,25 +540,17 @@ export const FuelPage: React.FC = () => {
         )}
       </div>
 
-      {/* MODAL DE CADASTRO: REGISTAR ABASTECIMENTO */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 w-full max-w-lg rounded-md shadow-xl overflow-hidden animate-slide-up">
-            
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white">
-              <div className="flex items-center gap-2">
-                <Fuel className="text-blue-700" size={18} />
-                <h2 className="text-base font-bold text-slate-900">Registar Abastecimento</h2>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleRegisterFuel} className="p-6 space-y-4">
+      {/* CAMADA SECUNDÁRIA: REGISTAR ABASTECIMENTO */}
+      <SecondaryView
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Registar Abastecimento"
+        subtitle="Registo de combustível, odómetro e apuramento de consumo médio"
+        icon={<Fuel className="text-blue-700" size={18} />}
+        maxWidth="max-w-2xl"
+      >
+        <div className="p-6">
+          <form onSubmit={handleRegisterFuel} className="space-y-4">
               
               {(() => {
                 const currentSelectedAsset = assets.find(a => a.id === selectedAssetId);
@@ -766,9 +759,8 @@ export const FuelPage: React.FC = () => {
                 );
               })()}
             </form>
-          </div>
         </div>
-      )}
+      </SecondaryView>
 
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth, User } from './contexts/AuthContext';
+import { AlertProvider } from './contexts/AlertContext';
 import { api } from './services/api';
 import Layout from './components/Layout';
 import LoginPage from './pages/Login';
@@ -225,55 +226,57 @@ const SuperAdminUsersGuard: React.FC = () => {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Rota Pública */}
-          <Route path="/login" element={<LoginPage />} />
+      <AlertProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Rota Pública */}
+            <Route path="/login" element={<LoginPage />} />
 
-          {/* Atalho direto para /users */}
-          <Route path="/users" element={<Navigate to="/app/users" replace />} />
+            {/* Atalho direto para /users */}
+            <Route path="/users" element={<Navigate to="/app/users" replace />} />
 
-          {/* Rota Raiz Dinâmica */}
-          <Route path="/" element={<RootRedirect />} />
-          
-          {/* Rotas de Aplicação Comum (Clientes/Gestores/Mecânicos) */}
-          <Route 
-            path="/app" 
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<RootRedirect />} />
-            <Route path="dashboard" element={<DashboardGuard />} />
-            <Route path="assets" element={<AssetsPage />} />
-            <Route path="work-orders" element={<WorkOrdersPage />} />
-            <Route path="teams" element={<TeamsPage />} />
-            <Route path="maintenance-plans" element={<MaintenancePlansPage />} />
-            <Route path="fuel" element={<FuelPage />} />
-            <Route path="inventory" element={<InventoryPage />} />
-            <Route path="users" element={<SuperAdminUsersGuard />} />
-            <Route path="profile" element={<ProfilePage />} />
-            <Route path="settings" element={<Navigate to="/app/dashboard" replace />} />
-          </Route>
+            {/* Rota Raiz Dinâmica */}
+            <Route path="/" element={<RootRedirect />} />
+            
+            {/* Rotas de Aplicação Comum (Clientes/Gestores/Mecânicos) */}
+            <Route 
+              path="/app" 
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<RootRedirect />} />
+              <Route path="dashboard" element={<DashboardGuard />} />
+              <Route path="assets" element={<AssetsPage />} />
+              <Route path="work-orders" element={<WorkOrdersPage />} />
+              <Route path="teams" element={<TeamsPage />} />
+              <Route path="maintenance-plans" element={<MaintenancePlansPage />} />
+              <Route path="fuel" element={<FuelPage />} />
+              <Route path="inventory" element={<InventoryPage />} />
+              <Route path="users" element={<SuperAdminUsersGuard />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="settings" element={<Navigate to="/app/dashboard" replace />} />
+            </Route>
 
-          {/* Rota Privada Super Admin */}
-          <Route 
-            path="/super-admin" 
-            element={
-              <ProtectedRoute requiresSuperAdmin>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<SuperAdminPage />} />
-          </Route>
+            {/* Rota Privada Super Admin */}
+            <Route 
+              path="/super-admin" 
+              element={
+                <ProtectedRoute requiresSuperAdmin>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<SuperAdminPage />} />
+            </Route>
 
-          {/* Rota de Fallback */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </BrowserRouter>
+            {/* Rota de Fallback */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AlertProvider>
     </AuthProvider>
   );
 }

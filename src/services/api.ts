@@ -16,6 +16,15 @@ export const api = axios.create({
 // Não é necessário (e não deve) injetar manualmente um cabeçalho Authorization: Bearer via JavaScript,
 // pois o cookie HttpOnly não é acessível via JS. A autenticação é gerida exclusivamente pelos cookies.
 api.interceptors.request.use((config) => {
+  // Quando a requisição envia FormData (upload de ficheiros/documentos),
+  // removemos o 'Content-Type': 'application/json' predefinido para que o
+  // navegador/Axios gere automaticamente 'multipart/form-data; boundary=...' com o boundary correto.
+  if (config.data instanceof FormData) {
+    if (config.headers) {
+      delete config.headers['Content-Type'];
+      delete (config.headers as Record<string, unknown>)['content-type'];
+    }
+  }
   return config;
 });
 

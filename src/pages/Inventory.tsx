@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api, getApiErrorMessage } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
+import SecondaryView from '../components/SecondaryView';
 import {
   Plus,
   Layers,
@@ -557,28 +558,18 @@ export const InventoryPage: React.FC = () => {
       </div>
 
       {/* ==========================================
-          MODAL: CADASTRAR OU EDITAR PEÇA
+          CAMADA SECUNDÁRIA: CADASTRAR OU EDITAR PEÇA
           ========================================== */}
-      {isPartModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 w-full max-w-md rounded-md shadow-xl overflow-hidden animate-slide-up">
-            
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
-              <div className="flex items-center gap-2">
-                <Package className="text-blue-700" size={18} />
-                <h2 className="text-base font-bold text-slate-900">
-                  {partModalMode === 'create' ? 'Cadastrar Peça de Reposição' : 'Editar Ficha da Peça'}
-                </h2>
-              </div>
-              <button
-                onClick={() => setIsPartModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSavePart} className="p-5 space-y-4">
+      <SecondaryView
+        isOpen={isPartModalOpen}
+        onClose={() => setIsPartModalOpen(false)}
+        title={partModalMode === 'create' ? 'Cadastrar Peça de Reposição' : 'Editar Ficha da Peça'}
+        subtitle="Gestão de referências, fornecedores, localização e níveis de stock"
+        icon={<Package className="text-blue-700" size={18} />}
+        maxWidth="max-w-xl"
+      >
+        <div className="p-6">
+          <form onSubmit={handleSavePart} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[10px] font-semibold text-slate-600 mb-1.5 uppercase">Referência / OEM *</label>
@@ -688,36 +679,26 @@ export const InventoryPage: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
         </div>
-      )}
+      </SecondaryView>
 
       {/* ==========================================
-          MODAL: ENTRADA / SAÍDA RÁPIDA DE STOCK (REPOR STOCK)
+          CAMADA SECUNDÁRIA: ENTRADA / SAÍDA RÁPIDA DE STOCK (REPOR STOCK)
           ========================================== */}
-      {isStockModalOpen && selectedStockPart && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 w-full max-w-sm rounded-md shadow-xl overflow-hidden animate-slide-up">
-            
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
-              <div className="flex items-center gap-2">
-                <ArrowRightLeft className="text-blue-700" size={18} />
-                <span className="font-bold text-sm text-slate-900">
-                  {stockActionType === 'input' ? 'Entrada de Material' : 'Saída para Consumo'}
-                </span>
-              </div>
-              <button
-                onClick={() => {
-                  setIsStockModalOpen(false);
-                  setSelectedStockPart(null);
-                }}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleStockUpdateSubmit} className="p-5 space-y-4">
+      <SecondaryView
+        isOpen={Boolean(isStockModalOpen && selectedStockPart)}
+        onClose={() => {
+          setIsStockModalOpen(false);
+          setSelectedStockPart(null);
+        }}
+        title={stockActionType === 'input' ? 'Entrada de Material no Armazém' : 'Saída para Consumo de Manutenção'}
+        subtitle={selectedStockPart ? `${selectedStockPart.name} (${selectedStockPart.part_number || selectedStockPart.oem_reference || selectedStockPart.oemReference || 'S/N'})` : ''}
+        icon={<ArrowRightLeft className="text-blue-700" size={18} />}
+        maxWidth="max-w-xl"
+      >
+        {selectedStockPart && (
+          <div className="p-6">
+            <form onSubmit={handleStockUpdateSubmit} className="space-y-4">
               <div className="bg-slate-50 border border-slate-200 p-3 rounded-md text-xs space-y-1 text-slate-600">
                 <div><span className="font-semibold text-slate-700">Peça:</span> <span className="text-slate-900 font-bold">{selectedStockPart.name}</span></div>
                 <div><span className="font-semibold text-slate-700">OEM / Ref:</span> <span className="font-mono text-blue-700 font-bold">{selectedStockPart.part_number || selectedStockPart.oem_reference || selectedStockPart.oemReference || 'S/N'}</span></div>
@@ -805,15 +786,25 @@ export const InventoryPage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </SecondaryView>
 
       {/* ==========================================
-          MODAL: CONFIRMAR ELIMINAÇÃO
+          CAMADA SECUNDÁRIA: CONFIRMAR ELIMINAÇÃO
           ========================================== */}
-      {isDeleteModalOpen && deletingPart && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 w-full max-w-sm rounded-md shadow-xl p-6 space-y-4 animate-slide-up">
+      <SecondaryView
+        isOpen={Boolean(isDeleteModalOpen && deletingPart)}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setDeletingPart(null);
+        }}
+        title="Eliminar Artigo do Inventário"
+        subtitle="Confirmação de exclusão definitiva de registro de peça"
+        icon={<AlertTriangle size={18} className="text-red-600" />}
+        maxWidth="max-w-xl"
+      >
+        {deletingPart && (
+          <div className="p-6 space-y-4">
             <div className="w-12 h-12 bg-red-50 text-red-600 border border-red-200 rounded-md flex items-center justify-center">
               <AlertTriangle size={24} />
             </div>
@@ -826,24 +817,26 @@ export const InventoryPage: React.FC = () => {
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button
+                type="button"
                 onClick={() => {
                   setIsDeleteModalOpen(false);
                   setDeletingPart(null);
                 }}
-                className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-md transition-all"
+                className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-md transition-all cursor-pointer"
               >
                 Cancelar
               </button>
               <button
+                type="button"
                 onClick={handleDeletePartConfirm}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-medium rounded-md transition-all shadow-none"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-medium rounded-md transition-all shadow-none cursor-pointer"
               >
                 Confirmar Eliminação
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </SecondaryView>
 
     </div>
   );

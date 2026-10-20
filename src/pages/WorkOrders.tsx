@@ -3,6 +3,7 @@ import { api, toFiniteNumber } from '../services/api';
 import { useAuth, useSuspensionGuard } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import SecondaryView from '../components/SecondaryView';
 import { Technician } from '../types/technician';
 import QRCode from 'qrcode';
 
@@ -2049,28 +2050,18 @@ export const WorkOrdersPage: React.FC = () => {
       )}
 
       {/* ==========================================
-          MODAL: CRIAR OU EDITAR OS (COM TÉCNICOS INTEGRADOS)
+          CAMADA SECUNDÁRIA: CRIAR OU EDITAR OS (COM TÉCNICOS INTEGRADOS)
           ========================================== */}
-      {isFormModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden animate-slide-up max-h-[90vh] flex flex-col">
-            
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white">
-              <div className="flex items-center gap-2">
-                <Wrench className="text-blue-700" size={18} />
-                <h2 className="text-base font-bold text-slate-900">
-                  {formMode === 'create' ? 'Abrir Ordem de Serviço' : 'Editar Ficha da OS'}
-                </h2>
-              </div>
-              <button
-                onClick={() => setIsFormModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveOrder} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+      <SecondaryView
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
+        title={formMode === 'create' ? 'Abrir Ordem de Serviço' : 'Editar Ficha da OS'}
+        subtitle="Gestão de intervenção corretiva/preventiva, plano de execução e apontamento de custos"
+        icon={<Wrench className="text-blue-700" size={18} />}
+        maxWidth="max-w-4xl"
+      >
+        <div className="p-6">
+          <form onSubmit={handleSaveOrder} className="space-y-4">
               
               <div>
                 <label htmlFor="formAsset" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
@@ -2351,32 +2342,22 @@ export const WorkOrdersPage: React.FC = () => {
                 </div>
               </div>
             </form>
-          </div>
         </div>
-      )}
+      </SecondaryView>
 
       {/* ==========================================
-          MODAL DE CADASTRO RÁPIDO: NOVO TÉCNICO
+          CAMADA SECUNDÁRIA: NOVO TÉCNICO
           ========================================== */}
-      {isTechModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 w-full max-w-sm rounded-md shadow-xl overflow-hidden animate-slide-up">
-            
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
-              <div className="flex items-center gap-2">
-                <UserCheck className="text-blue-700" size={18} />
-                <span className="font-bold text-sm text-slate-900">Cadastrar Novo Técnico</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsTechModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateTechnicianSubmit} className="p-5 space-y-4">
+      <SecondaryView
+        isOpen={isTechModalOpen}
+        onClose={() => setIsTechModalOpen(false)}
+        title="Cadastrar Novo Técnico"
+        subtitle="Registo de membro da equipa executora de manutenção"
+        icon={<UserCheck className="text-blue-700" size={18} />}
+        maxWidth="max-w-md"
+      >
+        <div className="p-6">
+          <form onSubmit={handleCreateTechnicianSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">Nome Completo *</label>
                 <input
@@ -2446,10 +2427,8 @@ export const WorkOrdersPage: React.FC = () => {
                 </button>
               </div>
             </form>
-
-          </div>
         </div>
-      )}
+      </SecondaryView>
 
       {/* ==========================================
           DRAWER / BOTTOM SHEET: COCKPIT DE EXECUÇÃO DE CAMPO

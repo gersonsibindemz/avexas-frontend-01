@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { useAuth, useSuspensionGuard } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import SecondaryView from '../components/SecondaryView';
 import {
   Plus,
   Users as UsersIcon,
@@ -675,22 +676,17 @@ export const UsersPage: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white border border-slate-200 rounded-md w-full max-w-lg shadow-xl relative overflow-hidden animate-slide-up">
-            
-            <div className="flex items-center justify-between p-5 border-b border-slate-200 bg-white">
-              <h2 className="text-md font-bold text-slate-900 flex items-center gap-2">
-                <UsersIcon className="text-blue-700" size={18} />
-                {modalMode === 'create' ? 'Novo Utilizador do Contrato' : 'Editar Informações do Utilizador'}
-              </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer">
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+      {/* CAMADA SECUNDÁRIA: CRIAÇÃO / EDIÇÃO DE UTILIZADOR */}
+      <SecondaryView
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={modalMode === 'create' ? 'Novo Utilizador do Contrato' : 'Editar Informações do Utilizador'}
+        subtitle="Configuração de credenciais de acesso, perfil de permissões e vínculo corporativo"
+        icon={<UsersIcon className="text-blue-700" size={18} />}
+        maxWidth="max-w-2xl"
+      >
+        <div className="p-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
               {/* Seleção de Empresa no Modal se não selecionado */}
               {modalMode === 'create' && (
                 <div>
@@ -856,35 +852,44 @@ export const UsersPage: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
         </div>
-      )}
+      </SecondaryView>
 
-      {/* CONFIRMAÇÃO DE SUSPENSÃO */}
-      {isSuspendModalOpen && suspendingUser && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white border border-slate-200 rounded-md w-full max-w-md shadow-xl p-6 animate-slide-up">
-            <div className="w-12 h-12 bg-amber-50 border border-amber-200 text-amber-700 rounded-full flex items-center justify-center mx-auto mb-4">
+      {/* CAMADA SECUNDÁRIA: CONFIRMAÇÃO DE SUSPENSÃO */}
+      <SecondaryView
+        isOpen={Boolean(isSuspendModalOpen && suspendingUser)}
+        onClose={() => setIsSuspendModalOpen(false)}
+        title="Suspender Utilizador"
+        subtitle="Bloqueio imediato de autenticação na plataforma"
+        icon={<Lock className="text-amber-700" size={18} />}
+        maxWidth="max-w-md"
+      >
+        {suspendingUser && (
+          <div className="p-6 space-y-4">
+            <div className="w-12 h-12 bg-amber-50 border border-amber-200 text-amber-700 rounded-full flex items-center justify-center mx-auto">
               <Lock size={22} />
             </div>
-            <h3 className="text-sm font-bold text-slate-900 mb-2 text-center">Suspender Utilizador?</h3>
-            <p className="text-xs text-slate-600 leading-relaxed mb-4 text-center">
+            <h3 className="text-sm font-bold text-slate-900 text-center">Suspender Utilizador?</h3>
+            <p className="text-xs text-slate-600 leading-relaxed text-center">
               A conta de <strong className="text-slate-900">{suspendingUser.fullName}</strong> perderá acesso até ser reativada.
             </p>
-            <label className="block text-xs font-medium text-slate-700 mb-1.5" htmlFor="suspension-reason">
-              Justificativa da suspensão *
-            </label>
-            <textarea
-              id="suspension-reason"
-              required
-              value={suspensionReason}
-              onChange={(e) => setSuspensionReason(e.target.value)}
-              rows={3}
-              placeholder="Indique o motivo da suspensão..."
-              className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none resize-y"
-            />
-            <div className="flex gap-3 justify-end mt-5">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1.5" htmlFor="suspension-reason">
+                Justificativa da suspensão *
+              </label>
+              <textarea
+                id="suspension-reason"
+                required
+                value={suspensionReason}
+                onChange={(e) => setSuspensionReason(e.target.value)}
+                rows={3}
+                placeholder="Indique o motivo da suspensão..."
+                className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none resize-y"
+              />
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
               <button
+                type="button"
                 onClick={() => setIsSuspendModalOpen(false)}
                 disabled={isSuspending}
                 className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-md text-xs font-medium border border-slate-300 transition-colors cursor-pointer"
@@ -892,6 +897,7 @@ export const UsersPage: React.FC = () => {
                 Cancelar
               </button>
               <button
+                type="button"
                 onClick={handleSuspendUser}
                 disabled={isSuspending || !suspensionReason.trim()}
                 className="px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-md text-xs font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
@@ -900,8 +906,8 @@ export const UsersPage: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </SecondaryView>
     </div>
   );
 };

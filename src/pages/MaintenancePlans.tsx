@@ -3,6 +3,7 @@ import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import SecondaryView from '../components/SecondaryView';
 import {
   CalendarClock,
   Plus,
@@ -638,29 +639,17 @@ export const MaintenancePlansPage: React.FC = () => {
         )}
       </div>
 
-      {/* MODAL DE CRIAÇÃO / EDIÇÃO DE PLANO PREVENTIVO */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            
-            {/* Header do Modal */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2">
-                <CalendarClock className="text-blue-700" size={20} />
-                <h2 className="text-base font-bold text-slate-900">
-                  {editingPlan ? 'Editar Plano Preventivo' : 'Novo Plano de Manutenção Preventiva'}
-                </h2>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSavePlan} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+      {/* CAMADA SECUNDÁRIA: CRIAÇÃO / EDIÇÃO DE PLANO PREVENTIVO */}
+      <SecondaryView
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingPlan ? 'Editar Plano Preventivo' : 'Novo Plano de Manutenção Preventiva'}
+        subtitle="Configuração de periodicidade, checklists e atribuição de técnicos"
+        icon={<CalendarClock className="text-blue-700" size={20} />}
+        maxWidth="max-w-3xl"
+      >
+        <div className="p-6">
+          <form onSubmit={handleSavePlan} className="space-y-4 text-xs">
               
               {loadingFormData ? (
                 <div className="py-8 text-center">
@@ -860,9 +849,8 @@ export const MaintenancePlansPage: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
         </div>
-      )}
+      </SecondaryView>
     </div>
   );
 };

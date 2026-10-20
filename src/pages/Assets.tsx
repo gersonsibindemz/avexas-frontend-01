@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ENERGY_TYPES, FLEET_CATEGORIES, OWNERSHIP_TYPES, TRAILER_SUBTYPES, getSubtypesForType, toBackendCategory } from '../config/fleetCategories';
+import { SecondaryView } from '../components/SecondaryView';
+import { useAlert } from '../contexts/AlertContext';
 import QRCode from 'qrcode';
 import {
   Plus,
@@ -253,6 +255,7 @@ export const AssetsPage: React.FC = () => {
   const { user, isTechnician, isDriverOperator, isFleet, isPlant, currentScope } = useAuth();
   const domainConfig = useCurrentDomain();
   const { categories, complianceDocTypes, counterLabel, counterUnit, searchPlaceholder, domain, assetNamePlural } = domainConfig;
+  const { showAlert } = useAlert();
 
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -619,32 +622,32 @@ export const AssetsPage: React.FC = () => {
   const validateForm = (): boolean => {
     if (!formData.name.trim()) {
       setActiveTab(0);
-      alert('O Nome do Ativo é obrigatório.');
+      showAlert({ title: 'Campo Obrigatório', message: 'O Nome do Ativo é obrigatório.', type: 'warning' });
       return false;
     }
     if (!formData.cost_center.trim()) {
       setActiveTab(0);
-      alert('O Centro de Custo é obrigatório.');
+      showAlert({ title: 'Campo Obrigatório', message: 'O Centro de Custo é obrigatório.', type: 'warning' });
       return false;
     }
     if (!formData.model.trim()) {
       setActiveTab(1);
-      alert('O Modelo é obrigatório.');
+      showAlert({ title: 'Campo Obrigatório', message: 'O Modelo é obrigatório.', type: 'warning' });
       return false;
     }
     if (domain === 'fleet' && !formData.asset_type.trim()) {
       setActiveTab(0);
-      alert('O Tipo de Equipamento é obrigatório.');
+      showAlert({ title: 'Campo Obrigatório', message: 'O Tipo de Equipamento é obrigatório.', type: 'warning' });
       return false;
     }
     if (domain === 'fleet' && formData.asset_type === 'Outro tipo (especificar)' && !formData.custom_asset_type?.trim()) {
       setActiveTab(0);
-      alert('Por favor, especifique o Tipo de Equipamento.');
+      showAlert({ title: 'Campo Obrigatório', message: 'Por favor, especifique o Tipo de Equipamento.', type: 'warning' });
       return false;
     }
     if (formData.asset_subtype === 'Outro (especificar)' && !formData.custom_asset_subtype?.trim()) {
       setActiveTab(0);
-      alert('Por favor, especifique o Subtipo / Configuração.');
+      showAlert({ title: 'Campo Obrigatório', message: 'Por favor, especifique o Subtipo / Configuração.', type: 'warning' });
       return false;
     }
     return true;
@@ -714,8 +717,6 @@ export const AssetsPage: React.FC = () => {
     const payload = {
       ...formData,
       // Categoria convertida para o conjunto canónico aceite pelo backend.
-      // Na edição o campo é bloqueado no formulário, por isso nunca é reenviado
-      // (evita que a categoria original seja corrompida/normalizada indevidamente).
       category: modalMode === 'create' ? toBackendCategory(formData.category, domain) : undefined,
       codeTag: formData.code_tag,
       assetType: finalAssetType || undefined,
@@ -736,8 +737,6 @@ export const AssetsPage: React.FC = () => {
       initial_meter: initialMeter,
       current_meter: currentMeter,
       currentMeter,
-      // Campos do formulário mapeados para as colunas padrão do backend
-      // (sem este mapeamento eram simplesmente ignorados no servidor).
       measurement_unit: formData.meter_unit || undefined,
       measurementUnit: formData.meter_unit || undefined,
       operational_shift: formData.shift || undefined,
@@ -781,18 +780,41 @@ export const AssetsPage: React.FC = () => {
           const documentFormData = new FormData();
           documentFormData.append('file', wizardFile);
           documentFormData.append('documentType', 'tech_sheet');
-          documentFormData.append('title', 'Ficha Técnica Inicial');
+          documentFormData.append('document_type', 'tech_sheet');
+          documentFormData.append('title', wizardFile.name || 'Ficha Técnica Inicial');
+          documentFormData.append('name', wizardFile.name || 'Ficha Técnica Inicial');
 
           try {
             await api.post(`/assets/${assetId}/documents`, documentFormData);
+            showAlert({
+              title: 'Ativo Cadastrado',
+              message: 'Ativo cadastrado com sucesso no CMMS e ficha técnica inicial anexada!',
+              type: 'success',
+            });
           } catch (docErr) {
             console.error('Falha ao enviar documento inicial:', docErr);
-            alert('Ativo cadastrado com sucesso, mas o upload da ficha falhou. Você pode reenviar o documento na lista.');
+            const docErrorMessage = getApiErrorMessage(docErr, 'Upload da ficha técnica não concluído.');
+            showAlert({
+              title: 'Ativo Criado (Ficha Pendente)',
+              message: `Ativo cadastrado com sucesso! No entanto, o envio da ficha técnica inicial não foi concluído (${docErrorMessage}). Você pode reenviar o documento na lista de ativos a qualquer momento.`,
+              type: 'warning',
+            });
           }
+        } else {
+          showAlert({
+            title: 'Ativo Cadastrado',
+            message: 'Ativo cadastrado com sucesso no CMMS!',
+            type: 'success',
+          });
         }
         setSuccessMessage('Ativo cadastrado com sucesso no CMMS!');
       } else {
         await api.put(`/assets/${editingAssetId}`, payload);
+        showAlert({
+          title: 'Ativo Atualizado',
+          message: 'Dados do ativo corporativo atualizados com sucesso!',
+          type: 'success',
+        });
         setSuccessMessage('Dados do Ativo atualizados com sucesso!');
       }
 
@@ -802,7 +824,11 @@ export const AssetsPage: React.FC = () => {
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       console.error('Erro ao salvar ativo:', err);
-      alert(getApiErrorMessage(err, 'Erro ao guardar dados do ativo.'));
+      showAlert({
+        title: 'Erro ao Salvar Ativo',
+        message: getApiErrorMessage(err, 'Erro ao guardar dados do ativo.'),
+        type: 'error',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -923,7 +949,11 @@ export const AssetsPage: React.FC = () => {
   const handleAddAdditionalDocument = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDocAsset || !selectedFile || !docTitle.trim()) {
-      alert('Preencha o título e selecione um documento.');
+      showAlert({
+        title: 'Dados Incompletos',
+        message: 'Por favor, preencha o título e selecione um documento para anexar.',
+        type: 'warning'
+      });
       return;
     }
 
@@ -932,22 +962,30 @@ export const AssetsPage: React.FC = () => {
     const formData = new FormData();
     formData.append('file', selectedFile);
     formData.append('title', docTitle);
+    formData.append('name', docTitle);
     formData.append('documentType', docType);
+    formData.append('document_type', docType);
 
     try {
-      // Execute o post diretamente com a instância api sem cabeçalho manual de Content-Type
       await api.post(`/assets/${selectedDocAsset.id}/documents`, formData);
-      alert('Documento anexado com sucesso!');
+      showAlert({
+        title: 'Documento Anexado',
+        message: 'Documento anexado com sucesso ao ativo!',
+        type: 'success'
+      });
       setDocTitle('');
       setSelectedFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-      // atualize a listagem chamando api.get
       await loadDocuments(selectedDocAsset.id);
     } catch (err: any) {
       console.error('Erro ao fazer upload do documento:', err);
-      alert(err.response?.data?.message || err.message || 'Falha ao fazer upload do documento.');
+      showAlert({
+        title: 'Erro de Upload',
+        message: getApiErrorMessage(err, 'Falha ao fazer upload do documento.'),
+        type: 'error'
+      });
     } finally {
       setIsUploadingDoc(false);
     }
@@ -964,10 +1002,19 @@ export const AssetsPage: React.FC = () => {
       setIsDeleteModalOpen(false);
       setDeletingAsset(null);
       await fetchAssets();
+      showAlert({
+        title: 'Ativo Arquivado',
+        message: `Ativo arquivado com sucesso no sistema.`,
+        type: 'success'
+      });
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       console.error('Erro ao arquivar ativo:', err);
-      alert(err.response?.data?.message || err.message || 'Falha ao arquivar ativo.');
+      showAlert({
+        title: 'Erro ao Arquivar',
+        message: getApiErrorMessage(err, 'Falha ao arquivar ativo.'),
+        type: 'error'
+      });
     }
   };
 
@@ -1558,39 +1605,46 @@ export const AssetsPage: React.FC = () => {
         )}
       </div>
 
-      {/* Modal de cadastro e edição da ficha técnica */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2">
-                <Wrench className="text-blue-700" size={18} />
-                <h2 className="text-base font-bold text-slate-900">
-                  {modalMode === 'create' ? 'Cadastrar Novo Ativo' : 'Editar Ativo Corporativo'}
-                </h2>
-              </div>
-              <button type="button" onClick={() => setIsModalOpen(false)} aria-label="Fechar formulário" className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors">
-                <X size={18} />
+      {/* Camada Secundária: Cadastro e Edição da Ficha Técnica */}
+      <SecondaryView
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={modalMode === 'create' ? 'Cadastrar Novo Ativo' : 'Editar Ativo Corporativo'}
+        subtitle="Ficha Técnica & Operacional do Equipamento"
+        backLabel="Voltar para a Lista"
+        icon={<Wrench size={18} />}
+        maxWidthClass="max-w-5xl mx-auto"
+      >
+        <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+          <div role="tablist" aria-label="Blocos da ficha técnica" className="px-6 py-3.5 border-b border-slate-200 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden bg-slate-50/50">
+            {['Identificação', 'Fabricante', 'Características Técnicas', 'Operação & Medidores', 'Conformidade & Aquisição', 'Manutenção', 'Segurança'].map((tab, index) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === index}
+                onClick={() => setActiveTab(index)}
+                className={`shrink-0 rounded-md px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer ${activeTab === index ? 'bg-blue-700 text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}
+              >
+                <span className="mr-1.5 opacity-75">{index + 1}</span>{tab}
               </button>
-            </div>
+            ))}
+          </div>
 
-            <div role="tablist" aria-label="Blocos da ficha técnica" className="px-4 py-3 border-b border-slate-200 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden bg-white">
-              {['Identificação', 'Fabricante', 'Características Técnicas', 'Operação & Medidores', 'Conformidade & Aquisição', 'Manutenção', 'Segurança'].map((tab, index) => (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === index}
-                  onClick={() => setActiveTab(index)}
-                  className={`shrink-0 rounded-md px-3 py-2 text-xs font-semibold transition-colors ${activeTab === index ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                >
-                  <span className="mr-1.5 opacity-75">{index + 1}</span>{tab}
-                </button>
-              ))}
-            </div>
-
-            <form onSubmit={handleSubmitForm} className="p-6 flex-1 overflow-y-auto scrollbar-thin">
-              <div role="tabpanel" className="min-h-[280px]">
+          <form
+            onSubmit={handleSubmitForm}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && activeTab < 6) {
+                const target = e.target as HTMLElement;
+                if (target.tagName === 'INPUT' || target.tagName === 'SELECT') {
+                  e.preventDefault();
+                  setActiveTab((tab) => Math.min(6, tab + 1));
+                }
+              }
+            }}
+            className="p-6 md:p-8"
+          >
+            <div role="tabpanel" className="min-h-[280px]">
                 {activeTab === 0 && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -1852,62 +1906,90 @@ export const AssetsPage: React.FC = () => {
                 </div>}
               </div>
 
-              <div className="flex justify-between items-center border-t border-slate-200 pt-5 mt-6">
-                <button type="button" onClick={() => setActiveTab((tab) => Math.max(0, tab - 1))} disabled={activeTab === 0 || submitting} className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium disabled:opacity-40">
+              <div className="flex justify-between items-center border-t border-slate-200 pt-6 mt-8">
+                <button
+                  key="btn-wizard-prev"
+                  type="button"
+                  onClick={() => setActiveTab((tab) => Math.max(0, tab - 1))}
+                  disabled={activeTab === 0 || submitting}
+                  className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium disabled:opacity-40 cursor-pointer"
+                >
                   Anterior
                 </button>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setIsModalOpen(false)} disabled={submitting} className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium">Cancelar</button>
+                <div className="flex gap-2.5">
+                  <button
+                    key="btn-wizard-cancel"
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    disabled={submitting}
+                    className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
                   {activeTab < 6 ? (
-                    <button type="button" onClick={() => setActiveTab((tab) => Math.min(6, tab + 1))} className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium">Seguinte</button>
+                    <button
+                      key="btn-wizard-next"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setActiveTab((tab) => Math.min(6, tab + 1));
+                      }}
+                      className="px-5 py-2 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white rounded-md text-xs font-semibold cursor-pointer transition-colors shadow-xs"
+                    >
+                      Seguinte
+                    </button>
                   ) : (
-                    <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium flex items-center gap-1.5 disabled:opacity-50">
-                      {submitting ? <><Loader2 size={14} className="animate-spin" />A processar...</> : modalMode === 'create' ? 'Cadastrar Ativo' : 'Atualizar Ativo'}
+                    <button
+                      key="btn-wizard-submit"
+                      type="submit"
+                      disabled={submitting}
+                      className="px-5 py-2 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white rounded-md text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-colors shadow-xs"
+                    >
+                      {submitting ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          <span>A processar...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 size={14} />
+                          <span>{modalMode === 'create' ? 'Salvar Novo Ativo' : 'Guardar Alterações'}</span>
+                        </>
+                      )}
                     </button>
                   )}
                 </div>
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </SecondaryView>
 
       {/* ==========================================
           MODAL: GESTÃO DOCUMENTAL DO ATIVO
           ========================================== */}
-      {isDocModalOpen && selectedDocAsset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 w-full max-w-lg rounded-md shadow-xl overflow-hidden flex flex-col">
-            
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2">
-                <FileText className="text-blue-700" size={18} />
-                <h2 className="text-base font-bold text-slate-900">
-                  Documentos: {selectedDocAsset.code_tag || selectedDocAsset.codeTag}
-                </h2>
-              </div>
-              <button
-                onClick={() => {
-                  setIsDocModalOpen(false);
-                  setSelectedDocAsset(null);
-                  setSelectedFile(null);
-                  setDocTitle('');
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                  }
-                }}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh] scrollbar-thin">
-              
-              {/* Formulário para Envio de Novo Documento */}
-              <form onSubmit={handleAddAdditionalDocument} className="bg-slate-50 p-4 border border-slate-200 rounded-md space-y-3">
-                <span className="text-xs font-bold text-blue-700 uppercase tracking-wider block mb-1">
+      {/* Camada Secundária: Gestão Documental do Ativo */}
+      <SecondaryView
+        isOpen={isDocModalOpen && !!selectedDocAsset}
+        onClose={() => {
+          setIsDocModalOpen(false);
+          setSelectedDocAsset(null);
+          setSelectedFile(null);
+          setDocTitle('');
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+        }}
+        title={`Documentos: ${selectedDocAsset?.code_tag || selectedDocAsset?.codeTag || selectedDocAsset?.name}`}
+        subtitle="Upload e consulta de fichas técnicas, apólices, manuais e certificados"
+        backLabel="Voltar para Ativos"
+        icon={<FileText size={18} />}
+        maxWidthClass="max-w-4xl mx-auto"
+      >
+        <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden p-6 md:p-8 space-y-6">
+          {/* Formulário para Envio de Novo Documento */}
+          <form onSubmit={handleAddAdditionalDocument} className="bg-slate-50 p-4 border border-slate-200 rounded-md space-y-3">
+            <span className="text-xs font-bold text-blue-700 uppercase tracking-wider block mb-1">
                   Adicionar Anexo de Manutenção / Conformidade
                 </span>
                 
@@ -2021,140 +2103,131 @@ export const AssetsPage: React.FC = () => {
               </div>
 
             </div>
-          </div>
-        </div>
-      )}
+        </SecondaryView>
 
       {/* ==========================================
           MODAL: VISUALIZAÇÃO E IMPRESSÃO DE QR CODE
           ========================================== */}
-      {isQrModalOpen && selectedQrAsset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in print:bg-white print:text-black">
-          <div className="bg-white border border-slate-200 w-full max-w-sm rounded-md shadow-xl overflow-hidden flex flex-col print:border-none print:shadow-none print:bg-white">
+      {/* Camada Secundária: Visualização e Impressão de QR Code */}
+      <SecondaryView
+        isOpen={isQrModalOpen && !!selectedQrAsset}
+        onClose={() => {
+          setIsQrModalOpen(false);
+          setSelectedQrAsset(null);
+        }}
+        title={`Etiqueta QR Code: ${selectedQrAsset?.code_tag || selectedQrAsset?.codeTag || selectedQrAsset?.name}`}
+        subtitle="Identificação para leitura e abertura rápida de ordens de serviço"
+        backLabel="Voltar para Ativos"
+        icon={<QrCode size={18} />}
+        maxWidthClass="max-w-md mx-auto"
+      >
+        <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden p-6 md:p-8 flex flex-col items-center text-center">
+          {/* Cartão de Etiqueta com Borda Refinada */}
+          <div className="bg-white p-6 rounded-lg border border-slate-200 flex flex-col items-center shadow-xs w-full max-w-[280px]">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">AVEXAS CMMS</span>
             
-            {/* Header (Escondido na impressão) */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 print:hidden">
-              <div className="flex items-center gap-2">
-                <QrCode className="text-blue-700" size={18} />
-                <h2 className="text-base font-bold text-slate-900">Etiqueta QR Code</h2>
-              </div>
-              <button
-                onClick={() => {
-                  setIsQrModalOpen(false);
-                  setSelectedQrAsset(null);
-                }}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
+            {/* Canvas do QR Code */}
+            <canvas ref={qrCanvasRef} className="mx-auto" />
+            
+            <div className="mt-4 text-slate-900">
+              <span className="font-mono font-bold text-sm tracking-wide block uppercase text-slate-900">
+                {selectedQrAsset?.code_tag || selectedQrAsset?.codeTag}
+              </span>
+              <span className="text-xs font-semibold block text-slate-700 truncate max-w-[220px] mt-1">
+                {selectedQrAsset?.name}
+              </span>
+              <span className="text-[10px] text-slate-500 block font-medium mt-0.5">
+                {formatCategory(selectedQrAsset?.category || '')}
+              </span>
             </div>
+          </div>
 
-            {/* Corpo / Etiqueta Imprimível */}
-            <div className="p-6 flex flex-col items-center justify-center text-center space-y-4 print:p-0 print:text-black">
-              
-              {/* Cartão de Etiqueta com Borda Refinada */}
-              <div className="bg-white p-5 rounded-md border border-slate-200 flex flex-col items-center shadow-sm w-full max-w-[260px] print:shadow-none print:border-2 print:border-black">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 print:text-black">AVEXAS CMMS</span>
-                
-                {/* Canvas do QR Code */}
-                <canvas ref={qrCanvasRef} className="mx-auto" />
-                
-                <div className="mt-3 text-slate-900 print:text-black">
-                  <span className="font-mono font-bold text-sm tracking-wide block uppercase text-slate-900">
-                    {selectedQrAsset.code_tag || selectedQrAsset.codeTag}
-                  </span>
-                  <span className="text-xs font-semibold block text-slate-700 truncate max-w-[200px] mt-0.5">
-                    {selectedQrAsset.name}
-                  </span>
-                  <span className="text-[10px] text-slate-500 block font-medium mt-0.5">
-                    {formatCategory(selectedQrAsset.category)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Botões de Ação (Escondidos na impressão) */}
-              <div className="flex gap-2 w-full pt-4 border-t border-slate-200 print:hidden">
-                <button
-                  onClick={handleDownloadQrCode}
-                  className="flex-1 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                >
-                  <Download size={14} />
-                  <span>PNG</span>
-                </button>
-                <button
-                  onClick={handlePrintLabel}
-                  className="flex-1 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-none"
-                >
-                  <Printer size={14} />
-                  <span>Imprimir</span>
-                </button>
-              </div>
-            </div>
-
+          {/* Botões de Ação */}
+          <div className="flex gap-2.5 w-full max-w-[280px] pt-6 mt-6 border-t border-slate-100">
+            <button
+              onClick={handleDownloadQrCode}
+              className="flex-1 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            >
+              <Download size={14} />
+              <span>Descarregar PNG</span>
+            </button>
+            <button
+              onClick={handlePrintLabel}
+              className="flex-1 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            >
+              <Printer size={14} />
+              <span>Imprimir</span>
+            </button>
           </div>
         </div>
-      )}
+      </SecondaryView>
 
       {/* ==========================================
           MODAL: CONFIRMAÇÃO DE ARQUIVAMENTO (DELETE)
           ========================================== */}
-      {isDeleteModalOpen && deletingAsset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 w-full max-w-sm rounded-md shadow-xl p-6 space-y-4">
-            <div className="w-12 h-12 bg-red-50 text-red-600 border border-red-200 rounded-md flex items-center justify-center">
-              <AlertTriangle size={24} />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Arquivar Ativo de Manutenção</h3>
-              <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
-                Tem a certeza que deseja arquivar o ativo <span className="font-bold text-slate-900 font-mono">{deletingAsset.code_tag || deletingAsset.codeTag}</span>? 
-                Esta ação moverá o equipamento para o histórico e o impedirá de abrir novas ordens de serviço.
-              </p>
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() => {
-                  setIsDeleteModalOpen(false);
-                  setDeletingAsset(null);
-                }}
-                className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-medium rounded-md transition-all"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDeleteAsset}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-medium rounded-md transition-all shadow-none"
-              >
-                Confirmar Arquivamento
-              </button>
-            </div>
+      {/* Camada Secundária: Confirmação de Arquivamento */}
+      <SecondaryView
+        isOpen={isDeleteModalOpen && !!deletingAsset}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setDeletingAsset(null);
+        }}
+        title="Arquivar Ativo de Manutenção"
+        subtitle="Confirmação de desativação do ativo no sistema"
+        backLabel="Voltar para Ativos"
+        icon={<AlertTriangle size={18} className="text-rose-600" />}
+        maxWidthClass="max-w-lg mx-auto"
+      >
+        <div className="bg-white border border-slate-200 rounded-xl p-6 md:p-8 space-y-5 shadow-xs">
+          <div className="w-12 h-12 bg-red-50 text-red-600 border border-red-200 rounded-xl flex items-center justify-center">
+            <AlertTriangle size={24} />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Confirmar Arquivamento</h3>
+            <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+              Tem a certeza que deseja arquivar o ativo{' '}
+              <span className="font-bold text-slate-900 font-mono">
+                {deletingAsset?.code_tag || deletingAsset?.codeTag}
+              </span>
+              ? Esta ação moverá o equipamento para o histórico e o impedirá de abrir novas ordens de serviço.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => {
+                setIsDeleteModalOpen(false);
+                setDeletingAsset(null);
+              }}
+              className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-medium rounded-md transition-all cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteAsset}
+              className="px-5 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-semibold rounded-md transition-all shadow-xs cursor-pointer"
+            >
+              Confirmar Arquivamento
+            </button>
           </div>
         </div>
-      )}
+      </SecondaryView>
 
       {/* ==========================================
           MODAL: IMPORTAÇÃO EM LOTE (CSV BATCH IMPORT)
           ========================================== */}
-      {isBatchImportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 w-full max-w-2xl rounded-md shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-            
-            {/* Cabeçalho do Modal */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet className="text-blue-700" size={18} />
-                <h3 className="text-sm font-bold text-slate-900">Importação de Ativos em Lote (CSV)</h3>
-              </div>
-              <button
-                onClick={() => setIsBatchImportModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Conteúdo do Modal (Rolável) */}
-            <div className="p-6 space-y-5 overflow-y-auto text-xs">
+      {/* Camada Secundária: Importação de Ativos em Lote (CSV) */}
+      <SecondaryView
+        isOpen={isBatchImportModalOpen}
+        onClose={() => setIsBatchImportModalOpen(false)}
+        title="Importação de Ativos em Lote (CSV)"
+        subtitle="Carregue uma folha de cálculo CSV com dados de ativos corporativos"
+        backLabel="Voltar para Ativos"
+        icon={<FileSpreadsheet size={18} />}
+        maxWidthClass="max-w-3xl mx-auto"
+      >
+        <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden p-6 md:p-8 space-y-6">
               
               {/* Seção 1: Instruções e Modelo */}
               <div className="bg-slate-50 border border-slate-200 rounded-md p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -2301,33 +2374,19 @@ export const AssetsPage: React.FC = () => {
                 )}
               </button>
             </div>
+        </SecondaryView>
 
-          </div>
-        </div>
-      )}
-
-      {isCombinationsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
-          <div
-            className="bg-white border border-slate-200 w-full max-w-5xl rounded-md shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2">
-                <Link className="text-blue-700" size={18} />
-                <h2 className="text-base font-bold text-slate-900">Gestão de Conjuntos (Camião + Trelas)</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCombinationsModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
-                aria-label="Fechar gestão de conjuntos"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto space-y-6">
+      {/* Camada Secundária: Gestão de Conjuntos (Camião + Trelas) */}
+      <SecondaryView
+        isOpen={isCombinationsModalOpen}
+        onClose={() => setIsCombinationsModalOpen(false)}
+        title="Gestão de Conjuntos (Camião + Trelas)"
+        subtitle="Associação dinâmica de cavalo mecânico, trela líder e trela seguidora"
+        backLabel="Voltar para Ativos"
+        icon={<Link size={18} />}
+        maxWidthClass="max-w-5xl mx-auto"
+      >
+        <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden p-6 md:p-8 space-y-6">
               <form onSubmit={handleCreateCombination} className="border border-slate-200 rounded-md p-4 space-y-4">
                 <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Nova Associação</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2492,9 +2551,7 @@ export const AssetsPage: React.FC = () => {
                 )}
               </section>
             </div>
-          </div>
-        </div>
-      )}
+        </SecondaryView>
 
     </div>
   );
@@ -2793,130 +2850,130 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
         </div>
       )}
 
-      {/* MODAL DE SUBMETER ANOMALIA */}
-      {isAnomalyModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-slate-200 w-full max-w-md rounded-md shadow-xl overflow-hidden flex flex-col relative">
-
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <h3 className="text-xs font-bold text-red-700 flex items-center gap-2">
-                <AlertTriangle size={16} />
-                Reportar Ocorrência em Campo
-              </h3>
-              <button
-                onClick={() => setIsAnomalyModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {anomalySuccess ? (
-              <div className="p-8 text-center space-y-4">
-                <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-md flex items-center justify-center border border-emerald-200 mx-auto">
-                  <CheckCircle2 size={24} />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">Ocorrência Registada!</h4>
-                  <p className="text-xs text-slate-600 mt-1">A equipa de manutenção foi notificada e uma OS Corretiva foi aberta.</p>
-                </div>
+      {/* CAMADA SECUNDÁRIA: SUBMETER ANOMALIA */}
+      <SecondaryView
+        isOpen={isAnomalyModalOpen}
+        onClose={() => setIsAnomalyModalOpen(false)}
+        title="Reportar Ocorrência em Campo"
+        subtitle="Abertura de OS Corretiva para a viatura selecionada"
+        icon={<AlertTriangle size={18} className="text-red-600" />}
+        maxWidth="max-w-2xl"
+      >
+        <div className="p-6">
+          {anomalySuccess ? (
+            <div className="p-8 text-center space-y-4">
+              <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-md flex items-center justify-center border border-emerald-200 mx-auto">
+                <CheckCircle2 size={24} />
               </div>
-            ) : (
-              <form onSubmit={handleAnomalySubmit} className="p-6 space-y-4 text-xs">
-                <div>
-                  <span className="text-slate-500 font-semibold block">Viatura Selecionada:</span>
-                  <span className="text-slate-900 font-bold font-mono mt-1 block">
-                    {selectedVehicle?.code_tag || selectedVehicle?.codeTag} - {selectedVehicle?.name}
-                  </span>
-                </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Ocorrência Registada!</h4>
+                <p className="text-xs text-slate-600 mt-1">A equipa de manutenção foi notificada e uma OS Corretiva foi aberta.</p>
+              </div>
+              <div className="pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsAnomalyModalOpen(false)}
+                  className="px-4 py-2 bg-slate-900 text-white rounded-md text-xs font-medium hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleAnomalySubmit} className="space-y-4 text-xs">
+              <div className="bg-slate-50 border border-slate-200 rounded-md p-3">
+                <span className="text-slate-500 font-semibold block">Viatura Selecionada:</span>
+                <span className="text-slate-900 font-bold font-mono mt-1 block">
+                  {selectedVehicle?.code_tag || selectedVehicle?.codeTag} - {selectedVehicle?.name}
+                </span>
+              </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                  Título / Resumo da Avaria *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={anomalyTitle}
+                  onChange={(e) => setAnomalyTitle(e.target.value)}
+                  placeholder="ex: Fuga de óleo sob o radiador"
+                  className="w-full bg-white border border-slate-300 focus:border-red-600 focus:ring-1 focus:ring-red-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                  Descrição Detalhada do Problema *
+                </label>
+                <textarea
+                  required
+                  value={anomalyDesc}
+                  onChange={(e) => setAnomalyDesc(e.target.value)}
+                  rows={3}
+                  placeholder="Descreva o comportamento do veículo, barulhos suspeitos ou luzes do painel acesas..."
+                  className="w-full bg-white border border-slate-300 focus:border-red-600 focus:ring-1 focus:ring-red-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none leading-relaxed font-sans"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-                    Título / Resumo da Avaria *
+                    Quilometragem Atual *
                   </label>
                   <input
-                    type="text"
+                    type="number"
                     required
-                    value={anomalyTitle}
-                    onChange={(e) => setAnomalyTitle(e.target.value)}
-                    placeholder="ex: Fuga de óleo sob o radiador"
-                    className="w-full bg-white border border-slate-300 focus:border-red-600 focus:ring-1 focus:ring-red-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono"
+                    value={currentOdometer}
+                    onChange={(e) => setCurrentOdometer(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="km atual"
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-                    Descrição Detalhada do Problema *
+                    Gravidade Indicada
                   </label>
-                  <textarea
-                    required
-                    value={anomalyDesc}
-                    onChange={(e) => setAnomalyDesc(e.target.value)}
-                    rows={3}
-                    placeholder="Descreva o comportamento do veículo, barulhos suspeitos ou luzes do painel acesas..."
-                    className="w-full bg-white border border-slate-300 focus:border-red-600 focus:ring-1 focus:ring-red-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none leading-relaxed font-sans"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-                      Quilometragem Atual *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      value={currentOdometer}
-                      onChange={(e) => setCurrentOdometer(e.target.value === '' ? '' : Number(e.target.value))}
-                      placeholder="km atual"
-                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-                      Gravidade Indicada
-                    </label>
-                    <select
-                      value={anomalyPriority}
-                      onChange={(e) => setAnomalyPriority(e.target.value as any)}
-                      className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
-                    >
-                      <option value="low">Baixa (Pode circular)</option>
-                      <option value="medium">Média (Requer atenção)</option>
-                      <option value="high">Alta (Intervenção urgente)</option>
-                      <option value="urgent">Crítica (Imobilizar viatura)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setIsAnomalyModalOpen(false)}
-                    className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium transition-colors cursor-pointer"
+                  <select
+                    value={anomalyPriority}
+                    onChange={(e) => setAnomalyPriority(e.target.value as any)}
+                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none"
                   >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submittingAnomaly}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-md text-xs font-medium transition-colors shadow-none flex items-center gap-1.5 cursor-pointer"
-                  >
-                    {submittingAnomaly ? (
-                      <>
-                        <RefreshCw className="animate-spin" size={13} />
-                        <span>A reportar...</span>
-                      </>
-                    ) : (
-                      <span>Submeter Ocorrência</span>
-                    )}
-                  </button>
+                    <option value="low">Baixa (Pode circular)</option>
+                    <option value="medium">Média (Requer atenção)</option>
+                    <option value="high">Alta (Intervenção urgente)</option>
+                    <option value="urgent">Crítica (Imobilizar viatura)</option>
+                  </select>
                 </div>
-              </form>
-            )}
-          </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsAnomalyModalOpen(false)}
+                  className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-md text-xs font-medium transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingAnomaly}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-md text-xs font-medium transition-colors shadow-none flex items-center gap-1.5 cursor-pointer"
+                >
+                  {submittingAnomaly ? (
+                    <>
+                      <RefreshCw className="animate-spin" size={13} />
+                      <span>A reportar...</span>
+                    </>
+                  ) : (
+                    <span>Submeter Ocorrência</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
-      )}
+      </SecondaryView>
 
     </div>
   );
