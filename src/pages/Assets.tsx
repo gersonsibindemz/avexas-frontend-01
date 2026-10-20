@@ -1885,39 +1885,18 @@ export const AssetsPage: React.FC = () => {
           {!isTechnician && !isDriverOperator && (
             <>
               {domain === 'fleet' && (
-                <>
-                  <button
-                    onClick={handleOpenCombinationsModal}
-                    className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold py-2.5 px-3.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
-                    title="Associação e Gestão de Conjuntos (Camião + Trelas)"
-                  >
-                    <Link size={15} className="text-blue-700" />
-                    <span>Conjuntos (Camião + Trelas)</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedCombForReport(null);
-                      setIsReportsModalOpen(true);
-                    }}
-                    className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold py-2.5 px-3.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
-                    title="Relatório operacional de Custos, Manutenção, Quilometragem e Disponibilidade"
-                  >
-                    <BarChart3 size={15} className="text-slate-600" />
-                    <span>Relatórios Operacionais</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setBatchFile(null);
-                      setParsedBatchData([]);
-                      setBatchError(null);
-                      setIsBatchImportModalOpen(true);
-                    }}
-                    className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-medium py-2.5 px-3.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
-                  >
-                    <FileSpreadsheet size={15} className="text-slate-500" />
-                    <span>Importar em Lote</span>
-                  </button>
-                </>
+                <button
+                  onClick={() => {
+                    setBatchFile(null);
+                    setParsedBatchData([]);
+                    setBatchError(null);
+                    setIsBatchImportModalOpen(true);
+                  }}
+                  className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-medium py-2.5 px-3.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+                >
+                  <FileSpreadsheet size={15} className="text-slate-500" />
+                  <span>Importar em Lote</span>
+                </button>
               )}
               <button
                 onClick={handleOpenCreateModal}
