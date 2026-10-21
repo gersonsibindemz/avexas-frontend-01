@@ -26,7 +26,8 @@ import {
   ArrowRightLeft,
   Loader2,
   ArrowDownToLine,
-  ArrowUpFromLine
+  ArrowUpFromLine,
+  MoreVertical
 } from 'lucide-react';
 
 interface Part {
@@ -76,6 +77,8 @@ export const InventoryPage: React.FC = () => {
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingPart, setDeletingPart] = useState<Part | null>(null);
+
+  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
 
   // Formulário de Nova Peça
   const [formOemReference, setFormOemReference] = useState('');
@@ -635,8 +638,8 @@ export const InventoryPage: React.FC = () => {
                       <td className="py-3.5 px-4 text-center">
                         {isLowStock ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200">
-                            <AlertTriangle size={10} className="animate-pulse" />
-                            <span>{currentStock} un (Min: {minStock})</span>
+                            <AlertTriangle size={10} className="animate-pulse text-red-600" />
+                            <span>{currentStock} un</span>
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
@@ -647,46 +650,72 @@ export const InventoryPage: React.FC = () => {
                       <td className="py-3.5 px-4 text-right font-mono text-slate-900 font-bold">
                         {formatMZN(unitCost)}
                       </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          
-                          {/* Botão Ação Rápida: Repor Stock */}
+                      <td className="py-3.5 px-4 text-center relative">
+                        <div className="flex items-center justify-center">
                           <button
-                            onClick={() => handleOpenStockModal(part, 'input')}
-                            className="px-2 py-1 bg-blue-700 hover:bg-blue-800 text-white font-medium rounded-md text-[10px] flex items-center gap-0.5 transition-all shadow-none cursor-pointer"
-                            title="Entrada de Material / Repor"
+                            type="button"
+                            onClick={() => setOpenActionMenuId(openActionMenuId === part.id ? null : part.id)}
+                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+                            title="Ações Rápidas"
                           >
-                            <Plus size={10} />
-                            <span>Repor</span>
+                            <MoreVertical size={16} />
                           </button>
 
-                          <button
-                            onClick={() => handleOpenStockModal(part, 'output')}
-                            className="px-2 py-1 bg-white hover:bg-slate-50 text-slate-700 font-medium rounded-md text-[10px] flex items-center gap-0.5 transition-all border border-slate-300"
-                            title="Dar Saída para Serviço"
-                          >
-                            <span>Retirar</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleOpenEditModal(part)}
-                            className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-all cursor-pointer"
-                            title="Editar Peça"
-                          >
-                            <Edit2 size={13} />
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setDeletingPart(part);
-                              setIsDeleteModalOpen(true);
-                            }}
-                            className="p-1 text-slate-400 hover:text-red-700 hover:bg-red-50 rounded-md transition-all cursor-pointer"
-                            title="Eliminar Artigo"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-
+                          {openActionMenuId === part.id && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-20"
+                                onClick={() => setOpenActionMenuId(null)}
+                              />
+                              <div className="absolute right-4 top-10 w-44 bg-white border border-slate-200 rounded-md shadow-lg z-30 py-1 text-left">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenActionMenuId(null);
+                                    handleOpenStockModal(part, 'input');
+                                  }}
+                                  className="w-full px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                                >
+                                  <Plus size={14} className="text-blue-700" />
+                                  <span>Repor Stock</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenActionMenuId(null);
+                                    handleOpenStockModal(part, 'output');
+                                  }}
+                                  className="w-full px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                                >
+                                  <ArrowUpFromLine size={14} className="text-amber-600" />
+                                  <span>Retirar Stock</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenActionMenuId(null);
+                                    handleOpenEditModal(part);
+                                  }}
+                                  className="w-full px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                                >
+                                  <Edit2 size={14} className="text-slate-600" />
+                                  <span>Editar Peça</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenActionMenuId(null);
+                                    setDeletingPart(part);
+                                    setIsDeleteModalOpen(true);
+                                  }}
+                                  className="w-full px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors cursor-pointer border-t border-slate-100"
+                                >
+                                  <Trash2 size={14} className="text-rose-600" />
+                                  <span>Eliminar Artigo</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

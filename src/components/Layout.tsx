@@ -326,12 +326,6 @@ export const Layout: React.FC = () => {
           path: '/app/users',
           icon: Users,
           description: 'Gestão de contas e permissões'
-        },
-        {
-          name: 'Logs de IT & Auditoria',
-          path: '/app/it-logs',
-          icon: Terminal,
-          description: 'Diagnóstico e monitorização técnica'
         }
       ];
     }
@@ -395,22 +389,6 @@ export const Layout: React.FC = () => {
         path: '/app/inventory',
         icon: Layers,
         description: 'Gestão de peças e consumíveis'
-      });
-    }
-
-    // Página própria de dados da empresa e logs para tenant_admin (Prompt 2 Requisito 2 e 3)
-    if (user.role === 'tenant_admin') {
-      items.push({
-        name: 'Dados da Empresa',
-        path: '/app/company',
-        icon: Building2,
-        description: 'Visualização da empresa e descarregar dados'
-      });
-      items.push({
-        name: 'Logs de IT',
-        path: '/app/it-logs',
-        icon: Terminal,
-        description: 'Monitorização técnica e auditoria'
       });
     }
 
@@ -793,17 +771,7 @@ export const Layout: React.FC = () => {
               </div>
             )}
 
-            {/* Acesso rápido aos dados de Abastecimento fora do menu lateral (Prompt 1 - Requisito 3) */}
-            {currentScope !== 'plant' && (user.role === 'tenant_admin' || user.role === 'supervisor') && (
-              <button
-                onClick={() => navigate('/app/fuel')}
-                className="px-2.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:text-blue-700 flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
-                title="Aceder a Registos e Indicadores de Abastecimento"
-              >
-                <Fuel size={14} className="text-amber-500" />
-                <span className="hidden sm:inline">Abastecimento</span>
-              </button>
-            )}
+
 
             {/* Botão de Scan QR Code Global (Header) - Apenas ecrã pequeno (smartphones e tablets) e papéis operacionais autorizados (Prompt 3 Requisito 1) */}
             {canScan && (

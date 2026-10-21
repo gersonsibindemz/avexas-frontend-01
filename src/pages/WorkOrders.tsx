@@ -2382,19 +2382,12 @@ export const WorkOrdersPage: React.FC = () => {
                   />
                 </div>
                 
-                {/* Atribuição de Técnicos com Atalho */}
+                {/* Atribuição de Técnicos */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="mb-1.5">
                     <label htmlFor="formTech" className="block text-xs font-semibold text-slate-600 uppercase tracking-wide">
                       Técnico Atribuído
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => handleActionClick(() => setIsTechModalOpen(true))}
-                      className="text-[10px] text-blue-700 hover:text-blue-800 font-semibold"
-                    >
-                      + Novo Técnico
-                    </button>
                   </div>
                   {/* Conforme Requisito 5.1: Seletor de Técnicos corrigido com correspondência exata */}
                   <select
@@ -2433,7 +2426,7 @@ export const WorkOrdersPage: React.FC = () => {
                         <option value="">Selecione a Peça do Armazém...</option>
                         {availableParts.map((p) => (
                           <option key={p.id} value={p.id} disabled={Number(p.current_stock) <= 0}>
-                            {p.name} {p.part_number ? `(${p.part_number})` : ''} — Stock: {p.current_stock} {p.unit_of_measure || 'un'} — {Number(p.unit_cost).toLocaleString()} MZN
+                            {p.name}
                           </option>
                         ))}
                       </select>
