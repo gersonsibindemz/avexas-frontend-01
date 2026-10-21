@@ -579,7 +579,7 @@ export const InventoryPage: React.FC = () => {
           onNewItem={() => handleOpenCreateModal()}
         />
       ) : (
-      <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
+      <div className="bg-white border border-slate-200 rounded-md shadow-none">
         {loading ? (
           <div className="p-8 space-y-4">
             <div className="h-4 bg-slate-100 rounded w-1/4 animate-pulse"></div>
@@ -596,7 +596,7 @@ export const InventoryPage: React.FC = () => {
             <p className="text-slate-500 text-xs mt-1">Registe novas peças sobressalentes para o armazém.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto pb-16 min-h-[220px]">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] bg-slate-50">
@@ -610,13 +610,14 @@ export const InventoryPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredParts.map((part) => {
+                {filteredParts.map((part, index) => {
                   const oemRef = part.part_number || part.oem_reference || part.oemReference || 'S/N';
                   const loc = part.location || part.warehouse_location || part.warehouseLocation || 'Geral';
                   const currentStock = Number(part.current_stock ?? part.currentStock ?? 0);
                   const minStock = Number(part.min_stock ?? part.minStock ?? 0);
                   const unitCost = Number(part.unit_cost ?? part.unitCost ?? 0);
                   const isLowStock = currentStock <= minStock;
+                  const openUpwards = filteredParts.length > 1 && index > 0 && index >= filteredParts.length - 2;
                   
                   return (
                     <tr key={part.id} className="hover:bg-slate-50/80 transition-colors">
@@ -667,7 +668,7 @@ export const InventoryPage: React.FC = () => {
                                 className="fixed inset-0 z-20"
                                 onClick={() => setOpenActionMenuId(null)}
                               />
-                              <div className="absolute right-4 top-10 w-44 bg-white border border-slate-200 rounded-md shadow-lg z-30 py-1 text-left">
+                              <div className={`absolute right-1 w-44 bg-white border border-slate-200 rounded-md shadow-xl z-30 py-1 text-left ${openUpwards ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
                                 <button
                                   type="button"
                                   onClick={() => {
