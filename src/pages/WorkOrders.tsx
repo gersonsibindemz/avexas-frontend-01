@@ -67,7 +67,11 @@ import {
   UserCheck,
   Bell,
   Printer,
-  FileText
+  FileText,
+  MoreVertical,
+  XCircle,
+  List,
+  LayoutGrid
 } from 'lucide-react';
 import { MaintenanceNotificationModal } from '../components/MaintenanceNotificationModal';
 import { draftService, DraftItem } from '../services/draftService';
@@ -82,6 +86,8 @@ interface Asset {
   code_tag: string;
   codeTag?: string;
   name: string;
+  brand?: string;
+  model?: string;
   category?: string;
   category_type?: string;
   type?: string;
@@ -171,11 +177,13 @@ export const WorkOrdersPage: React.FC = () => {
   const [loadingTechs, setLoadingTechs] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Estados de pesquisa e filtragem
+  // Estados de pesquisa, filtragem e modo de visualização (Tabela vs. Cartões)
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [quickTab, setQuickTab] = useState<'all' | 'my_tasks' | 'pending' | 'in_progress' | 'completed' | 'maintenance_requests' | 'drafts'>('all');
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [openActionDropdownId, setOpenActionDropdownId] = useState<string | null>(null);
 
   // Solicitações de Manutenção / Notificações
   const [maintenanceRequests, setMaintenanceRequests] = useState<any[]>([]);
@@ -473,6 +481,19 @@ export const WorkOrdersPage: React.FC = () => {
   useEscapeKey(() => setIsAddPartModalOpen(false), isAddPartModalOpen);
   useEscapeKey(() => setIsNotificationModalOpen(false), isNotificationModalOpen);
   useEscapeKey(() => { setIsDrawerOpen(false); setSelectedDrawerOrder(null); }, isDrawerOpen);
+  useEscapeKey(() => setOpenActionDropdownId(null), Boolean(openActionDropdownId));
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-actions-dropdown]')) {
+        setOpenActionDropdownId(null);
+      }
+    };
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
+
   const [submittingCancel, setSubmittingCancel] = useState(false);
 
   // Submeter Cancelamento de OS
@@ -1679,6 +1700,171 @@ export const WorkOrdersPage: React.FC = () => {
     return matchesSearch && matchesPriority && matchesQuickTab && matchesStatus;
   });
 
+  // Helper para renderizar o menu suspenso de ações (3 pontinhos) da Ordem de Serviço
+  const renderOrderActionsMenu = (order: WorkOrder, index: number, isCard: boolean = false) => {
+    const isMenuOpen = openActionDropdownId === order.id;
+    const openUpwards = index >= filteredOrders.length - 2 && filteredOrders.length > 2;
+    const isCancellable = order.status !== 'completed' && order.status !== 'cancelled';
+
+    return (
+      <div className="relative inline-block text-left" data-actions-dropdown onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpenActionDropdownId(prev => prev === order.id ? null : order.id);
+          }}
+          className={`p-1.5 rounded-md transition-all cursor-pointer flex items-center justify-center ${
+            isMenuOpen
+              ? 'bg-blue-100 text-blue-700 shadow-sm'
+              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+          }`}
+          title="Ações da Ordem de Serviço"
+          aria-label="Ações da Ordem de Serviço"
+          aria-haspopup="true"
+          aria-expanded={isMenuOpen}
+        >
+          <MoreVertical size={16} />
+        </button>
+
+        {isMenuOpen && (
+          <div
+            className={`absolute right-0 ${
+              openUpwards ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+            } w-52 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1 divide-y divide-slate-100 text-xs animate-in fade-in zoom-in-95 duration-100`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Seção 1: Visualização, Impressão e Edição */}
+            <div className="py-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenActionDropdownId(null);
+                  handleOpenDrawer(order);
+                }}
+                className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                <Eye size={14} className="text-slate-400" />
+                <span>Ver Cockpit de Campo</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenActionDropdownId(null);
+                  handlePrintWorkOrder(order);
+                }}
+                className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                <Printer size={14} className="text-slate-400" />
+                <span>Imprimir Ficha A4</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  setOpenActionDropdownId(null);
+                  handleOpenEditModal(order, e);
+                }}
+                className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                <Edit2 size={14} className="text-slate-400" />
+                <span>Editar Ficha / Ordem</span>
+              </button>
+            </div>
+
+            {/* Seção 2: Transições de Estado / Workflow da OS */}
+            {(order.status === 'open' ||
+              order.status === 'in_progress' ||
+              order.status === 'waiting_parts' ||
+              order.status === 'paused' ||
+              order.status === 'blocked') && (
+              <div className="py-1">
+                {order.status === 'open' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenActionDropdownId(null);
+                      handleStartService(order);
+                    }}
+                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <Play size={14} className="text-blue-600 fill-current" />
+                    <span>Iniciar Serviço</span>
+                  </button>
+                )}
+
+                {order.status === 'in_progress' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenActionDropdownId(null);
+                        handleOpenPauseModal(order);
+                      }}
+                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Pause size={14} className="text-amber-600" />
+                      <span>Pausar Serviço</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenActionDropdownId(null);
+                        handleActionClick(() => {
+                          setSelectedOrder(order);
+                          setIsCloseModalOpen(true);
+                        });
+                      }}
+                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <CheckCircle2 size={14} className="text-emerald-600" />
+                      <span>Concluir Serviço</span>
+                    </button>
+                  </>
+                )}
+
+                {(order.status === 'waiting_parts' || order.status === 'paused' || order.status === 'blocked') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenActionDropdownId(null);
+                      handleResumeService(order);
+                    }}
+                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <Play size={14} className="text-blue-600 fill-current" />
+                    <span>Retomar Serviço</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Seção 3: Cancelamento */}
+            {isCancellable && (
+              <div className="py-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenActionDropdownId(null);
+                    setSelectedDrawerOrder(order);
+                    setCancelReason('');
+                    setIsCancelModalOpen(true);
+                  }}
+                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <XCircle size={14} className="text-red-500" />
+                  <span>Cancelar Ordem</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const availableTechnicians = technicians.filter((tech) =>
     !tech.operational_scope ||
     tech.operational_scope === 'both' ||
@@ -2076,169 +2262,216 @@ export const WorkOrdersPage: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-            Ordens Filtradas ({filteredOrders.length}) · Clique para abrir o cockpit de campo
-          </span>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredOrders.map((order) => {
-              const matchingAsset = assets.find(a => a.id === order.asset_id || a.id === order.assetId);
-              const assetDisplay = matchingAsset 
-                ? `${matchingAsset.code_tag || matchingAsset.codeTag} • ${matchingAsset.name}`
-                : order.asset_name || order.asset?.name || 'Equipamento Geral';
-
-              const priority = order.priority || 'medium';
-              const isUrgent = priority === 'urgent' || priority === 'critical';
-              const delayed = isDelayed(order);
-              
-              const techDisplay = resolveTechnicianName(order);
-
-              const meterVal = order.meter_at_service ?? order.meterAtService;
-              const orderMeterType = (order as any).meter_type || (order as any).meterType || (order as any).meter_kind || (order as any).meterKind;
-              const isKm = domain === 'fleet' || orderMeterType === 'kms' || orderMeterType === 'odometer_km' || matchingAsset?.meter_kind === 'odometer_km' || matchingAsset?.meterKind === 'odometer_km';
-              const meterUnit = isKm ? 'km' : 'horas';
-
-              return (
-                <div
-                  key={order.id}
-                  onClick={() => handleOpenDrawer(order)}
-                  className={`bg-white border rounded-md p-4 space-y-3.5 cursor-pointer hover:border-slate-300 transition-all shadow-none flex flex-col justify-between ${
-                    isUrgent 
-                      ? 'border-red-300 hover:border-red-400 bg-red-50/20' 
-                      : delayed 
-                      ? 'border-amber-300 hover:border-amber-400' 
-                      : 'border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="space-y-2.5">
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <span className="font-mono font-bold text-[10px] text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                          {matchingAsset ? matchingAsset.code_tag || matchingAsset.codeTag : 'EQ-GERAL'}
-                        </span>
-                        <span className="font-mono font-semibold text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded shrink-0 border border-blue-100">
-                          {order.wo_number || order.woNumber || `OS-${order.id.substring(0, 4)}`}
-                        </span>
-                      </div>
-                      <div className="flex gap-1.5 items-center shrink-0">
-                        {delayed && (
-                          <span className="bg-amber-50 text-amber-700 text-[9px] font-bold px-1.5 py-0.5 border border-amber-200 rounded">
-                            Atraso
-                          </span>
-                        )}
-                        {renderStatusBadge(order.status)}
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <h3 className="text-slate-900 font-bold text-sm leading-snug truncate" title={order.title}>
-                        {order.title}
-                      </h3>
-                      <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
-                        <Activity size={11} className="text-slate-400 shrink-0" />
-                        <span>Contador de Entrada:</span>
-                        <span className="text-slate-800 font-semibold">
-                          {formatMeterReading(meterVal, meterUnit)}
-                        </span>
-                      </div>
-                      <p className="text-slate-600 text-xs line-clamp-2 leading-relaxed">
-                        {order.description || 'Sem descrição detalhada.'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-100 space-y-3 mt-2">
-                    <div className="flex justify-between items-end">
-                      <div>
-                        <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wide">Técnico Encarregue</span>
-                        <span className="text-slate-800 text-xs font-semibold block truncate max-w-[150px]">
-                          {techDisplay}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        {renderPriorityBadge(priority)}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePrintWorkOrder(order);
-                          }}
-                          className="p-1 text-slate-400 hover:text-blue-700 hover:bg-slate-100 rounded transition-all cursor-pointer"
-                          title="Imprimir Ficha A4"
-                        >
-                          <Printer size={13} />
-                        </button>
-                        <button
-                          onClick={(e) => handleOpenEditModal(order, e)}
-                          className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-all cursor-pointer"
-                          title="Editar Ficha"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Botões de Ação Direta no próprio cartão */}
-                    <div className="pt-1.5 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                      {order.status === 'open' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStartService(order);
-                          }}
-                          className="w-full py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all shadow-none cursor-pointer"
-                        >
-                          <Play size={12} className="fill-current shrink-0" />
-                          <span>Iniciar Serviço</span>
-                        </button>
-                      )}
-
-                      {order.status === 'in_progress' && (
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenPauseModal(order);
-                            }}
-                            className="py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                          >
-                            <Pause size={12} className="shrink-0" />
-                            <span>Pausar</span>
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleActionClick(() => {
-                                setSelectedOrder(order);
-                                setIsCloseModalOpen(true);
-                              });
-                            }}
-                            className="py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-none"
-                          >
-                            <CheckCircle2 size={12} className="shrink-0" />
-                            <span>Concluir</span>
-                          </button>
-                        </div>
-                      )}
-
-                      {(order.status === 'waiting_parts' || order.status === 'paused' || order.status === 'blocked') && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleResumeService(order);
-                          }}
-                          className="w-full py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all shadow-none cursor-pointer"
-                        >
-                          <Play size={12} className="fill-current shrink-0" />
-                          <span>Retomar</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                </div>
-              );
-            })}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+              Ordens Filtradas ({filteredOrders.length}) · Clique na linha para abrir o cockpit de campo
+            </span>
+            <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5 shadow-sm self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition-colors cursor-pointer ${
+                  viewMode === 'table'
+                    ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-transparent'
+                }`}
+                title="Visualização em Tabela"
+              >
+                <List size={13} />
+                <span>Tabela</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('cards')}
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition-colors cursor-pointer ${
+                  viewMode === 'cards'
+                    ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-transparent'
+                }`}
+                title="Visualização em Cartões"
+              >
+                <LayoutGrid size={13} />
+                <span>Cartões</span>
+              </button>
+            </div>
           </div>
+
+          {viewMode === 'table' ? (
+            <div className="overflow-x-auto min-h-[320px] pb-20 bg-white border border-slate-200 rounded-md shadow-sm">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-600 text-xs uppercase bg-slate-50">
+                    <th className="py-3 px-4 font-semibold">N.º OS</th>
+                    <th className="py-3 px-4 font-semibold">Ordem / Título</th>
+                    <th className="py-3 px-4 font-semibold">Equipamento / Ativo</th>
+                    <th className="py-3 px-4 font-semibold">Técnico Encarregue</th>
+                    <th className="py-3 px-4 font-semibold text-center">Prioridade</th>
+                    <th className="py-3 px-4 font-semibold">Contador</th>
+                    <th className="py-3 px-4 font-semibold text-center">Estado</th>
+                    <th className="py-3 px-4 font-semibold text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredOrders.map((order, index) => {
+                    const matchingAsset = assets.find(a => a.id === order.asset_id || a.id === order.assetId);
+                    const assetTag = matchingAsset ? (matchingAsset.code_tag || matchingAsset.codeTag) : 'EQ-GERAL';
+                    const assetName = matchingAsset ? matchingAsset.name : (order.asset_name || order.asset?.name || 'Equipamento Geral');
+                    const priority = order.priority || 'medium';
+                    const delayed = isDelayed(order);
+                    const techDisplay = resolveTechnicianName(order);
+                    const meterVal = order.meter_at_service ?? order.meterAtService;
+                    const orderMeterType = (order as any).meter_type || (order as any).meterType || (order as any).meter_kind || (order as any).meterKind;
+                    const isKm = domain === 'fleet' || orderMeterType === 'kms' || orderMeterType === 'odometer_km' || matchingAsset?.meter_kind === 'odometer_km' || matchingAsset?.meterKind === 'odometer_km';
+                    const meterUnit = isKm ? 'km' : 'horas';
+
+                    return (
+                      <tr
+                        key={order.id}
+                        onClick={() => handleOpenDrawer(order)}
+                        className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                      >
+                        <td className="py-3 px-4 font-mono font-bold text-blue-700 whitespace-nowrap">
+                          {order.wo_number || order.woNumber || `OS-${order.id.substring(0, 4)}`}
+                        </td>
+                        <td className="py-3 px-4 max-w-xs">
+                          <div className="flex flex-col">
+                            <span className="text-slate-900 font-semibold text-xs truncate" title={order.title}>
+                              {order.title}
+                            </span>
+                            {order.description && (
+                              <span className="text-[11px] text-slate-500 line-clamp-1 mt-0.5" title={order.description}>
+                                {order.description}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                {assetTag}
+                              </span>
+                              <span className="text-slate-900 text-xs font-medium truncate max-w-[160px]" title={assetName}>
+                                {assetName}
+                              </span>
+                            </div>
+                            {matchingAsset && (matchingAsset.brand || matchingAsset.model) && (
+                              <span className="text-[10px] text-slate-400 mt-0.5">
+                                {matchingAsset.brand} {matchingAsset.model}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-xs text-slate-700 font-medium whitespace-nowrap">
+                          {techDisplay}
+                        </td>
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          {renderPriorityBadge(priority)}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-xs text-slate-700 whitespace-nowrap">
+                          {formatMeterReading(meterVal, meterUnit)}
+                        </td>
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1">
+                            {delayed && (
+                              <span className="bg-amber-50 text-amber-700 text-[9px] font-bold px-1.5 py-0.5 border border-amber-200 rounded">
+                                Atraso
+                              </span>
+                            )}
+                            {renderStatusBadge(order.status)}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          {renderOrderActionsMenu(order, index, false)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredOrders.map((order, index) => {
+                const matchingAsset = assets.find(a => a.id === order.asset_id || a.id === order.assetId);
+                const priority = order.priority || 'medium';
+                const isUrgent = priority === 'urgent' || priority === 'critical';
+                const delayed = isDelayed(order);
+                const techDisplay = resolveTechnicianName(order);
+                const meterVal = order.meter_at_service ?? order.meterAtService;
+                const orderMeterType = (order as any).meter_type || (order as any).meterType || (order as any).meter_kind || (order as any).meterKind;
+                const isKm = domain === 'fleet' || orderMeterType === 'kms' || orderMeterType === 'odometer_km' || matchingAsset?.meter_kind === 'odometer_km' || matchingAsset?.meterKind === 'odometer_km';
+                const meterUnit = isKm ? 'km' : 'horas';
+
+                return (
+                  <div
+                    key={order.id}
+                    onClick={() => handleOpenDrawer(order)}
+                    className={`bg-white border rounded-md p-4 space-y-3.5 cursor-pointer hover:border-slate-300 transition-all shadow-none flex flex-col justify-between ${
+                      isUrgent 
+                        ? 'border-red-300 hover:border-red-400 bg-red-50/20' 
+                        : delayed 
+                        ? 'border-amber-300 hover:border-amber-400' 
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span className="font-mono font-bold text-[10px] text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                            {matchingAsset ? matchingAsset.code_tag || matchingAsset.codeTag : 'EQ-GERAL'}
+                          </span>
+                          <span className="font-mono font-semibold text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded shrink-0 border border-blue-100">
+                            {order.wo_number || order.woNumber || `OS-${order.id.substring(0, 4)}`}
+                          </span>
+                        </div>
+                        <div className="flex gap-1.5 items-center shrink-0">
+                          {delayed && (
+                            <span className="bg-amber-50 text-amber-700 text-[9px] font-bold px-1.5 py-0.5 border border-amber-200 rounded">
+                              Atraso
+                            </span>
+                          )}
+                          {renderStatusBadge(order.status)}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <h3 className="text-slate-900 font-bold text-sm leading-snug truncate" title={order.title}>
+                          {order.title}
+                        </h3>
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
+                          <Activity size={11} className="text-slate-400 shrink-0" />
+                          <span>Contador de Entrada:</span>
+                          <span className="text-slate-800 font-semibold">
+                            {formatMeterReading(meterVal, meterUnit)}
+                          </span>
+                        </div>
+                        <p className="text-slate-600 text-xs line-clamp-2 leading-relaxed">
+                          {order.description || 'Sem descrição detalhada.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 space-y-3 mt-2">
+                      <div className="flex justify-between items-end">
+                        <div>
+                          <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wide">Técnico Encarregue</span>
+                          <span className="text-slate-800 text-xs font-semibold block truncate max-w-[150px]">
+                            {techDisplay}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {renderPriorityBadge(priority)}
+                          {renderOrderActionsMenu(order, index, true)}
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
