@@ -5,7 +5,7 @@ import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { ENERGY_TYPES, FLEET_CATEGORIES, OWNERSHIP_TYPES, TRAILER_SUBTYPES, getSubtypesForType, toBackendCategory } from '../config/fleetCategories';
 import { SecondaryView } from '../components/SecondaryView';
-import { useAlert } from '../contexts/AlertContext';
+import { useAlert, triggerGlobalConfirm } from '../contexts/AlertContext';
 import QRCode from 'qrcode';
 import {
   Plus,
@@ -43,6 +43,7 @@ import { DraftBanner } from '../components/DraftBanner';
 import { DraftsListView } from '../components/DraftsListView';
 import { combinationService, TrailerRole, CombinationHistoryEntry } from '../services/combinationService';
 import { FleetOperationsReportModal } from '../components/FleetOperationsReportModal';
+import { dataCache } from '../services/dataCacheService';
 
 interface Document {
   id: string;
@@ -279,8 +280,8 @@ export const AssetsPage: React.FC = () => {
   const { categories, complianceDocTypes, counterLabel, counterUnit, searchPlaceholder, domain, assetNamePlural } = domainConfig;
   const { showAlert } = useAlert();
 
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [assets, setAssets] = useState<Asset[]>(() => dataCache.get<Asset[]>('assets_list') || []);
+  const [loading, setLoading] = useState<boolean>(() => !dataCache.has('assets_list'));
   const [error, setError] = useState<string | null>(null);
 
   // Filtros de Pesquisa
@@ -421,13 +422,20 @@ export const AssetsPage: React.FC = () => {
   // ==========================================
   // BUSCA DE DADOS
   // ==========================================
-  const fetchAssets = async () => {
-    setLoading(true);
+  const fetchAssets = async (force: boolean | unknown = false) => {
+    const isForce = force === true;
+    if (isForce) {
+      dataCache.invalidate('assets_list');
+    }
+    if (!dataCache.has('assets_list') || isForce) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await api.get('/assets');
       const aData = Array.isArray(res.data) ? res.data : (res.data?.assets || res.data?.data || []);
       setAssets(aData);
+      dataCache.set('assets_list', aData);
     } catch (err: any) {
       console.error('Erro ao buscar ativos:', err);
       if (err.response?.status === 403) {
@@ -650,7 +658,9 @@ export const AssetsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchAssets();
+    if (!dataCache.has('assets_list')) {
+      fetchAssets();
+    }
   }, []);
 
   useEffect(() => {
@@ -1165,7 +1175,7 @@ export const AssetsPage: React.FC = () => {
       draftService.clearDraft('assets', user?.tenantId || (user as any)?.tenant_id, user?.id);
       setIsModalOpen(false);
       resetWizardForm();
-      await fetchAssets();
+      await fetchAssets(true);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       console.error('Erro ao salvar ativo:', err);
@@ -1456,7 +1466,7 @@ export const AssetsPage: React.FC = () => {
       setSuccessMessage(`Ativo "${deletingAsset.code_tag || deletingAsset.codeTag}" arquivado com sucesso.`);
       setIsDeleteModalOpen(false);
       setDeletingAsset(null);
-      await fetchAssets();
+      await fetchAssets(true);
       showAlert({
         title: 'Ativo Arquivado',
         message: `Ativo arquivado com sucesso no sistema.`,
@@ -1868,11 +1878,6 @@ export const AssetsPage: React.FC = () => {
             <span>{domain === 'plant' ? 'Equipamentos Fabris' : 'Frota'}</span>
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
-          <p className="text-slate-500 text-xs mt-1">
-            {domain === 'plant'
-              ? 'Registo e controlo de equipamentos industriais, geradores e maquinaria de chão de fábrica.'
-              : 'Registo e controlo operacional de viaturas ligeiras, pesadas e frotas de transporte.'}
-          </p>
         </div>
         <div className="flex gap-2">
           <button
@@ -1883,29 +1888,13 @@ export const AssetsPage: React.FC = () => {
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
           {!isTechnician && !isDriverOperator && (
-            <>
-              {domain === 'fleet' && (
-                <button
-                  onClick={() => {
-                    setBatchFile(null);
-                    setParsedBatchData([]);
-                    setBatchError(null);
-                    setIsBatchImportModalOpen(true);
-                  }}
-                  className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-medium py-2.5 px-3.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
-                >
-                  <FileSpreadsheet size={15} className="text-slate-500" />
-                  <span>Importar em Lote</span>
-                </button>
-              )}
-              <button
-                onClick={handleOpenCreateModal}
-                className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
-              >
-                <Plus size={16} />
-                <span>{domain === 'plant' ? 'Cadastrar Equipamento' : 'Cadastrar Ativo'}</span>
-              </button>
-            </>
+            <button
+              onClick={handleOpenCreateModal}
+              className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+            >
+              <Plus size={16} />
+              <span>{domain === 'plant' ? 'Cadastrar Equipamento' : 'Cadastrar Ativo'}</span>
+            </button>
           )}
         </div>
       </div>
@@ -1995,11 +1984,6 @@ export const AssetsPage: React.FC = () => {
         ) : filteredAssets.length === 0 ? (
           <div className="text-center py-16 px-4">
             <h3 className="text-sm font-semibold text-slate-900">Nenhum Ativo Encontrado</h3>
-            <p className="text-slate-500 text-xs mt-1">
-              {(user?.operational_scope || user?.tenant?.operational_scope || domain) === 'plant' 
-                ? 'Registe equipamentos fabris para iniciar.' 
-                : 'Registe viaturas e frotas para iniciar.'}
-            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -3586,8 +3570,15 @@ export const AssetsPage: React.FC = () => {
                 {combinationHistory.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (window.confirm('Deseja limpar o histórico local de auditoria?')) {
+                    onClick={async () => {
+                      const confirmed = await triggerGlobalConfirm({
+                        title: 'Limpar Histórico',
+                        message: 'Deseja limpar o histórico local de auditoria de combinações?',
+                        confirmText: 'Limpar',
+                        cancelText: 'Cancelar',
+                        danger: true,
+                      });
+                      if (confirmed) {
                         combinationService.clearHistory(user?.tenantId);
                         setCombinationHistory([]);
                       }

@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import SecondaryView from '../components/SecondaryView';
+import { triggerGlobalConfirm } from '../contexts/AlertContext';
+import { dataCache } from '../services/dataCacheService';
 import {
   CalendarClock,
   Plus,
@@ -94,10 +96,10 @@ export const MaintenancePlansPage: React.FC = () => {
   const { domain } = domainConfig;
 
   // Estados sem qualquer dado mockado
-  const [plans, setPlans] = useState<MaintenancePlan[]>([]);
+  const [plans, setPlans] = useState<MaintenancePlan[]>(() => dataCache.get<MaintenancePlan[]>('maintenance_plans') || []);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(() => !dataCache.has('maintenance_plans'));
   const [loadingFormData, setLoadingFormData] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -170,8 +172,14 @@ export const MaintenancePlansPage: React.FC = () => {
   const [newTaskInput, setNewTaskInput] = useState<string>('');
 
   // 1. Consumo de dados reais da API (/maintenance-plans)
-  const fetchPlans = async () => {
-    setLoading(true);
+  const fetchPlans = async (force: boolean | unknown = false) => {
+    const isForce = force === true;
+    if (isForce) {
+      dataCache.invalidate('maintenance_plans');
+    }
+    if (!dataCache.has('maintenance_plans') || isForce) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await api.get('/maintenance-plans');
@@ -179,6 +187,7 @@ export const MaintenancePlansPage: React.FC = () => {
         ? res.data
         : (res.data?.plans || res.data?.data || []);
       setPlans(data);
+      dataCache.set('maintenance_plans', data);
     } catch (err: any) {
       console.error('Erro ao carregar planos preventivos:', err);
       setPlans([]);
@@ -188,7 +197,9 @@ export const MaintenancePlansPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchPlans();
+    if (!dataCache.has('maintenance_plans')) {
+      fetchPlans();
+    }
   }, []);
 
   // 2. Carrega dependências reais do Modal (Ativos e Técnicos)
@@ -404,7 +415,7 @@ export const MaintenancePlansPage: React.FC = () => {
       }
       draftService.clearDraft('maintenance_plans', user?.tenantId || (user as any)?.tenant_id, user?.id);
       setIsModalOpen(false);
-      fetchPlans();
+      fetchPlans(true);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       console.error('Erro ao salvar plano preventivo:', err);
@@ -421,7 +432,7 @@ export const MaintenancePlansPage: React.FC = () => {
         const currentActive = plan.is_active ?? plan.status === 'active';
         await api.patch(`/maintenance-plans/${plan.id}`, { is_active: !currentActive, status: !currentActive ? 'active' : 'paused' });
       }
-      fetchPlans();
+      fetchPlans(true);
     } catch (err: any) {
       console.error('Erro ao alterar estado do plano:', err);
     }
@@ -455,11 +466,18 @@ export const MaintenancePlansPage: React.FC = () => {
 
   // 6. Eliminar Plano via API (DELETE /maintenance-plans/:id)
   const handleDeletePlan = async (id: string) => {
-    if (!confirm('Tem a certeza que deseja eliminar definitivamente este plano preventivo?')) return;
+    const confirmed = await triggerGlobalConfirm({
+      title: 'Eliminar Plano Preventivo',
+      message: 'Tem a certeza que deseja eliminar definitivamente este plano preventivo?',
+      confirmText: 'Sim, Eliminar',
+      cancelText: 'Cancelar',
+      danger: true
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/maintenance-plans/${id}`);
       setSuccessMessage('Plano preventivo eliminado com sucesso.');
-      fetchPlans();
+      fetchPlans(true);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       console.error('Erro ao eliminar plano:', err);
@@ -528,9 +546,6 @@ export const MaintenancePlansPage: React.FC = () => {
             <span>Plano de Manutenção</span>
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
-          <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-            Programação sistemática de revisões por calendário, quilometragem ou horímetro corporativo.
-          </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -638,9 +653,6 @@ export const MaintenancePlansPage: React.FC = () => {
           <div className="bg-white border border-slate-200 rounded-md p-12 text-center">
             <CalendarClock size={36} className="text-slate-300 mx-auto mb-3" />
             <h3 className="text-sm font-semibold text-slate-800">Nenhum Plano de Manutenção Preventiva</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              Não existem planos preventivos configurados para esta empresa. Clique em "+ Novo Plano Preventivo" para programar revisões por calendário ou quilometragem.
-            </p>
           </div>
         ) : filteredPlans.length === 0 ? (
           <div className="p-12 text-center">

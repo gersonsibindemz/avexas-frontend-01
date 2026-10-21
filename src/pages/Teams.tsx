@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Technician } from '../types/technician';
+import { dataCache } from '../services/dataCacheService';
 import {
   Users,
   Search,
@@ -19,14 +20,20 @@ import {
 } from 'lucide-react';
 
 export const TeamsPage: React.FC = () => {
-  const [technicians, setTechnicians] = useState<Technician[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [technicians, setTechnicians] = useState<Technician[]>(() => {
+    return dataCache.get<Technician[]>('teams') || [];
+  });
+  const [loading, setLoading] = useState<boolean>(() => {
+    return !dataCache.has('teams');
+  });
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [specialtyFilter, setSpecialtyFilter] = useState<string>('all');
   const [scopeFilter, setScopeFilter] = useState<string>('all');
 
-  const fetchTeam = async () => {
-    setLoading(true);
+  const fetchTeam = async (isManual = false) => {
+    if (!dataCache.has('teams') || isManual) {
+      setLoading(true);
+    }
     try {
       const res = await api.get('/technicians');
       const list = Array.isArray(res.data)
@@ -39,16 +46,19 @@ export const TeamsPage: React.FC = () => {
         })).values()
       );
       setTechnicians(uniqueTechs);
+      dataCache.set('teams', uniqueTechs);
     } catch (err) {
       console.error('Erro ao carregar equipa técnica:', err);
-      setTechnicians([]);
+      if (!dataCache.has('teams')) setTechnicians([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTeam();
+    if (!dataCache.has('teams')) {
+      fetchTeam();
+    }
   }, []);
 
   // Extrair lista de especialidades únicas para o filtro
@@ -95,14 +105,11 @@ export const TeamsPage: React.FC = () => {
             <span>Equipe Técnica</span>
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
-          <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-            Consulta e alocação em tempo real de colaboradores técnicos e operacionais da empresa.
-          </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={fetchTeam}
+            onClick={() => fetchTeam(true)}
             disabled={loading}
             className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2 text-xs font-medium"
             title="Atualizar dados"
@@ -121,7 +128,7 @@ export const TeamsPage: React.FC = () => {
           </div>
           <div>
             <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Total da Equipa</span>
-            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : totalTeam}</span>
+            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading && technicians.length === 0 ? '---' : totalTeam}</span>
           </div>
         </div>
 
@@ -131,7 +138,7 @@ export const TeamsPage: React.FC = () => {
           </div>
           <div>
             <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Técnicos em Serviço</span>
-            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : `${inServiceCount} em serviço`}</span>
+            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading && technicians.length === 0 ? '---' : `${inServiceCount} em serviço`}</span>
           </div>
         </div>
 
@@ -141,7 +148,7 @@ export const TeamsPage: React.FC = () => {
           </div>
           <div>
             <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Técnicos Disponíveis</span>
-            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading ? '---' : `${availableCount} disponíveis`}</span>
+            <span className="text-xl font-bold text-slate-900 mt-0.5 block">{loading && technicians.length === 0 ? '---' : `${availableCount} disponíveis`}</span>
           </div>
         </div>
       </div>
@@ -194,8 +201,8 @@ export const TeamsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* LISTA / GRID DE COLABORADORES */}
-      {loading ? (
+      {/* TABELA DE MEMBROS DA EQUIPE (Prompt 3 - Requisito 4: Listados em tabela) */}
+      {loading && technicians.length === 0 ? (
         <div className="p-12 text-center bg-white border border-slate-200 rounded-md">
           <Loader2 className="animate-spin text-blue-700 mx-auto" size={32} />
           <p className="text-slate-500 text-xs mt-3">A carregar equipa técnica...</p>
@@ -218,103 +225,117 @@ export const TeamsPage: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTechnicians.map((tech) => {
-            const techName = tech.name || tech.full_name || 'Técnico';
-            const initials = techName
-              .split(' ')
-              .map(n => n[0])
-              .join('')
-              .substring(0, 2)
-              .toUpperCase();
+        <div className="bg-white border border-slate-200 rounded-md overflow-hidden shadow-none">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px]">
+                  <th className="py-3.5 px-4">Colaborador / Nome</th>
+                  <th className="py-3.5 px-4">Especialidade Técnica</th>
+                  <th className="py-3.5 px-4">Âmbito Operacional</th>
+                  <th className="py-3.5 px-4">Contactos</th>
+                  <th className="py-3.5 px-4 text-center">Ordens Ativas</th>
+                  <th className="py-3.5 px-4 text-right">Estado Operacional</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredTechnicians.map((tech) => {
+                  const techName = tech.name || tech.full_name || 'Técnico';
+                  const initials = techName
+                    .split(' ')
+                    .map(n => n[0])
+                    .join('')
+                    .substring(0, 2)
+                    .toUpperCase();
+                  const activeOrders = tech.active_orders_count || 0;
 
-            const activeOrders = tech.active_orders_count || 0;
+                  return (
+                    <tr key={tech.id} className="hover:bg-slate-50/80 transition-colors">
+                      {/* Avatar e Nome */}
+                      <td className="py-3.5 px-4 font-semibold text-slate-900">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-md bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center font-bold text-xs shrink-0 uppercase">
+                            {initials}
+                          </div>
+                          <div>
+                            <span className="block font-bold text-slate-900">{techName}</span>
+                            <span className="block text-[11px] text-slate-400 font-normal">Técnico de Manutenção</span>
+                          </div>
+                        </div>
+                      </td>
 
-            return (
-              <div
-                key={tech.id}
-                className="bg-white border border-slate-200 rounded-md p-5 flex flex-col justify-between hover:border-blue-300 transition-colors shadow-none"
-              >
-                <div>
-                  {/* Topo do Cartão: Avatar + Nome + Especialidade */}
-                  <div className="flex items-start gap-3 border-b border-slate-100 pb-3">
-                    <div className="w-12 h-12 rounded-md bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center font-bold text-sm shrink-0 uppercase">
-                      {initials}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-bold text-slate-900 truncate">
-                        {techName}
-                      </h3>
-                      <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
-                        Técnico de Manutenção
-                      </p>
-                    </div>
-                  </div>
+                      {/* Especialidade */}
+                      <td className="py-3.5 px-4">
+                        <span className="font-semibold text-slate-800 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded text-[11px]">
+                          {tech.specialty || 'Geral'}
+                        </span>
+                      </td>
 
-                  {/* Detalhes: Especialidade + Âmbito + Contactos */}
-                  <div className="py-3 space-y-2 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Especialidade:</span>
-                      <span className="font-semibold text-slate-800 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[11px]">
-                        {tech.specialty || 'Geral'}
-                      </span>
-                    </div>
+                      {/* Âmbito Operacional */}
+                      <td className="py-3.5 px-4">
+                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                          {tech.operational_scope === 'plant' ? (
+                            <>
+                              <Building2 size={14} className="text-slate-500" />
+                              <span>Instalação Fabril</span>
+                            </>
+                          ) : (
+                            <>
+                              <Truck size={14} className="text-slate-500" />
+                              <span>Frota</span>
+                            </>
+                          )}
+                        </span>
+                      </td>
 
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Âmbito:</span>
-                      <span className="inline-flex items-center gap-1 font-medium text-slate-700">
-                        {tech.operational_scope === 'plant' ? (
-                          <>
-                            <Building2 size={13} className="text-slate-500" />
-                            <span>Instalação Fabril</span>
-                          </>
+                      {/* Contactos */}
+                      <td className="py-3.5 px-4">
+                        <div className="space-y-0.5 font-mono text-[11px]">
+                          {tech.email && (
+                            <div className="flex items-center gap-1.5 text-slate-600">
+                              <Mail size={12} className="text-slate-400 shrink-0" />
+                              <span className="truncate max-w-[190px]">{tech.email}</span>
+                            </div>
+                          )}
+                          {tech.phone && (
+                            <div className="flex items-center gap-1.5 text-slate-600">
+                              <Phone size={12} className="text-slate-400 shrink-0" />
+                              <span>{tech.phone}</span>
+                            </div>
+                          )}
+                          {!tech.email && !tech.phone && <span className="text-slate-400 italic">Sem contacto direto</span>}
+                        </div>
+                      </td>
+
+                      {/* Ordens Ativas */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span className={`inline-block font-mono font-bold text-xs px-2 py-0.5 rounded ${
+                          activeOrders > 0 ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {activeOrders}
+                        </span>
+                      </td>
+
+                      {/* Estado Operacional */}
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        {activeOrders > 0 ? (
+                          <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1 rounded text-[11px] font-semibold">
+                            <Clock size={12} />
+                            <span>Em Serviço ({activeOrders})</span>
+                          </span>
                         ) : (
-                          <>
-                            <Truck size={13} className="text-slate-500" />
-                            <span>Frota</span>
-                          </>
+                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded text-[11px] font-semibold">
+                            <CheckCircle2 size={12} />
+                            <span>Disponível</span>
+                          </span>
                         )}
-                      </span>
-                    </div>
-
-                    {tech.email && (
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-slate-500">E-mail:</span>
-                        <span className="text-slate-800 font-mono text-[11px] truncate max-w-[170px]" title={tech.email}>
-                          {tech.email}
-                        </span>
-                      </div>
-                    )}
-
-                    {tech.phone && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Contacto:</span>
-                        <span className="text-slate-800 font-mono text-[11px]">
-                          {tech.phone}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Rodapé do Cartão: Estado Operacional */}
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <span className="text-slate-500 text-[11px]">Estado Atual:</span>
-                  {activeOrders > 0 ? (
-                    <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded text-[10px] font-semibold">
-                      <Clock size={12} />
-                      <span>Em Serviço ({activeOrders} {activeOrders === 1 ? 'ordem' : 'ordens'})</span>
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-semibold">
-                      <CheckCircle2 size={12} />
-                      <span>Disponível</span>
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

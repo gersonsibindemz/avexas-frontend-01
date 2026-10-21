@@ -30,7 +30,8 @@ import {
   Users,
   Layers,
   AlertTriangle,
-  Camera
+  Camera,
+  Terminal
 } from 'lucide-react';
 import { NotificationItem, deduplicateNotifications } from '../services/notificationService';
 
@@ -277,6 +278,39 @@ export const Layout: React.FC = () => {
     }
   };
 
+  // Registo de Saída ao fechar aba ou navegador (Prompt 1 - Requisito 2)
+  useEffect(() => {
+    if (!user) return;
+    const handleBeforeUnload = () => {
+      try {
+        fetch('/api/auth/record-exit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
+          credentials: 'include'
+        }).catch(() => {});
+      } catch {}
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [user]);
+
+  // Regra de Perfil do Botão Escanear: Apenas para roles DIFERENTES de tenant_admin e super_admin (Prompt 3 - Requisito 1)
+  const canScan = user?.role !== 'tenant_admin' && user?.role !== 'super_admin';
+
+  // Isolamento Operacional: Apenas super_admin ou utilizadores explicitamente mistos/both podem alternar escopo (Prompt 4 - Requisito 1 & 2)
+  const canSwitchScope = user?.role === 'super_admin' || (
+    user?.role !== 'tenant_admin' && (
+      user?.operational_scope === 'both' ||
+      user?.operational_scope === 'mixed' ||
+      user?.operationalScope === 'both' ||
+      user?.operationalScope === 'mixed'
+    )
+  );
+
   // Definição dos links de navegação com base na role
   const getNavigationItems = () => {
     if (user?.role === 'super_admin') {
@@ -292,6 +326,12 @@ export const Layout: React.FC = () => {
           path: '/app/users',
           icon: Users,
           description: 'Gestão de contas e permissões'
+        },
+        {
+          name: 'Logs de IT & Auditoria',
+          path: '/app/it-logs',
+          icon: Terminal,
+          description: 'Diagnóstico e monitorização técnica'
         }
       ];
     }
@@ -355,6 +395,22 @@ export const Layout: React.FC = () => {
         path: '/app/inventory',
         icon: Layers,
         description: 'Gestão de peças e consumíveis'
+      });
+    }
+
+    // Página própria de dados da empresa e logs para tenant_admin (Prompt 2 Requisito 2 e 3)
+    if (user.role === 'tenant_admin') {
+      items.push({
+        name: 'Dados da Empresa',
+        path: '/app/company',
+        icon: Building2,
+        description: 'Visualização da empresa e descarregar dados'
+      });
+      items.push({
+        name: 'Logs de IT',
+        path: '/app/it-logs',
+        icon: Terminal,
+        description: 'Monitorização técnica e auditoria'
       });
     }
 
@@ -711,8 +767,8 @@ export const Layout: React.FC = () => {
           {/* Lado direito: Notificações, Perfil, Info de Localização Moçambique */}
           <div className="flex items-center gap-3">
             
-            {/* Alternador de Escopo de Negócio ('both') */}
-            {(user.operational_scope === 'both' || user.operational_scope === 'mixed' || user.tenant?.operational_scope === 'both' || user.tenant?.operational_scope === 'mixed' || user.tenant?.operationalScope === 'both' || user.tenant?.operationalScope === 'mixed') && (
+            {/* Alternador de Escopo de Negócio (Isolamento rígido - Prompt 4 Requisito 1 & 2) */}
+            {canSwitchScope && (
               <div className="flex bg-slate-100 p-1 rounded-md border border-slate-200">
                 <button
                   onClick={() => setCurrentScope('fleet')}
@@ -737,11 +793,23 @@ export const Layout: React.FC = () => {
               </div>
             )}
 
-            {/* Botão de Scan QR Code Global (Header) - EXCLUSIVO PARA MÓVEL */}
-            {!isTenantAdmin && (
+            {/* Acesso rápido aos dados de Abastecimento fora do menu lateral (Prompt 1 - Requisito 3) */}
+            {currentScope !== 'plant' && (user.role === 'tenant_admin' || user.role === 'supervisor') && (
+              <button
+                onClick={() => navigate('/app/fuel')}
+                className="px-2.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:text-blue-700 flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+                title="Aceder a Registos e Indicadores de Abastecimento"
+              >
+                <Fuel size={14} className="text-amber-500" />
+                <span className="hidden sm:inline">Abastecimento</span>
+              </button>
+            )}
+
+            {/* Botão de Scan QR Code Global (Header) - Apenas ecrã pequeno (smartphones e tablets) e papéis operacionais autorizados (Prompt 3 Requisito 1) */}
+            {canScan && (
               <button
                 onClick={() => setIsScannerOpen(true)}
-                className="md:hidden p-2 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-all border border-blue-200 cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+                className="lg:hidden p-2 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-all border border-blue-200 cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
                 title="Escanear Equipamento (Código QR)"
               >
                 <QrCode size={16} />
@@ -924,7 +992,7 @@ export const Layout: React.FC = () => {
             </NavLink>
 
             {/* Botão Central de Scan Flutuante */}
-            {!isTenantAdmin && (
+            {canScan && (
               <button
                 onClick={() => setIsScannerOpen(true)}
                 className="flex flex-col items-center justify-center -mt-6 bg-blue-700 hover:bg-blue-800 text-white w-14 h-14 rounded-full shadow-md active:scale-95 transition-all border-4 border-slate-50 shrink-0 cursor-pointer"

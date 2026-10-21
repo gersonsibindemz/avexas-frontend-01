@@ -128,9 +128,6 @@ export const LoginPage: React.FC = () => {
             )}
           </div>
 
-          <div className="text-[11px] text-slate-400 text-center my-2">
-            Acesso restrito a utilizadores autorizados
-          </div>
 
           <button
             type="submit"

@@ -26,6 +26,7 @@ import { draftService, DraftItem } from '../services/draftService';
 import { DraftConfirmModal } from '../components/DraftConfirmModal';
 import { DraftBanner } from '../components/DraftBanner';
 import { DraftsListView } from '../components/DraftsListView';
+import { dataCache } from '../services/dataCacheService';
 
 interface Asset {
   id: string;
@@ -68,9 +69,9 @@ interface FuelLog {
 export const FuelPage: React.FC = () => {
   const { user, currentScope } = useAuth();
   const { checkSuspension, handleActionClick } = useSuspensionGuard();
-  const [logs, setLogs] = useState<FuelLog[]>([]);
+  const [logs, setLogs] = useState<FuelLog[]>(() => dataCache.get<FuelLog[]>('fuel_logs') || []);
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !dataCache.has('fuel_logs'));
   const [error, setError] = useState<string | null>(null);
 
   // Estados de pesquisa e filtragem
@@ -134,8 +135,14 @@ export const FuelPage: React.FC = () => {
   const [receiptDocRef, setReceiptDocRef] = useState('');
 
   // Busca lista de abastecimentos
-  const fetchFuelLogs = async () => {
-    setLoading(true);
+  const fetchFuelLogs = async (force: boolean | unknown = false) => {
+    const isForce = force === true;
+    if (isForce) {
+      dataCache.invalidate('fuel_logs');
+    }
+    if (!dataCache.has('fuel_logs') || isForce) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const response = await api.get('/fuel');
@@ -143,6 +150,7 @@ export const FuelPage: React.FC = () => {
         ? response.data
         : response.data?.fuelLogs || response.data?.data || [];
       setLogs(data);
+      dataCache.set('fuel_logs', data);
     } catch (err: any) {
       console.error('Erro ao carregar histórico de combustível:', err);
       setError(
@@ -231,7 +239,9 @@ export const FuelPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchFuelLogs();
+    if (!dataCache.has('fuel_logs')) {
+      fetchFuelLogs();
+    }
     fetchReferencePrices();
   }, []);
 
@@ -319,7 +329,7 @@ export const FuelPage: React.FC = () => {
       setHasRestoredDraft(false);
 
       // Recarrega os dados de histórico e lista de ativos com novo contador
-      await fetchFuelLogs();
+      await fetchFuelLogs(true);
       await fetchAssetsForDropdown();
 
       setTimeout(() => setSuccessMessage(null), 4000);
@@ -467,9 +477,6 @@ export const FuelPage: React.FC = () => {
             <span>Gestão de Combustível</span>
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
-          <p className="text-slate-500 text-xs mt-1">
-            Controlo analítico de abastecimentos, verificação de recibos e eficiência energética da frota.
-          </p>
         </div>
         <div className="flex gap-2">
           <button
@@ -512,7 +519,6 @@ export const FuelPage: React.FC = () => {
         <div className="bg-white border border-slate-200 p-5 rounded-md shadow-none">
           <div className="mb-2">
             <span className="text-xs text-slate-500 block font-semibold uppercase tracking-wider">PREÇO DE REFERÊNCIA</span>
-            <span className="text-[11px] text-slate-400 block mt-0.5">Valores oficiais em vigor no país da empresa</span>
           </div>
           <div className="flex justify-between items-center py-2 border-b border-slate-100">
             <span className="text-slate-600 text-xs font-medium">Gasóleo (Diesel) / Litro</span>
@@ -611,9 +617,6 @@ export const FuelPage: React.FC = () => {
               <Fuel size={20} />
             </div>
             <h3 className="text-sm font-semibold text-slate-900">Nenhum Registo de Combustível</h3>
-            <p className="text-slate-500 text-xs mt-1 max-w-sm mx-auto">
-              Não existem abastecimentos correspondentes aos filtros aplicados na base de dados real.
-            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">

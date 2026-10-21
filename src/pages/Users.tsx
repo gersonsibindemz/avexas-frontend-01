@@ -22,7 +22,9 @@ import {
   User as UserIcon,
   Layers,
   Building2,
-  ArrowLeft
+  ArrowLeft,
+  Sparkles,
+  Clock
 } from 'lucide-react';
 
 interface TenantUser {
@@ -35,6 +37,8 @@ interface TenantUser {
   operationalScope?: 'fleet' | 'plant' | 'both' | 'mixed';
   specialty?: string;
   created_at?: string;
+  last_sign_in?: string | null;
+  last_login_at?: string | null;
   is_active: boolean;
   is_suspended?: boolean;
 }
@@ -73,6 +77,7 @@ export const UsersPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [scopeFilter, setScopeFilter] = useState('all');
+  const [activityFilter, setActivityFilter] = useState<'all' | 'recent' | 'new_pending'>('all');
 
   // Modais
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -150,6 +155,7 @@ export const UsersPage: React.FC = () => {
         role: u.role,
         operational_scope: u.operational_scope || u.operationalScope || 'fleet',
         specialty: u.specialty || u.technical_specialty || u.specialization || '',
+        last_sign_in: u.last_sign_in ?? u.lastSignIn ?? u.last_login_at ?? null,
         is_active: u.is_active ?? u.isActive ?? !(u.is_suspended ?? u.isSuspended ?? u.status === 'suspended'),
         is_suspended: u.is_suspended ?? u.isSuspended ?? u.status === 'suspended'
       }));
@@ -211,11 +217,14 @@ export const UsersPage: React.FC = () => {
   };
 
   const handleOpenEditModal = (targetUser: TenantUser) => {
-    const targetScope = targetUser.operational_scope === 'plant'
+    let targetScope: 'fleet' | 'plant' | 'mixed' = targetUser.operational_scope === 'plant'
       ? 'plant'
       : targetUser.operational_scope === 'mixed' || targetUser.operational_scope === 'both'
         ? 'mixed'
         : 'fleet';
+    if (targetUser.role === 'tenant_admin' && targetScope === 'mixed') {
+      targetScope = 'fleet';
+    }
     setModalMode('edit');
     setEditingUserId(targetUser.id);
     setFullName(targetUser.fullName);
@@ -247,6 +256,10 @@ export const UsersPage: React.FC = () => {
     }
     if (modalMode === 'create' && !canSelectAllScopes && (currentUserScope === 'fleet' || currentUserScope === 'plant') && operationalScope !== currentUserScope) {
       alert('Não pode criar utilizadores fora do seu âmbito operacional.');
+      return;
+    }
+    if (role === 'tenant_admin' && operationalScope === 'mixed') {
+      alert('O Gestor de Contrato (tenant_admin) apenas pode ser atribuído ao âmbito de Frota ou Fábrica, não podendo ser Misto.');
       return;
     }
     if (role === 'technician' && !specialty) {
@@ -364,6 +377,19 @@ export const UsersPage: React.FC = () => {
     }
   };
 
+  // Funções de avaliação de atividade de login (Prompt 1 - Requisito 2)
+  const isRecentLogin = (lastSignIn?: string | null) => {
+    if (!lastSignIn) return false;
+    const time = new Date(lastSignIn).getTime();
+    if (isNaN(time)) return false;
+    const diffMs = Date.now() - time;
+    return diffMs >= 0 && diffMs <= 24 * 60 * 60 * 1000;
+  };
+
+  const isNewUser = (lastSignIn?: string | null) => {
+    return !lastSignIn;
+  };
+
   // Filtragem local de busca e tabela
   const filteredUsers = users.filter((u) => {
     const query = searchQuery.toLowerCase();
@@ -374,8 +400,17 @@ export const UsersPage: React.FC = () => {
     );
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
     const matchesScope = scopeFilter === 'all' || u.operational_scope === scopeFilter;
-    return matchesSearch && matchesRole && matchesScope;
+    const matchesActivity = activityFilter === 'all'
+      ? true
+      : activityFilter === 'recent'
+        ? isRecentLogin(u.last_sign_in)
+        : isNewUser(u.last_sign_in);
+
+    return matchesSearch && matchesRole && matchesScope && matchesActivity;
   });
+
+  const recentLoginsCount = users.filter((u) => isRecentLogin(u.last_sign_in)).length;
+  const newPendingUsersCount = users.filter((u) => isNewUser(u.last_sign_in)).length;
 
   const getRoleBadgeColor = (userRole: string) => {
     switch (userRole) {
@@ -438,9 +473,6 @@ export const UsersPage: React.FC = () => {
               <UsersIcon className="text-blue-700" size={24} />
               Gestão de Utilizadores & Técnicos
             </h1>
-            <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-              Selecione uma empresa para gerir as contas e atribuir níveis de acesso de supervisores e técnicos.
-            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -492,13 +524,31 @@ export const UsersPage: React.FC = () => {
           )}
         </div>
 
-        {/* INDICADOR DE UTILIZADORES USADOS DO TENANT SELECIONADO */}
-        <div className="flex items-center gap-2 self-start md:self-auto bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-md">
-          <Layers className="text-blue-700 shrink-0" size={16} />
-          <span className="text-xs font-semibold text-slate-700">Licenças do Contrato:</span>
-          <span className="text-xs font-bold text-slate-900 bg-white px-2.5 py-0.5 rounded border border-slate-200">
-            {selectedTenantId ? `${users.length} / ${maxUsersLimit} Utilizadores Utilizados` : 'Selecione uma Empresa'}
-          </span>
+        {/* INDICADOR DE UTILIZADORES USADOS DO TENANT SELECIONADO E ATIVIDADE RECENTE */}
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-md">
+            <Layers className="text-blue-700 shrink-0" size={16} />
+            <span className="text-xs font-semibold text-slate-700">Licenças:</span>
+            <span className="text-xs font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+              {selectedTenantId ? `${users.length} / ${maxUsersLimit}` : 'Selecione'}
+            </span>
+          </div>
+
+          {selectedTenantId && (
+            <>
+              {/* Logins Ativos / Recentes (<24h) (Prompt 1 Requisito 2) */}
+              <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-md text-emerald-800 text-xs font-semibold" title="Utilizadores que efetuaram logout ou fecharam sessão nas últimas 24 horas">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>{recentLoginsCount} Ativos Recentes</span>
+              </div>
+
+              {/* Novos Utilizadores / 1º Acesso Pendente (Prompt 1 Requisito 2) */}
+              <div className="flex items-center gap-1.5 bg-purple-50 border border-purple-200 px-2.5 py-1.5 rounded-md text-purple-800 text-xs font-semibold" title="Utilizadores criados com acesso pela primeira vez (sem sessão anterior)">
+                <Sparkles size={13} className="text-purple-600" />
+                <span>{newPendingUsersCount} Novos (1.º Acesso)</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -532,7 +582,7 @@ export const UsersPage: React.FC = () => {
             onChange={(e) => setRoleFilter(e.target.value)}
             disabled={!selectedTenantId}
             aria-label="Filtrar por cargo"
-            className="w-full sm:w-48 bg-white border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
+            className="w-full sm:w-44 bg-white border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
           >
             <option value="all">Todos os cargos</option>
             <option value="tenant_admin">Gestor de Contrato</option>
@@ -545,13 +595,24 @@ export const UsersPage: React.FC = () => {
             onChange={(e) => setScopeFilter(e.target.value)}
             disabled={!selectedTenantId}
             aria-label="Filtrar por âmbito operacional"
-            className="w-full sm:w-44 bg-white border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
+            className="w-full sm:w-40 bg-white border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
           >
             <option value="all">Todos os âmbitos</option>
             <option value="fleet">Frota</option>
             <option value="plant">Instalação Fabril</option>
             <option value="both">Frota e Fábrica</option>
             <option value="mixed">Misto</option>
+          </select>
+          <select
+            value={activityFilter}
+            onChange={(e) => setActivityFilter(e.target.value as any)}
+            disabled={!selectedTenantId}
+            aria-label="Filtrar por atividade de acesso"
+            className="w-full sm:w-44 bg-white border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
+          >
+            <option value="all">Todas as atividades</option>
+            <option value="recent">Ativos Recentes (&lt; 24h)</option>
+            <option value="new_pending">1.º Acesso Pendente (Novos)</option>
           </select>
           <button
             onClick={() => fetchUsers(selectedTenantId)}
@@ -604,6 +665,7 @@ export const UsersPage: React.FC = () => {
                   <th className="py-3 px-4">E-mail</th>
                   <th className="py-3 px-4">Nível de Acesso (Cargo)</th>
                   <th className="py-3 px-4">Escopo Operacional</th>
+                  <th className="py-3 px-4">Última Atividade / Login</th>
                   <th className="py-3 px-4">Estado</th>
                   <th className="py-3 px-4 text-right">Ações</th>
                 </tr>
@@ -633,6 +695,28 @@ export const UsersPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-slate-600">{formatScopeName(u.operational_scope)}</td>
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      {isNewUser(u.last_sign_in) ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200" title="Utilizador com primeiro acesso ao dashboard pendente">
+                          <Sparkles size={11} />
+                          1.º Acesso Pendente
+                        </span>
+                      ) : isRecentLogin(u.last_sign_in) ? (
+                        <div className="flex flex-col">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 w-fit">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Ativo Recente
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-mono mt-0.5">
+                            {new Date(u.last_sign_in!).toLocaleString('pt-MZ')}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] font-mono text-slate-600">
+                          {new Date(u.last_sign_in!).toLocaleDateString('pt-MZ')}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3.5 px-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
                         u.is_active
@@ -777,6 +861,9 @@ export const UsersPage: React.FC = () => {
                     onChange={(e) => {
                       const newRole = e.target.value as any;
                       setRole(newRole);
+                      if (newRole === 'tenant_admin' && operationalScope === 'mixed') {
+                        setOperationalScope('fleet');
+                      }
                       if (newRole === 'technician' && !specialty && technicianSpecialties.length > 0) {
                         setSpecialty(technicianSpecialties[0].value);
                       }
@@ -802,7 +889,7 @@ export const UsersPage: React.FC = () => {
                   >
                     {availableOperationalScopes.includes('fleet') && <option value="fleet">Frota</option>}
                     {availableOperationalScopes.includes('plant') && <option value="plant">Instalação Fabril</option>}
-                    {availableOperationalScopes.includes('mixed') && <option value="mixed">Mista</option>}
+                    {availableOperationalScopes.includes('mixed') && role !== 'tenant_admin' && <option value="mixed">Mista</option>}
                   </select>
                 </div>
               </div>

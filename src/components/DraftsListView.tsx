@@ -1,5 +1,6 @@
 import React from 'react';
 import { DraftItem } from '../services/draftService';
+import { triggerGlobalConfirm } from '../contexts/AlertContext';
 import { FileText, Trash2, Edit2, Clock, Plus, AlertCircle } from 'lucide-react';
 
 interface DraftsListViewProps {
@@ -123,8 +124,15 @@ export const DraftsListView: React.FC<DraftsListViewProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (window.confirm(`Deseja descartar definitivamente este rascunho de "${draft.title}"?`)) {
+                        onClick={async () => {
+                          const confirmed = await triggerGlobalConfirm({
+                            title: 'Descartar Rascunho',
+                            message: `Deseja descartar definitivamente este rascunho de "${draft.title}"?`,
+                            confirmText: 'Descartar',
+                            cancelText: 'Cancelar',
+                            danger: true,
+                          });
+                          if (confirmed) {
                             onDeleteDraft(draft.id);
                           }
                         }}

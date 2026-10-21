@@ -117,17 +117,28 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     globalShowAlert = showAlert;
     globalShowConfirm = showConfirm;
 
-    // Substituir transparentemente o alert nativo do navegador pelo nosso popup interno
+    // Substituir transparentemente o alert e confirm nativo do navegador pelo nosso popup interno
     const originalAlert = window.alert;
+    const originalConfirm = window.confirm;
     window.alert = (message?: any) => {
       const msgStr = typeof message === 'string' ? message : String(message ?? '');
       void showAlert(msgStr);
+    };
+    window.confirm = (message?: string) => {
+      // Abre modal de confirmação no frontend
+      void showAlert({
+        title: 'Confirmação',
+        message: String(message ?? ''),
+        type: 'warning'
+      });
+      return false;
     };
 
     return () => {
       globalShowAlert = null;
       globalShowConfirm = null;
       window.alert = originalAlert;
+      window.confirm = originalConfirm;
     };
   }, [showAlert, showConfirm]);
 

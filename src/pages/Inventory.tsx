@@ -8,6 +8,7 @@ import { draftService, DraftItem } from '../services/draftService';
 import { DraftConfirmModal } from '../components/DraftConfirmModal';
 import { DraftBanner } from '../components/DraftBanner';
 import { DraftsListView } from '../components/DraftsListView';
+import { dataCache } from '../services/dataCacheService';
 import {
   Plus,
   Layers,
@@ -52,8 +53,8 @@ export const InventoryPage: React.FC = () => {
   const { partCategories } = useCurrentDomain();
   
   // Lista de Peças e Estados de Carregamento
-  const [parts, setParts] = useState<Part[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [parts, setParts] = useState<Part[]>(() => dataCache.get<Part[]>('inventory_parts') || []);
+  const [loading, setLoading] = useState(() => !dataCache.has('inventory_parts'));
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -129,13 +130,20 @@ export const InventoryPage: React.FC = () => {
   };
 
   // Carregar Peças (Requisito 6.2)
-  const fetchInventory = async () => {
-    setLoading(true);
+  const fetchInventory = async (force: boolean | unknown = false) => {
+    const isForce = force === true;
+    if (isForce) {
+      dataCache.invalidate('inventory_parts');
+    }
+    if (!dataCache.has('inventory_parts') || isForce) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await api.get('/parts');
       const iData = Array.isArray(res.data) ? res.data : (res.data?.parts || res.data?.data || []);
       setParts(iData);
+      dataCache.set('inventory_parts', iData);
     } catch (err: any) {
       console.error('Erro ao obter inventário:', err);
       setError('Falha ao comunicar com o servidor de inventário.');
@@ -145,7 +153,9 @@ export const InventoryPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchInventory();
+    if (!dataCache.has('inventory_parts')) {
+      fetchInventory();
+    }
   }, []);
 
   // Submissão de Cadastro / Edição de Peça (Requisito 6.3)
@@ -180,7 +190,7 @@ export const InventoryPage: React.FC = () => {
 
       setIsPartModalOpen(false);
       resetPartForm();
-      await fetchInventory(); // Recarrega do banco real
+      await fetchInventory(true); // Recarrega do banco real
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       console.error('Erro ao guardar peça:', err);
@@ -342,7 +352,7 @@ export const InventoryPage: React.FC = () => {
       setSelectedStockPart(null);
       setStockQuantity('');
       setStockUnitCost('');
-      await fetchInventory(); // recarrega a lista diretamente do banco de dados
+      await fetchInventory(true); // recarrega a lista diretamente do banco de dados
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       console.error('Erro ao atualizar stock:', err);
@@ -372,7 +382,7 @@ export const InventoryPage: React.FC = () => {
       setSuccessMessage(`Peça "${deletingPart.name}" eliminada do inventário.`);
       setIsDeleteModalOpen(false);
       setDeletingPart(null);
-      await fetchInventory(); // Recarrega do banco real
+      await fetchInventory(true); // Recarrega do banco real
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       console.error('Erro ao eliminar peça:', err);
@@ -459,9 +469,6 @@ export const InventoryPage: React.FC = () => {
             <span>Gestão de Inventário</span>
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
-          <p className="text-slate-500 text-xs mt-1">
-            Controle de stocks de peças sobressalentes, rastreabilidade de consumíveis e alertas de rotura em Moçambique.
-          </p>
         </div>
         <div className="flex gap-2 shrink-0">
           <button

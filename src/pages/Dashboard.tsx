@@ -14,7 +14,8 @@ import {
   QrCode,
   Layers,
   ArrowRight,
-  CheckCircle2
+  CheckCircle2,
+  Fuel
 } from 'lucide-react';
 
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -40,7 +41,7 @@ const isPlantCategory = (category: unknown) =>
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { currentScope } = useAuth();
+  const { currentScope, user } = useAuth();
   const isPlant = currentScope === 'plant';
 
   const [loading, setLoading] = useState(true);
@@ -175,9 +176,6 @@ export const DashboardPage: React.FC = () => {
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900">
             Dashboard
           </h1>
-          <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-            {isPlant ? 'Monitorização do Chão de Fábrica e Equipamentos Industriais' : 'Monitorização de Frota e Manutenção de Viaturas'}
-          </p>
         </div>
 
         <div className="flex items-center gap-2 self-start md:self-auto">
@@ -193,8 +191,8 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* LINHA SUPERIOR - 4 CARDS DE KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* LINHA SUPERIOR - CARDS DE KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
 
         {/* KPI 1: DISPONIBILIDADE OPERACIONAL & ATIVOS */}
         <div className="bg-white border border-slate-200 rounded-md p-5 shadow-none flex flex-col justify-between">
@@ -312,6 +310,34 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
+        {/* KPI 5: GESTÃO E EFICIÊNCIA DE COMBUSTÍVEL (Prompt 1 - Requisito 3) */}
+        {!isPlant && (user?.role === 'tenant_admin' || user?.role === 'supervisor') && (
+          <div className="bg-white border border-slate-200 rounded-md p-5 shadow-none flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Combustível</span>
+              <div className="w-8 h-8 rounded-md bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
+                <Fuel size={18} />
+              </div>
+            </div>
+
+            <div className="my-3">
+              <span className="text-sm font-bold text-slate-900 block">
+                Eficiência da Frota
+              </span>
+              <p className="text-slate-500 text-[11px] mt-0.5 leading-relaxed">
+                Registo e análise analítica de abastecimentos.
+              </p>
+            </div>
+
+            <Link
+              to="/app/fuel"
+              className="text-[11px] text-[#0066FF] hover:underline font-semibold flex items-center gap-1"
+            >
+              Ver Abastecimentos <ArrowRight size={12} />
+            </Link>
+          </div>
+        )}
+
       </div>
 
       {/* SECÇÃO CENTRAL - ORDENS CRÍTICAS & INTERVENÇÕES RECENTES */}
@@ -338,7 +364,6 @@ export const DashboardPage: React.FC = () => {
           <div className="py-8 text-center text-slate-500">
             <CheckCircle2 size={32} className="mx-auto text-emerald-500 mb-2" />
             <p className="text-xs font-semibold text-slate-800">Sem ordens críticas pendentes</p>
-            <p className="text-xs text-slate-400 mt-0.5">Todas as intervenções recentes foram concluídas com sucesso.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

@@ -73,6 +73,7 @@ import { MaintenanceNotificationModal } from '../components/MaintenanceNotificat
 import { draftService, DraftItem } from '../services/draftService';
 import { DraftConfirmModal } from '../components/DraftConfirmModal';
 import { DraftBanner } from '../components/DraftBanner';
+import { dataCache } from '../services/dataCacheService';
 import { DraftsListView } from '../components/DraftsListView';
 import { deduplicateNotifications } from '../services/notificationService';
 
@@ -147,7 +148,7 @@ export const WorkOrdersPage: React.FC = () => {
   const { user, currentScope } = useAuth();
   const { checkSuspension, handleActionClick } = useSuspensionGuard();
   const { counterLabel, failureCauses, technicianSpecialties, domain } = useCurrentDomain();
-  const [orders, setOrders] = useState<WorkOrder[]>([]);
+  const [orders, setOrders] = useState<WorkOrder[]>(() => dataCache.get<WorkOrder[]>('work_orders') || []);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
 
@@ -166,7 +167,7 @@ export const WorkOrdersPage: React.FC = () => {
     return true;
   });
   
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !dataCache.has('work_orders'));
   const [loadingTechs, setLoadingTechs] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -426,7 +427,10 @@ export const WorkOrdersPage: React.FC = () => {
               <div class="signature">Técnico responsável</div>
               <div class="signature">Supervisor / Cliente</div>
             </div>
-            <footer class="footer">Documento gerado pelo AVEXAS CMMS · ${escapeHtml(new Date().toLocaleString('pt-MZ'))}</footer>
+            <footer class="footer">
+              <div style="font-weight: bold; margin-bottom: 3px; font-size: 9.5px; color: #0f172a;">Empresa: ${escapeHtml((order as any).tenant_name || user?.tenantName || user?.tenant?.name || 'Avexas Global')} · Criado por: ${escapeHtml((order as any).created_by_name || (order as any).creator_name || (order as any).created_by || user?.fullName || 'Utilizador do Sistema')}</div>
+              Documento oficial emitido via AVEXAS CMMS · ${escapeHtml(new Date().toLocaleString('pt-MZ'))}
+            </footer>
           </main>
           <script>
             window.addEventListener('load', function () {
@@ -500,7 +504,7 @@ export const WorkOrdersPage: React.FC = () => {
       setCancelReason('');
       setIsDrawerOpen(false);
       setSelectedDrawerOrder(null);
-      await fetchWorkOrders();
+      await fetchWorkOrders(true);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       console.error('Erro ao cancelar ordem de serviço:', err);
@@ -539,14 +543,21 @@ export const WorkOrdersPage: React.FC = () => {
   const [modalPartQty, setModalPartQty] = useState<number>(1);
 
   // Carrega Ordens de Serviço
-  const fetchWorkOrders = async () => {
-    setLoading(true);
+  const fetchWorkOrders = async (force: boolean | unknown = false) => {
+    const isForce = force === true;
+    if (isForce) {
+      dataCache.invalidate('work_orders');
+    }
+    if (!dataCache.has('work_orders') || isForce) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await api.get('/work-orders');
       const raw = res.data;
       const data = Array.isArray(raw) ? raw : (raw?.workOrders || raw?.work_orders || raw?.data || raw?.orders || []);
       setOrders(data);
+      dataCache.set('work_orders', data);
     } catch (err: any) {
       console.error('Erro ao carregar ordens:', err);
       setError('Não foi possível carregar as Ordens de Serviço.');
@@ -851,7 +862,9 @@ export const WorkOrdersPage: React.FC = () => {
   }, [orders, technicians]);
 
   useEffect(() => {
-    fetchWorkOrders();
+    if (!dataCache.has('work_orders')) {
+      fetchWorkOrders();
+    }
     fetchAssetsForDropdown();
     fetchTechnicians();
     fetchMaintenanceRequests();
@@ -1243,14 +1256,14 @@ export const WorkOrdersPage: React.FC = () => {
         setHasRestoredDraft(false);
         setSuccessMessage('Nova Ordem de Serviço aberta com sucesso!');
         setIsFormModalOpen(false);
-        await fetchWorkOrders();
+        await fetchWorkOrders(true);
         await fetchMaintenanceRequests();
         openPrintModal(createdWO);
       } else {
         await api.put(`/work-orders/${editingOrderId}`, payload);
         setSuccessMessage('Ordem de Serviço atualizada com sucesso!');
         setIsFormModalOpen(false);
-        await fetchWorkOrders();
+        await fetchWorkOrders(true);
       }
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
@@ -1326,7 +1339,7 @@ export const WorkOrdersPage: React.FC = () => {
 
       if (navigator.vibrate) navigator.vibrate(100);
       setSuccessMessage('Serviço iniciado! Status alterado para "Em Curso".');
-      await fetchWorkOrders();
+      await fetchWorkOrders(true);
       fetchTimeline(order.id);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
@@ -1376,7 +1389,7 @@ export const WorkOrdersPage: React.FC = () => {
       if (navigator.vibrate) navigator.vibrate(100);
       setSuccessMessage(`Serviço interrompido! Motivo: ${pauseReason}`);
       setIsPauseModalOpen(false);
-      await fetchWorkOrders();
+      await fetchWorkOrders(true);
       fetchTimeline(selectedDrawerOrder.id);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
@@ -1399,7 +1412,7 @@ export const WorkOrdersPage: React.FC = () => {
 
       if (navigator.vibrate) navigator.vibrate(100);
       setSuccessMessage('Serviço retomado com sucesso!');
-      await fetchWorkOrders();
+      await fetchWorkOrders(true);
       fetchTimeline(order.id);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
@@ -1461,7 +1474,7 @@ export const WorkOrdersPage: React.FC = () => {
       setResolutionNotes('');
 
       // Recarrega
-      await fetchWorkOrders();
+      await fetchWorkOrders(true);
 
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
@@ -1706,9 +1719,6 @@ export const WorkOrdersPage: React.FC = () => {
             <span>Ordens de Serviço</span>
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
-          <p className="text-slate-500 text-xs mt-1">
-            Cockpit móvel para acompanhamento de tarefas, transição de estados e linha do tempo de auditoria.
-          </p>
         </div>
         <div className="flex gap-2 relative">
           
@@ -2063,7 +2073,6 @@ export const WorkOrdersPage: React.FC = () => {
         <div className="bg-white border border-slate-200 rounded-md text-center py-20 px-4">
           <Briefcase size={36} className="text-slate-300 mx-auto mb-4" />
           <h3 className="text-slate-700 font-bold text-sm">Nenhuma Ordem de Serviço Ativa</h3>
-          <p className="text-slate-500 text-xs mt-1">Crie uma nova OS ou redefina os filtros aplicados.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -3635,6 +3644,14 @@ export const WorkOrdersPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* RODAPÉ OFICIAL DE IMPRESSÃO */}
+              <div className="mt-4 pt-3 border-t border-slate-300 text-center text-[10px] text-slate-500 font-medium">
+                <div className="font-bold text-slate-800 text-[10.5px] mb-0.5">
+                  Empresa: {(printOrder as any)?.tenant_name || user?.tenantName || user?.tenant?.name || 'Avexas Global'} · Criado por: {(printOrder as any)?.created_by_name || (printOrder as any)?.creator_name || (printOrder as any)?.created_by || user?.fullName || 'Utilizador do Sistema'}
+                </div>
+                <span>Documento oficial emitido via AVEXAS CMMS · {new Date().toLocaleString('pt-MZ')}</span>
               </div>
 
             </div>
