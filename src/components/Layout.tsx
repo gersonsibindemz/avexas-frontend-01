@@ -322,9 +322,9 @@ export const Layout: React.FC = () => {
       icon: Wrench,
       subItems: [
         {
-          name: 'Ordens de Serviço',
-          path: '/app/work-orders',
-          icon: ClipboardList
+          name: 'Planos',
+          path: '/app/maintenance-plans',
+          icon: Calendar
         },
         {
           name: 'Equipes',
@@ -332,9 +332,9 @@ export const Layout: React.FC = () => {
           icon: Users
         },
         {
-          name: 'Plano de Manutenção',
-          path: '/app/maintenance-plans',
-          icon: Calendar
+          name: 'Ordens',
+          path: '/app/work-orders',
+          icon: ClipboardList
         }
       ]
     });
