@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { api, getApiErrorMessage, toFiniteNumber } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
@@ -331,20 +332,43 @@ export const AssetsPage: React.FC = () => {
   useEscapeKey(() => setIsCombinationsModalOpen(false), isCombinationsModalOpen);
   useEscapeKey(() => setIsReportsModalOpen(false), isReportsModalOpen);
 
-  // Dropdown de Ações por Linha (3 Pontinhos)
-  const [openActionDropdownId, setOpenActionDropdownId] = useState<string | null>(null);
-  useEscapeKey(() => setOpenActionDropdownId(null), Boolean(openActionDropdownId));
+  // Dropdown de Ações por Linha via Portal (Camada Superior z-[9999] conforme padrão do Inventário)
+  const [activeAssetForMenu, setActiveAssetForMenu] = useState<Asset | null>(null);
+  const [assetMenuPosition, setAssetMenuPosition] = useState<{ top: number; left: number } | null>(null);
+
+  const handleToggleAssetMenu = (e: React.MouseEvent<HTMLButtonElement>, asset: Asset) => {
+    e.stopPropagation();
+    if (activeAssetForMenu?.id === asset.id) {
+      setActiveAssetForMenu(null);
+      setAssetMenuPosition(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuWidth = 192;
+    const menuHeight = 160;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < menuHeight && rect.top > menuHeight;
+
+    const top = openUpward ? rect.top - menuHeight : rect.bottom + 4;
+    const left = Math.max(10, rect.right - menuWidth);
+
+    setActiveAssetForMenu(asset);
+    setAssetMenuPosition({ top, left });
+  };
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('[data-actions-dropdown]')) {
-        setOpenActionDropdownId(null);
-      }
+    if (!activeAssetForMenu) return;
+    const handleScrollOrResize = () => {
+      setActiveAssetForMenu(null);
+      setAssetMenuPosition(null);
     };
-    window.addEventListener('click', handleClickOutside);
-    return () => window.removeEventListener('click', handleClickOutside);
-  }, []);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
+  }, [activeAssetForMenu]);
 
   // Toasts / Feedbacks
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -2019,10 +2043,7 @@ export const AssetsPage: React.FC = () => {
                 {filteredAssets.map((asset, index) => {
                   const tag = asset.code_tag || asset.codeTag || 'AUTO-TAG';
                   const level = asset.criticality_level || asset.criticalityLevel || 'B';
-                  const isMenuOpen = openActionDropdownId === asset.id;
-                  const openUpwards = index >= filteredAssets.length - 2 && filteredAssets.length > 2;
-
-                  return (
+                    return (
                     <tr key={asset.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-4 font-mono font-bold text-blue-700">{tag}</td>
                       <td className="py-3 px-4">
@@ -2052,92 +2073,20 @@ export const AssetsPage: React.FC = () => {
                         {renderStatusBadge(asset.status)}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <div className="relative inline-block text-left" data-actions-dropdown>
+                        <div className="flex items-center justify-center">
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenActionDropdownId(prev => prev === asset.id ? null : asset.id);
-                            }}
-                            className={`p-1.5 rounded-md transition-all cursor-pointer flex items-center justify-center ${
-                              isMenuOpen
-                                ? 'bg-blue-100 text-blue-700 shadow-sm'
-                                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                            onClick={(e) => handleToggleAssetMenu(e, asset)}
+                            className={`p-1.5 rounded-md transition-all cursor-pointer flex items-center justify-center border ${
+                              activeAssetForMenu?.id === asset.id
+                                ? 'bg-blue-100 text-blue-700 border-blue-300 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 border-transparent hover:border-slate-200'
                             }`}
                             title="Ações do Ativo"
                             aria-label="Ações do Ativo"
-                            aria-haspopup="true"
-                            aria-expanded={isMenuOpen}
                           >
                             <MoreVertical size={16} />
                           </button>
-
-                          {isMenuOpen && (
-                            <div 
-                              className={`absolute right-0 ${
-                                openUpwards ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
-                              } w-48 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1 divide-y divide-slate-100 text-xs animate-in fade-in zoom-in-95 duration-100`}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <div className="py-1">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenActionDropdownId(null);
-                                    setSelectedDocAsset(asset);
-                                    setIsDocModalOpen(true);
-                                    loadDocuments(asset.id);
-                                  }}
-                                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-                                >
-                                  <FileText size={14} className="text-slate-400" />
-                                  <span>Documentos</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenActionDropdownId(null);
-                                    setSelectedQrAsset(asset);
-                                    setIsQrModalOpen(true);
-                                  }}
-                                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-                                >
-                                  <QrCode size={14} className="text-slate-400" />
-                                  <span>Código QR / Etiqueta</span>
-                                </button>
-                              </div>
-
-                              {!isTechnician && !isDriverOperator && (
-                                <div className="py-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOpenActionDropdownId(null);
-                                      handleOpenEditModal(asset);
-                                    }}
-                                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-                                  >
-                                    <Edit2 size={14} className="text-slate-400" />
-                                    <span>Editar Ativo</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOpenActionDropdownId(null);
-                                      setDeletingAsset(asset);
-                                      setIsDeleteModalOpen(true);
-                                    }}
-                                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer"
-                                  >
-                                    <Trash2 size={14} className="text-rose-500" />
-                                    <span>Arquivar Ativo</span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -3755,6 +3704,95 @@ export const AssetsPage: React.FC = () => {
         onDiscard={handleDiscardDraft}
         onCancel={() => setIsDraftConfirmOpen(false)}
       />
+
+      {/* Menu Flutuante de Ações Rápidas do Ativo via Portal (Camada Mais Alta z-[9999]) */}
+      {activeAssetForMenu && assetMenuPosition && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[9998]"
+            onClick={() => {
+              setActiveAssetForMenu(null);
+              setAssetMenuPosition(null);
+            }}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              top: `${assetMenuPosition.top}px`,
+              left: `${assetMenuPosition.left}px`,
+            }}
+            className="w-48 bg-white border border-slate-200 rounded-lg shadow-2xl z-[9999] py-1 divide-y divide-slate-100 text-xs text-left animate-in fade-in zoom-in-95 duration-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="py-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const target = activeAssetForMenu;
+                  setActiveAssetForMenu(null);
+                  setAssetMenuPosition(null);
+                  setSelectedDocAsset(target);
+                  setIsDocModalOpen(true);
+                  loadDocuments(target.id);
+                }}
+                className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                <FileText size={14} className="text-slate-400" />
+                <span>Documentos</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const target = activeAssetForMenu;
+                  setActiveAssetForMenu(null);
+                  setAssetMenuPosition(null);
+                  setSelectedQrAsset(target);
+                  setIsQrModalOpen(true);
+                }}
+                className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                <QrCode size={14} className="text-slate-400" />
+                <span>Código QR / Etiqueta</span>
+              </button>
+            </div>
+
+            {!isTechnician && !isDriverOperator && (
+              <div className="py-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = activeAssetForMenu;
+                    setActiveAssetForMenu(null);
+                    setAssetMenuPosition(null);
+                    handleOpenEditModal(target);
+                  }}
+                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <Edit2 size={14} className="text-slate-400" />
+                  <span>Editar Ativo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = activeAssetForMenu;
+                    setActiveAssetForMenu(null);
+                    setAssetMenuPosition(null);
+                    setDeletingAsset(target);
+                    setIsDeleteModalOpen(true);
+                  }}
+                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <Trash2 size={14} className="text-rose-500" />
+                  <span>Arquivar Ativo</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </>,
+        document.body
+      )}
 
     </div>
   );

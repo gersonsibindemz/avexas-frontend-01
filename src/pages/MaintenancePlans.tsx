@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
@@ -26,7 +27,8 @@ import {
   X,
   User,
   AlertCircle,
-  Save
+  Save,
+  MoreVertical
 } from 'lucide-react';
 import { draftService, DraftItem } from '../services/draftService';
 import { DraftConfirmModal } from '../components/DraftConfirmModal';
@@ -163,6 +165,44 @@ export const MaintenancePlansPage: React.FC = () => {
   // Modal de Criação / Edição
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingPlan, setEditingPlan] = useState<MaintenancePlan | null>(null);
+
+  // Menu suspenso de ações por linha via Portal (Camada Superior z-[9999] conforme padrão do Inventário)
+  const [activePlanForMenu, setActivePlanForMenu] = useState<MaintenancePlan | null>(null);
+  const [planMenuPosition, setPlanMenuPosition] = useState<{ top: number; left: number } | null>(null);
+
+  const handleTogglePlanMenu = (e: React.MouseEvent<HTMLButtonElement>, plan: MaintenancePlan) => {
+    e.stopPropagation();
+    if (activePlanForMenu?.id === plan.id) {
+      setActivePlanForMenu(null);
+      setPlanMenuPosition(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuWidth = 192;
+    const menuHeight = 180;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < menuHeight && rect.top > menuHeight;
+
+    const top = openUpward ? rect.top - menuHeight : rect.bottom + 4;
+    const left = Math.max(10, rect.right - menuWidth);
+
+    setActivePlanForMenu(plan);
+    setPlanMenuPosition({ top, left });
+  };
+
+  useEffect(() => {
+    if (!activePlanForMenu) return;
+    const handleScrollOrResize = () => {
+      setActivePlanForMenu(null);
+      setPlanMenuPosition(null);
+    };
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
+  }, [activePlanForMenu]);
 
   // Estados de Rascunho (Drafts)
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
@@ -745,7 +785,7 @@ export const MaintenancePlansPage: React.FC = () => {
                   <th className="py-3 px-4">Periodicidade / Gatilho</th>
                   <th className="py-3 px-4">Checklist</th>
                   <th className="py-3 px-4">Estado</th>
-                  <th className="py-3 px-4 text-right">Ações</th>
+                  <th className="py-3 px-4 text-center">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-800">
@@ -811,44 +851,21 @@ export const MaintenancePlansPage: React.FC = () => {
                         )}
                       </td>
 
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center">
                           <button
-                            onClick={() => handleGenerateWO(plan)}
-                            className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2 py-1 rounded text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                            title="Gerar Ordem de Serviço Preventiva Imediata"
+                            type="button"
+                            onClick={(e) => handleTogglePlanMenu(e, plan)}
+                            className={`p-1.5 rounded-md transition-all cursor-pointer flex items-center justify-center border ${
+                              activePlanForMenu?.id === plan.id
+                                ? 'bg-blue-100 text-blue-700 border-blue-300 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 border-transparent hover:border-slate-200'
+                            }`}
+                            title="Ações do Plano"
+                            aria-label="Ações do Plano"
                           >
-                            <Zap size={12} />
-                            <span>Gerar OS</span>
+                            <MoreVertical size={16} />
                           </button>
-
-                          <button
-                            onClick={() => handleToggleActive(plan)}
-                            className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors cursor-pointer"
-                            title={isActive ? 'Pausar Plano' : 'Ativar Plano'}
-                          >
-                            {isActive ? <Pause size={14} /> : <Play size={14} />}
-                          </button>
-
-                          {!isTechnician && (
-                            <>
-                              <button
-                                onClick={() => handleOpenEditModal(plan)}
-                                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors cursor-pointer"
-                                title="Editar Plano"
-                              >
-                                <Edit2 size={14} />
-                              </button>
-
-                              <button
-                                onClick={() => handleDeletePlan(plan.id)}
-                                className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
-                                title="Eliminar Plano"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -1109,6 +1126,99 @@ export const MaintenancePlansPage: React.FC = () => {
         onDiscard={handleDiscardDraft}
         onCancel={() => setIsDraftConfirmOpen(false)}
       />
+      {/* Menu Flutuante de Ações Rápidas do Plano via Portal (Camada Mais Alta z-[9999]) */}
+      {activePlanForMenu && planMenuPosition && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[9998]"
+            onClick={() => {
+              setActivePlanForMenu(null);
+              setPlanMenuPosition(null);
+            }}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              top: `${planMenuPosition.top}px`,
+              left: `${planMenuPosition.left}px`,
+            }}
+            className="w-48 bg-white border border-slate-200 rounded-lg shadow-2xl z-[9999] py-1 divide-y divide-slate-100 text-xs text-left animate-in fade-in zoom-in-95 duration-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="py-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const target = activePlanForMenu;
+                  setActivePlanForMenu(null);
+                  setPlanMenuPosition(null);
+                  handleGenerateWO(target);
+                }}
+                className="w-full text-left px-3.5 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                <Zap size={14} className="text-amber-600" />
+                <span>Gerar OS Imediata</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const target = activePlanForMenu;
+                  setActivePlanForMenu(null);
+                  setPlanMenuPosition(null);
+                  handleToggleActive(target);
+                }}
+                className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                {(activePlanForMenu.is_active ?? activePlanForMenu.status === 'active') ? (
+                  <>
+                    <Pause size={14} className="text-slate-500" />
+                    <span>Pausar Plano</span>
+                  </>
+                ) : (
+                  <>
+                    <Play size={14} className="text-emerald-600 fill-current" />
+                    <span>Ativar Plano</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {!isTechnician && (
+              <div className="py-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = activePlanForMenu;
+                    setActivePlanForMenu(null);
+                    setPlanMenuPosition(null);
+                    handleOpenEditModal(target);
+                  }}
+                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <Edit2 size={14} className="text-slate-400" />
+                  <span>Editar Plano</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = activePlanForMenu;
+                    setActivePlanForMenu(null);
+                    setPlanMenuPosition(null);
+                    handleDeletePlan(target.id);
+                  }}
+                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <Trash2 size={14} className="text-rose-500" />
+                  <span>Eliminar Plano</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   );
 };

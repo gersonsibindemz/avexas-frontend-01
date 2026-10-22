@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api, toFiniteNumber } from '../services/api';
 import { useAuth, useSuspensionGuard } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
@@ -183,7 +184,44 @@ export const WorkOrdersPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [quickTab, setQuickTab] = useState<'all' | 'my_tasks' | 'pending' | 'in_progress' | 'completed' | 'maintenance_requests' | 'drafts'>('all');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
-  const [openActionDropdownId, setOpenActionDropdownId] = useState<string | null>(null);
+  
+  // Dropdown de Ações por Linha via Portal (Camada Superior z-[9999] conforme padrão do Inventário)
+  const [activeOrderForMenu, setActiveOrderForMenu] = useState<WorkOrder | null>(null);
+  const [orderMenuPosition, setOrderMenuPosition] = useState<{ top: number; left: number } | null>(null);
+
+  const handleToggleOrderMenu = (e: React.MouseEvent<HTMLButtonElement>, order: WorkOrder) => {
+    e.stopPropagation();
+    if (activeOrderForMenu?.id === order.id) {
+      setActiveOrderForMenu(null);
+      setOrderMenuPosition(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuWidth = 208;
+    const menuHeight = 240;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < menuHeight && rect.top > menuHeight;
+
+    const top = openUpward ? rect.top - menuHeight : rect.bottom + 4;
+    const left = Math.max(10, rect.right - menuWidth);
+
+    setActiveOrderForMenu(order);
+    setOrderMenuPosition({ top, left });
+  };
+
+  useEffect(() => {
+    if (!activeOrderForMenu) return;
+    const handleScrollOrResize = () => {
+      setActiveOrderForMenu(null);
+      setOrderMenuPosition(null);
+    };
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
+  }, [activeOrderForMenu]);
 
   // Solicitações de Manutenção / Notificações
   const [maintenanceRequests, setMaintenanceRequests] = useState<any[]>([]);
@@ -481,18 +519,6 @@ export const WorkOrdersPage: React.FC = () => {
   useEscapeKey(() => setIsAddPartModalOpen(false), isAddPartModalOpen);
   useEscapeKey(() => setIsNotificationModalOpen(false), isNotificationModalOpen);
   useEscapeKey(() => { setIsDrawerOpen(false); setSelectedDrawerOrder(null); }, isDrawerOpen);
-  useEscapeKey(() => setOpenActionDropdownId(null), Boolean(openActionDropdownId));
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('[data-actions-dropdown]')) {
-        setOpenActionDropdownId(null);
-      }
-    };
-    window.addEventListener('click', handleClickOutside);
-    return () => window.removeEventListener('click', handleClickOutside);
-  }, []);
 
   const [submittingCancel, setSubmittingCancel] = useState(false);
 
@@ -1700,167 +1726,23 @@ export const WorkOrdersPage: React.FC = () => {
     return matchesSearch && matchesPriority && matchesQuickTab && matchesStatus;
   });
 
-  // Helper para renderizar o menu suspenso de ações (3 pontinhos) da Ordem de Serviço
+  // Helper para renderizar o botão acionador de ações (3 pontinhos) da Ordem de Serviço
   const renderOrderActionsMenu = (order: WorkOrder, index: number, isCard: boolean = false) => {
-    const isMenuOpen = openActionDropdownId === order.id;
-    const openUpwards = index >= filteredOrders.length - 2 && filteredOrders.length > 2;
-    const isCancellable = order.status !== 'completed' && order.status !== 'cancelled';
-
     return (
-      <div className="relative inline-block text-left" data-actions-dropdown onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setOpenActionDropdownId(prev => prev === order.id ? null : order.id);
-          }}
-          className={`p-1.5 rounded-md transition-all cursor-pointer flex items-center justify-center ${
-            isMenuOpen
-              ? 'bg-blue-100 text-blue-700 shadow-sm'
-              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+          onClick={(e) => handleToggleOrderMenu(e, order)}
+          className={`p-1.5 rounded-md transition-all cursor-pointer flex items-center justify-center border ${
+            activeOrderForMenu?.id === order.id
+              ? 'bg-blue-100 text-blue-700 border-blue-300 shadow-sm'
+              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 border-transparent hover:border-slate-200'
           }`}
           title="Ações da Ordem de Serviço"
           aria-label="Ações da Ordem de Serviço"
-          aria-haspopup="true"
-          aria-expanded={isMenuOpen}
         >
           <MoreVertical size={16} />
         </button>
-
-        {isMenuOpen && (
-          <div
-            className={`absolute right-0 ${
-              openUpwards ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
-            } w-52 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1 divide-y divide-slate-100 text-xs animate-in fade-in zoom-in-95 duration-100`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Seção 1: Visualização, Impressão e Edição */}
-            <div className="py-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setOpenActionDropdownId(null);
-                  handleOpenDrawer(order);
-                }}
-                className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-              >
-                <Eye size={14} className="text-slate-400" />
-                <span>Ver Cockpit de Campo</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setOpenActionDropdownId(null);
-                  handlePrintWorkOrder(order);
-                }}
-                className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-              >
-                <Printer size={14} className="text-slate-400" />
-                <span>Imprimir Ficha A4</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  setOpenActionDropdownId(null);
-                  handleOpenEditModal(order, e);
-                }}
-                className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-              >
-                <Edit2 size={14} className="text-slate-400" />
-                <span>Editar Ficha / Ordem</span>
-              </button>
-            </div>
-
-            {/* Seção 2: Transições de Estado / Workflow da OS */}
-            {(order.status === 'open' ||
-              order.status === 'in_progress' ||
-              order.status === 'waiting_parts' ||
-              order.status === 'paused' ||
-              order.status === 'blocked') && (
-              <div className="py-1">
-                {order.status === 'open' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOpenActionDropdownId(null);
-                      handleStartService(order);
-                    }}
-                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50 flex items-center gap-2.5 transition-colors cursor-pointer"
-                  >
-                    <Play size={14} className="text-blue-600 fill-current" />
-                    <span>Iniciar Serviço</span>
-                  </button>
-                )}
-
-                {order.status === 'in_progress' && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOpenActionDropdownId(null);
-                        handleOpenPauseModal(order);
-                      }}
-                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 flex items-center gap-2.5 transition-colors cursor-pointer"
-                    >
-                      <Pause size={14} className="text-amber-600" />
-                      <span>Pausar Serviço</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOpenActionDropdownId(null);
-                        handleActionClick(() => {
-                          setSelectedOrder(order);
-                          setIsCloseModalOpen(true);
-                        });
-                      }}
-                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 flex items-center gap-2.5 transition-colors cursor-pointer"
-                    >
-                      <CheckCircle2 size={14} className="text-emerald-600" />
-                      <span>Concluir Serviço</span>
-                    </button>
-                  </>
-                )}
-
-                {(order.status === 'waiting_parts' || order.status === 'paused' || order.status === 'blocked') && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOpenActionDropdownId(null);
-                      handleResumeService(order);
-                    }}
-                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50 flex items-center gap-2.5 transition-colors cursor-pointer"
-                  >
-                    <Play size={14} className="text-blue-600 fill-current" />
-                    <span>Retomar Serviço</span>
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Seção 3: Cancelamento */}
-            {isCancellable && (
-              <div className="py-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpenActionDropdownId(null);
-                    setSelectedDrawerOrder(order);
-                    setCancelReason('');
-                    setIsCancelModalOpen(true);
-                  }}
-                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-                >
-                  <XCircle size={14} className="text-red-500" />
-                  <span>Cancelar Ordem</span>
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     );
   };
@@ -2297,7 +2179,7 @@ export const WorkOrdersPage: React.FC = () => {
           </div>
 
           {viewMode === 'table' ? (
-            <div className="overflow-x-auto min-h-[320px] pb-20 bg-white border border-slate-200 rounded-md shadow-sm">
+            <div className="overflow-x-auto min-h-[320px] bg-white border border-slate-200 rounded-md shadow-sm">
               <table className="w-full text-left border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-600 text-xs uppercase bg-slate-50">
@@ -3893,6 +3775,171 @@ export const WorkOrdersPage: React.FC = () => {
         onDiscard={handleDiscardDraft}
         onCancel={() => setIsDraftConfirmOpen(false)}
       />
+
+      {/* Menu Flutuante de Ações Rápidas da OS via Portal (Camada Mais Alta z-[9999]) */}
+      {activeOrderForMenu && orderMenuPosition && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[9998]"
+            onClick={() => {
+              setActiveOrderForMenu(null);
+              setOrderMenuPosition(null);
+            }}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              top: `${orderMenuPosition.top}px`,
+              left: `${orderMenuPosition.left}px`,
+            }}
+            className="w-52 bg-white border border-slate-200 rounded-lg shadow-2xl z-[9999] py-1 divide-y divide-slate-100 text-xs text-left animate-in fade-in zoom-in-95 duration-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Seção 1: Visualização, Impressão e Edição */}
+            <div className="py-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const target = activeOrderForMenu;
+                  setActiveOrderForMenu(null);
+                  setOrderMenuPosition(null);
+                  handleOpenDrawer(target);
+                }}
+                className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                <Eye size={14} className="text-slate-400" />
+                <span>Ver Cockpit de Campo</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const target = activeOrderForMenu;
+                  setActiveOrderForMenu(null);
+                  setOrderMenuPosition(null);
+                  handlePrintWorkOrder(target);
+                }}
+                className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                <Printer size={14} className="text-slate-400" />
+                <span>Imprimir Ficha A4</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  const target = activeOrderForMenu;
+                  setActiveOrderForMenu(null);
+                  setOrderMenuPosition(null);
+                  handleOpenEditModal(target, e);
+                }}
+                className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                <Edit2 size={14} className="text-slate-400" />
+                <span>Editar Ficha / Ordem</span>
+              </button>
+            </div>
+
+            {/* Seção 2: Transições de Estado / Workflow da OS */}
+            {(activeOrderForMenu.status === 'open' ||
+              activeOrderForMenu.status === 'in_progress' ||
+              activeOrderForMenu.status === 'waiting_parts' ||
+              activeOrderForMenu.status === 'paused' ||
+              activeOrderForMenu.status === 'blocked') && (
+              <div className="py-1">
+                {activeOrderForMenu.status === 'open' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const target = activeOrderForMenu;
+                      setActiveOrderForMenu(null);
+                      setOrderMenuPosition(null);
+                      handleStartService(target);
+                    }}
+                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <Play size={14} className="text-blue-600 fill-current" />
+                    <span>Iniciar Serviço</span>
+                  </button>
+                )}
+
+                {activeOrderForMenu.status === 'in_progress' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = activeOrderForMenu;
+                        setActiveOrderForMenu(null);
+                        setOrderMenuPosition(null);
+                        handleOpenPauseModal(target);
+                      }}
+                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Pause size={14} className="text-amber-600" />
+                      <span>Pausar Serviço</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = activeOrderForMenu;
+                        setActiveOrderForMenu(null);
+                        setOrderMenuPosition(null);
+                        handleActionClick(() => {
+                          setSelectedOrder(target);
+                          setIsCloseModalOpen(true);
+                        });
+                      }}
+                      className="w-full text-left px-3.5 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <CheckCircle2 size={14} className="text-emerald-600" />
+                      <span>Concluir Serviço</span>
+                    </button>
+                  </>
+                )}
+
+                {(activeOrderForMenu.status === 'waiting_parts' || activeOrderForMenu.status === 'paused' || activeOrderForMenu.status === 'blocked') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const target = activeOrderForMenu;
+                      setActiveOrderForMenu(null);
+                      setOrderMenuPosition(null);
+                      handleResumeService(target);
+                    }}
+                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <Play size={14} className="text-blue-600 fill-current" />
+                    <span>Retomar Serviço</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Seção 3: Cancelamento */}
+            {activeOrderForMenu.status !== 'completed' && activeOrderForMenu.status !== 'cancelled' && (
+              <div className="py-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = activeOrderForMenu;
+                    setActiveOrderForMenu(null);
+                    setOrderMenuPosition(null);
+                    setSelectedDrawerOrder(target);
+                    setCancelReason('');
+                    setIsCancelModalOpen(true);
+                  }}
+                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <XCircle size={14} className="text-red-500" />
+                  <span>Cancelar Ordem</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </>,
+        document.body
+      )}
 
     </div>
   );
