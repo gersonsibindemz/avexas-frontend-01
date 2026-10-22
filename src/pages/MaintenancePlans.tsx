@@ -38,6 +38,10 @@ export interface Asset {
   code_tag?: string;
   codeTag?: string;
   name: string;
+  category?: string;
+  category_type?: string;
+  domain?: string;
+  meter_kind?: string;
   operational_scope?: string;
   operationalScope?: string;
 }
@@ -94,6 +98,54 @@ export const MaintenancePlansPage: React.FC = () => {
   const { user, isTechnician, currentScope } = useAuth();
   const domainConfig = useCurrentDomain();
   const { domain } = domainConfig;
+
+  // Escopo estrito aplicado ao tenant_admin / utilizador atual
+  // Um tenant_admin tem sempre um escopo específico ('fleet' ou 'plant')
+  const effectiveScope: 'fleet' | 'plant' = (
+    user?.role === 'tenant_admin'
+      ? (user?.operational_scope === 'plant' || user?.operationalScope === 'plant' || user?.tenant?.operational_scope === 'plant' || user?.tenant?.operationalScope === 'plant' ? 'plant' : 'fleet')
+      : (currentScope || domain || 'fleet')
+  );
+
+  const isAssetInScope = (asset: any, scope: 'fleet' | 'plant'): boolean => {
+    if (!asset) return false;
+    // 1. Se tem domain explícito ('fleet' ou 'plant')
+    if (asset.domain === 'fleet' || asset.domain === 'plant') {
+      return asset.domain === scope;
+    }
+
+    // 2. Se tem operational_scope explícito ('fleet' ou 'plant')
+    const opScope = asset.operational_scope || asset.operationalScope;
+    if (opScope === 'fleet' || opScope === 'plant') {
+      return opScope === scope;
+    }
+
+    // 3. Verificação estrita por categoria do equipamento
+    const cat = String(asset.category || asset.asset_category || '').toLowerCase();
+    const isPlantCategory =
+      cat === 'generator' ||
+      cat === 'machinery' ||
+      cat === 'plant_equipment' ||
+      cat.startsWith('plant') ||
+      cat.includes('caldeira') ||
+      cat.includes('motor') ||
+      cat.includes('bomba');
+
+    const isFleetCategory =
+      cat === 'vehicle_light' ||
+      cat === 'vehicle_heavy' ||
+      cat.startsWith('vehicle') ||
+      cat.startsWith('cat-') ||
+      cat.includes('viatura') ||
+      cat.includes('veiculo') ||
+      cat.includes('camião') ||
+      cat.includes('reboque');
+
+    if (scope === 'plant') {
+      return isPlantCategory || (!isFleetCategory && asset.meter_kind === 'hourmeter_hours');
+    }
+    return isFleetCategory || (!isPlantCategory && asset.meter_kind === 'odometer_km');
+  };
 
   // Estados sem qualquer dado mockado
   const [plans, setPlans] = useState<MaintenancePlan[]>(() => dataCache.get<MaintenancePlan[]>('maintenance_plans') || []);
@@ -203,7 +255,7 @@ export const MaintenancePlansPage: React.FC = () => {
   }, []);
 
   // 2. Carrega dependências reais do Modal (Ativos e Técnicos)
-  const loadModalDependencies = async () => {
+  const loadModalDependencies = async (targetPlanAssetId?: string) => {
     setLoadingFormData(true);
     try {
       const [assetsRes, techsRes] = await Promise.allSettled([
@@ -216,22 +268,19 @@ export const MaintenancePlansPage: React.FC = () => {
           ? assetsRes.value.data
           : (assetsRes.value.data?.assets || assetsRes.value.data?.data || []);
         
-        // Filtrar ativos do domínio ativo se especificado
-        const domainAssets = aData.filter((a: any) => {
-          if (domain === 'plant') {
-            return a.operational_scope === 'plant' || a.operationalScope === 'plant';
-          }
-          if (domain === 'fleet') {
-            return a.operational_scope === 'fleet' || a.operationalScope === 'fleet';
-          }
-          return true;
-        });
+        // Filtrar estritamente apenas os ativos pertencentes ao operational_scope do tenant_admin
+        // NUNCA misturar ativos de 2 operational_scope diferentes e NUNCA fazer fallback para todos os ativos!
+        const domainAssets = aData.filter((a: any) => isAssetInScope(a, effectiveScope));
+        setAssets(domainAssets);
 
-        const activeAssetsList = domainAssets.length > 0 ? domainAssets : aData;
-        setAssets(activeAssetsList);
+        // Se o assetId selecionado não existir na lista filtrada, define o primeiro ativo válido
+        const desiredAssetId = targetPlanAssetId || assetId;
+        const existsInScope = domainAssets.some((a: any) => a.id === desiredAssetId);
 
-        if (activeAssetsList.length > 0 && !assetId) {
-          setAssetId(activeAssetsList[0].id);
+        if (existsInScope) {
+          setAssetId(desiredAssetId);
+        } else {
+          setAssetId(domainAssets.length > 0 ? domainAssets[0].id : '');
         }
       }
 
@@ -245,10 +294,17 @@ export const MaintenancePlansPage: React.FC = () => {
             return [key, t];
           })).values()
         );
-        setTechnicians(uniqueTechs);
+        // Filtrar técnicos pelo escopo operacional do tenant_admin
+        const scopedTechs = uniqueTechs.filter((tech) =>
+          !tech.operational_scope ||
+          tech.operational_scope === 'both' ||
+          tech.operational_scope === 'mixed' ||
+          tech.operational_scope === effectiveScope
+        );
+        setTechnicians(scopedTechs);
 
-        if (uniqueTechs.length > 0 && !assignedTechnicianId) {
-          setAssignedTechnicianId(uniqueTechs[0].id);
+        if (scopedTechs.length > 0 && (!assignedTechnicianId || !scopedTechs.some(t => t.id === assignedTechnicianId))) {
+          setAssignedTechnicianId(scopedTechs[0].id);
         }
       }
     } catch (err) {
@@ -373,7 +429,7 @@ export const MaintenancePlansPage: React.FC = () => {
     }
 
     setIsModalOpen(true);
-    loadModalDependencies();
+    loadModalDependencies(plan.asset_id);
   };
 
   const handleAddTask = () => {
@@ -397,6 +453,7 @@ export const MaintenancePlansPage: React.FC = () => {
     const payload = {
       title,
       asset_id: assetId,
+      domain: effectiveScope,
       trigger_type: triggerType,
       interval_days: Number(intervalDays),
       interval_meter: Number(intervalMeter),
@@ -485,11 +542,27 @@ export const MaintenancePlansPage: React.FC = () => {
     }
   };
 
-  // Indicadores do Topo Calculados em Tempo Real (Zero Números Fixos)
-  const activePlansCount = plans.filter(p => p.is_active ?? p.status === 'active').length;
-  const pausedPlansCount = plans.filter(p => (p.is_active === false) || p.status === 'paused').length;
+  // Isolamento estrito de planos preventivos por escopo operacional (Frota vs Fábrica)
+  const domainFilteredPlans = plans.filter((plan: any) => {
+    const planScope = plan.domain || plan.operational_scope || plan.operationalScope;
+    if (planScope === 'fleet' || planScope === 'plant') {
+      return planScope === effectiveScope;
+    }
+    const cat = String(plan.asset_category || '').toLowerCase();
+    if (cat) {
+      if (effectiveScope === 'plant') {
+        return cat === 'generator' || cat === 'machinery' || cat === 'plant_equipment' || cat.startsWith('plant');
+      }
+      return cat === 'vehicle_light' || cat === 'vehicle_heavy' || cat.startsWith('vehicle') || cat.startsWith('cat-');
+    }
+    return true;
+  });
 
-  const upcomingCount = plans.filter(p => {
+  // Indicadores do Topo Calculados em Tempo Real (Zero Números Fixos)
+  const activePlansCount = domainFilteredPlans.filter(p => p.is_active ?? p.status === 'active').length;
+  const pausedPlansCount = domainFilteredPlans.filter(p => (p.is_active === false) || p.status === 'paused').length;
+
+  const upcomingCount = domainFilteredPlans.filter(p => {
     const isActive = p.is_active ?? p.status === 'active';
     const dueDate = p.next_due_date || p.nextDueDate;
     if (!dueDate || !isActive) return false;
@@ -498,7 +571,7 @@ export const MaintenancePlansPage: React.FC = () => {
   }).length;
 
   // Filtros
-  const filteredPlans = plans.filter(plan => {
+  const filteredPlans = domainFilteredPlans.filter(plan => {
     const q = searchQuery.toLowerCase();
     const assetName = plan.asset_name || plan.assetName || '';
     const code = plan.code || '';
@@ -522,7 +595,7 @@ export const MaintenancePlansPage: React.FC = () => {
     !tech.operational_scope ||
     tech.operational_scope === 'both' ||
     tech.operational_scope === 'mixed' ||
-    tech.operational_scope === currentScope
+    tech.operational_scope === effectiveScope
   );
 
   return (
@@ -832,7 +905,7 @@ export const MaintenancePlansPage: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Ativo / Viatura Alvo *
+                        {effectiveScope === 'fleet' ? 'Ativo / Viatura da Frota Alvo *' : 'Equipamento Fabril Alvo *'}
                       </label>
                       <select
                         required
@@ -840,7 +913,9 @@ export const MaintenancePlansPage: React.FC = () => {
                         onChange={(e) => setAssetId(e.target.value)}
                         className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
                       >
-                        <option value="">Selecione o ativo...</option>
+                        <option value="">
+                          {assets.length === 0 ? 'Nenhum ativo registado neste escopo...' : 'Selecione o ativo...'}
+                        </option>
                         {assets.map((asset) => (
                           <option key={asset.id} value={asset.id}>
                             {asset.name} ({asset.code_tag || asset.codeTag || asset.id})
@@ -858,7 +933,9 @@ export const MaintenancePlansPage: React.FC = () => {
                         onChange={(e) => setTriggerType(e.target.value as any)}
                         className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900 cursor-pointer"
                       >
-                        <option value="meter">Por Odómetro / Horímetro (Contador)</option>
+                        <option value="meter">
+                          {effectiveScope === 'fleet' ? 'Por Odómetro (Km)' : 'Por Horímetro (Horas)'}
+                        </option>
                         <option value="time">Por Tempo (Dias / Calendário)</option>
                         <option value="both">Ambos (O que ocorrer primeiro)</option>
                       </select>
@@ -877,6 +954,7 @@ export const MaintenancePlansPage: React.FC = () => {
                           min={1}
                           value={intervalDays}
                           onChange={(e) => setIntervalDays(Number(e.target.value))}
+                          placeholder="ex: 90 (a cada 90 dias)"
                           className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900"
                         />
                       </div>
@@ -885,7 +963,7 @@ export const MaintenancePlansPage: React.FC = () => {
                     {(triggerType === 'meter' || triggerType === 'both') && (
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1">
-                          Intervalo de Contador (Km / Horas) *
+                          {effectiveScope === 'fleet' ? 'Intervalo de Odómetro (Km) *' : 'Intervalo de Horímetro (Horas) *'}
                         </label>
                         <input
                           type="number"
@@ -893,6 +971,7 @@ export const MaintenancePlansPage: React.FC = () => {
                           min={1}
                           value={intervalMeter}
                           onChange={(e) => setIntervalMeter(Number(e.target.value))}
+                          placeholder={effectiveScope === 'fleet' ? 'ex: 10000 (a cada 10.000 Km)' : 'ex: 500 (a cada 500 Horas)'}
                           className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-900"
                         />
                       </div>
