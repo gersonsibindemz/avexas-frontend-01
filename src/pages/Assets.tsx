@@ -4,7 +4,18 @@ import { api, getApiErrorMessage, toFiniteNumber } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentDomain } from '../config/domainRegistry';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import { ENERGY_TYPES, FLEET_CATEGORIES, OWNERSHIP_TYPES, TRAILER_SUBTYPES, getSubtypesForType, toBackendCategory } from '../config/fleetCategories';
+import {
+  ENERGY_TYPES,
+  FLEET_CATEGORIES,
+  PLANT_CATEGORIES,
+  OWNERSHIP_TYPES,
+  TRAILER_SUBTYPES,
+  getSubtypesForType,
+  toBackendCategory,
+  isPlantCategoryCode,
+  getCleanCategoryName,
+  getCategoriesForScope
+} from '../config/fleetCategories';
 import { SecondaryView } from '../components/SecondaryView';
 import { useAlert, triggerGlobalConfirm } from '../contexts/AlertContext';
 import QRCode from 'qrcode';
@@ -128,6 +139,48 @@ interface Asset {
   localSupplierName?: string;
   warranty_expiry?: string;
   warrantyExpiry?: string;
+
+  // Novos campos dos 7 passos
+  qr_code?: string;
+  qrCode?: string;
+  photo_url?: string;
+  photoUrl?: string;
+  company?: string;
+  location?: string;
+  responsible?: string;
+  notes?: string;
+  initial_km?: number;
+  initialKm?: number;
+  current_km?: number;
+  currentKm?: number;
+  initial_hour_meter?: number;
+  initialHourMeter?: number;
+  current_hour_meter?: number;
+  currentHourMeter?: number;
+  measurement_unit?: string;
+  measurementUnit?: string;
+  last_reading_date?: string;
+  lastReadingDate?: string;
+  expected_operating_hours?: number;
+  expectedOperatingHours?: number;
+  maintenance_plan_id?: string;
+  maintenancePlanId?: string;
+  maintenance_type?: string;
+  maintenanceType?: string;
+  maintenance_periodicity?: string;
+  maintenancePeriodicity?: string;
+  last_maintenance_date?: string;
+  lastMaintenanceDate?: string;
+  last_maintenance_meter?: number;
+  lastMaintenanceMeter?: number;
+  next_maintenance_date?: string;
+  nextMaintenanceDate?: string;
+  next_maintenance_meter?: number;
+  nextMaintenanceMeter?: number;
+  maintenance_notes?: string;
+  maintenanceNotes?: string;
+  general_condition?: string;
+  generalCondition?: string;
 }
 
 interface DriverUser {
@@ -139,37 +192,75 @@ interface DriverUser {
 }
 
 interface AssetFormData {
+  // Passo 1
   category: string;
   asset_type: string;
   custom_asset_type?: string;
   asset_subtype: string;
   custom_asset_subtype?: string;
   code_tag: string;
+  license_plate: string;
   name: string;
   company: string;
   department: string;
+  location: string;
   cost_center: string;
   status: string;
   criticality_level: string;
+  responsible: string;
   operator_driver: string;
+  qr_code: string;
+  photo_url: string;
+  notes: string;
+
+  // Passo 2
   brand: string;
   model: string;
   manufacture_year: string;
   serial_number: string;
-  license_plate: string;
   chassis_vin: string;
   engine_number: string;
   color: string;
+
+  // Passo 3
   energy_type: string;
   ownership_type: string;
   axle_config: string;
   plant_sector: string;
   voltage_specs: string;
   power_kw_kva: string;
+  fuel_tank_capacity_liters: string;
+  technical_specs: {
+    engine_type: string;
+    power: string;
+    fuel: string;
+    transmission: string;
+    traction: string;
+    axles: string;
+    weight_load: string;
+    payload_capacity: string;
+    tank_capacity: string;
+    consumption: string;
+    tire_size: string;
+    dimensions: string;
+    other_specs: string;
+  };
+
+  // Passo 4
+  initial_km: string;
+  current_km: string;
+  initial_hour_meter: string;
+  current_hour_meter: string;
+  measurement_unit: string;
+  last_reading_date: string;
+  shift: string;
+  expected_operating_hours: string;
   initial_meter: string;
   current_meter: string;
   meter_unit: string;
-  shift: string;
+  operational_notes: string;
+
+  // Passo 5
   acquisition_date: string;
   operation_date: string;
   acquisition_value: string;
@@ -180,62 +271,95 @@ interface AssetFormData {
   insurance_policy_number: string;
   insurance_expiry: string;
   inspection_expiry: string;
+  licenses_certificates_notes: string;
+
+  // Passo 6
   maintenance_plan_id: string;
   maintenance_type: string;
   maintenance_periodicity: string;
-  technical_specs: {
-    engine_type: string;
-    power: string;
-    fuel: string;
-    transmission: string;
-    traction: string;
-    axles: string;
-    weight_load: string;
-    tank_capacity: string;
-    consumption: string;
-    tire_size: string;
-  };
+  last_maintenance_date: string;
+  last_maintenance_meter: string;
+  next_maintenance_date: string;
+  next_maintenance_meter: string;
+  maintenance_notes: string;
+
+  // Passo 7
   safety_checks: {
     extinguisher_validity: string;
     warning_triangle: string;
     first_aid_kit: string;
     ppe: string;
+    safety_devices: string;
     general_condition: string;
+    safety_observations: string;
   };
 }
 
 const createInitialAssetFormData = (domain: string, categories: { value: string }[]): AssetFormData => ({
-  category: domain === 'fleet' ? FLEET_CATEGORIES[0].code : categories[0]?.value || 'vehicle_light',
+  category: domain === 'plant' ? PLANT_CATEGORIES[0].code : FLEET_CATEGORIES[0].code,
   asset_type: '',
   custom_asset_type: '',
   asset_subtype: '',
   custom_asset_subtype: '',
   code_tag: '',
+  license_plate: '',
   name: '',
   company: '',
   department: '',
+  location: '',
   cost_center: '',
   status: 'operational',
   criticality_level: 'B',
+  responsible: '',
   operator_driver: '',
+  qr_code: '',
+  photo_url: '',
+  notes: '',
+
   brand: '',
   model: '',
   manufacture_year: String(new Date().getFullYear()),
   serial_number: '',
-  license_plate: '',
   chassis_vin: '',
   engine_number: '',
   color: '',
+
   energy_type: 'Diesel',
   ownership_type: 'Próprio',
   axle_config: '',
   plant_sector: '',
   voltage_specs: '',
   power_kw_kva: '',
+  fuel_tank_capacity_liters: '',
+  technical_specs: {
+    engine_type: '',
+    power: '',
+    fuel: 'Diesel',
+    transmission: '',
+    traction: '',
+    axles: '',
+    weight_load: '',
+    payload_capacity: '',
+    tank_capacity: '',
+    consumption: '',
+    tire_size: '',
+    dimensions: '',
+    other_specs: ''
+  },
+
+  initial_km: '0',
+  current_km: '0',
+  initial_hour_meter: '0',
+  current_hour_meter: '0',
+  measurement_unit: domain === 'plant' ? 'Horas' : 'Km',
+  last_reading_date: '',
+  shift: '',
+  expected_operating_hours: '',
   initial_meter: '0',
   current_meter: '0',
-  meter_unit: domain === 'fleet' ? 'km' : 'h',
-  shift: '',
+  meter_unit: domain === 'plant' ? 'Horas' : 'Km',
+  operational_notes: '',
+
   acquisition_date: '',
   operation_date: '',
   acquisition_value: '',
@@ -246,38 +370,36 @@ const createInitialAssetFormData = (domain: string, categories: { value: string 
   insurance_policy_number: '',
   insurance_expiry: '',
   inspection_expiry: '',
+  licenses_certificates_notes: '',
+
   maintenance_plan_id: '',
-  maintenance_type: '',
-  maintenance_periodicity: '',
-  technical_specs: {
-    engine_type: '',
-    power: '',
-    fuel: 'Diesel',
-    transmission: '',
-    traction: '',
-    axles: '',
-    weight_load: '',
-    tank_capacity: '',
-    consumption: '',
-    tire_size: ''
-  },
+  maintenance_type: 'Preventiva',
+  maintenance_periodicity: 'Km',
+  last_maintenance_date: '',
+  last_maintenance_meter: '',
+  next_maintenance_date: '',
+  next_maintenance_meter: '',
+  maintenance_notes: '',
+
   safety_checks: {
     extinguisher_validity: '',
     warning_triangle: '',
     first_aid_kit: '',
     ppe: '',
-    general_condition: ''
+    safety_devices: '',
+    general_condition: 'Bom',
+    safety_observations: ''
   }
 });
 
 const ASSET_WIZARD_STEPS = [
-  { id: 0, label: 'Identificação', shortLabel: 'Identificação' },
-  { id: 1, label: 'Fabricante', shortLabel: 'Fabricante' },
-  { id: 2, label: 'Características Técnicas', shortLabel: 'Técnica' },
-  { id: 3, label: 'Operação & Medidores', shortLabel: 'Operação' },
-  { id: 4, label: 'Conformidade & Aquisição', shortLabel: 'Aquisição' },
+  { id: 0, label: 'Identificação e dados gerais', shortLabel: 'Identificação' },
+  { id: 1, label: 'Identificação do fabricante', shortLabel: 'Fabricante' },
+  { id: 2, label: 'Características técnicas', shortLabel: 'Técnica' },
+  { id: 3, label: 'Operação e medidores', shortLabel: 'Operação' },
+  { id: 4, label: 'Conformidade, Aquisição e Documentos', shortLabel: 'Conformidade' },
   { id: 5, label: 'Manutenção', shortLabel: 'Manutenção' },
-  { id: 6, label: 'Segurança', shortLabel: 'Segurança' },
+  { id: 6, label: 'Segurança e condições de utilização', shortLabel: 'Segurança' },
 ];
 
 export const AssetsPage: React.FC = () => {
@@ -741,8 +863,7 @@ export const AssetsPage: React.FC = () => {
       try {
         const response = await api.get('/users', {
           params: {
-            role: 'driver_operator',
-            operational_scope: domain
+            role: 'driver_operator'
           }
         });
         const data = Array.isArray(response.data)
@@ -791,7 +912,7 @@ export const AssetsPage: React.FC = () => {
   // ==========================================
   useEffect(() => {
     if (isQrModalOpen && selectedQrAsset && qrCanvasRef.current) {
-      const valueToEncode = selectedQrAsset.id;
+      const valueToEncode = selectedQrAsset.qr_code || selectedQrAsset.qrCode || selectedQrAsset.id;
       QRCode.toCanvas(
         qrCanvasRef.current,
         valueToEncode,
@@ -864,6 +985,8 @@ export const AssetsPage: React.FC = () => {
     }
   };
 
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
   const updateFormField = <K extends keyof AssetFormData>(field: K, value: AssetFormData[K]) => {
     setFormData((previous) => ({ ...previous, [field]: value }));
   };
@@ -883,126 +1006,134 @@ export const AssetsPage: React.FC = () => {
     }));
   };
 
+  const handlePhotoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 15 * 1024 * 1024) {
+        showAlert({ title: 'Ficheiro demasiado grande', message: 'A fotografia deve ter no máximo 15 MB.', type: 'warning' });
+        return;
+      }
+      setAssetPhotoFile(file);
+      const localPreview = URL.createObjectURL(file);
+      setAssetPhotoPreview(localPreview);
+
+      setUploadingPhoto(true);
+      try {
+        const formDataUpload = new FormData();
+        formDataUpload.append('photo', file);
+        const res = await api.post('/notifications/maintenance/upload-photo', formDataUpload, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        if (res.data?.url) {
+          updateFormField('photo_url', res.data.url);
+        }
+      } catch (err: any) {
+        console.warn('Upload imediato para o storage falhou, ficheiro mantido localmente:', err);
+      } finally {
+        setUploadingPhoto(false);
+      }
+    }
+  };
+
+  // Regra de progressão obrigatória: verifica se todos os campos obrigatórios do passo atual estão preenchidos
+  const isStepValid = (stepIndex: number): boolean => {
+    if (stepIndex === 0) {
+      const hasCategory = Boolean(formData.category?.trim());
+      const hasType = Boolean(formData.asset_type?.trim()) && (formData.asset_type !== 'Outro tipo (especificar)' || Boolean(formData.custom_asset_type?.trim()));
+      const hasPlate = Boolean(formData.license_plate?.trim());
+      const hasStatus = Boolean(formData.status?.trim());
+      const hasCriticality = Boolean(formData.criticality_level?.trim());
+      return hasCategory && hasType && hasPlate && hasStatus && hasCriticality;
+    }
+    if (stepIndex === 1) {
+      return Boolean(formData.brand?.trim() && formData.model?.trim());
+    }
+    return true;
+  };
+
+  const handleNextStep = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!isStepValid(activeTab)) {
+      if (activeTab === 0) {
+        showAlert({
+          title: 'Campos Obrigatórios Pendentes',
+          message: 'Preencha todos os campos obrigatórios do Passo 1: Categoria, Tipo de ativo, Placa/Identificação, Estado e Criticidade.',
+          type: 'warning'
+        });
+      } else if (activeTab === 1) {
+        showAlert({
+          title: 'Campos Obrigatórios Pendentes',
+          message: 'Preencha todos os campos obrigatórios do Passo 2: Fabricante / Marca e Modelo / Versão.',
+          type: 'warning'
+        });
+      }
+      return;
+    }
+    setActiveTab((tab) => Math.min(6, tab + 1));
+  };
+
+  const handleStepClick = (targetIndex: number) => {
+    if (targetIndex > activeTab) {
+      for (let i = activeTab; i < targetIndex; i++) {
+        if (!isStepValid(i)) {
+          if (i === 0) {
+            showAlert({ title: 'Passo 1 Incompleto', message: 'Preencha os campos obrigatórios da Identificação antes de avançar.', type: 'warning' });
+          } else if (i === 1) {
+            showAlert({ title: 'Passo 2 Incompleto', message: 'Preencha os campos obrigatórios do Fabricante antes de avançar.', type: 'warning' });
+          }
+          return;
+        }
+      }
+    }
+    setActiveTab(targetIndex);
+  };
+
   const validateForm = (): boolean => {
-    // ---------------------------------------------------------------
-    // 1. Identificação Geral (Etapa 1 / Tab 0)
-    // ---------------------------------------------------------------
-    if (!formData.name.trim()) {
+    // Passo 1 – Identificação e dados gerais
+    if (!formData.category?.trim()) {
       setActiveTab(0);
-      showAlert({ title: 'Campo Obrigatório', message: 'O Nome / Designação do Ativo é obrigatório.', type: 'warning' });
+      showAlert({ title: 'Campo Obrigatório', message: 'A Categoria / Grupo do equipamento é obrigatória.', type: 'warning' });
       return false;
     }
-    if (!formData.code_tag.trim()) {
+    if (!formData.asset_type?.trim()) {
       setActiveTab(0);
-      showAlert({ title: 'Campo Obrigatório', message: 'O Código / Tag do Ativo é obrigatório para identificação física e etiquetas QR Code.', type: 'warning' });
+      showAlert({ title: 'Campo Obrigatório', message: 'O Tipo de ativo é obrigatório.', type: 'warning' });
       return false;
     }
-    if (!formData.cost_center.trim()) {
+    if (formData.asset_type === 'Outro tipo (especificar)' && !formData.custom_asset_type?.trim()) {
       setActiveTab(0);
-      showAlert({ title: 'Campo Obrigatório', message: 'O Centro de Custo é obrigatório para apropriação contabilística.', type: 'warning' });
+      showAlert({ title: 'Campo Obrigatório', message: 'Por favor, especifique o Tipo de ativo.', type: 'warning' });
+      return false;
+    }
+    if (!formData.license_plate?.trim()) {
+      setActiveTab(0);
+      showAlert({ title: 'Campo Obrigatório', message: 'A Placa / Identificação é obrigatória.', type: 'warning' });
       return false;
     }
     if (!formData.status?.trim()) {
       setActiveTab(0);
-      showAlert({ title: 'Campo Obrigatório', message: 'A Situação Operacional / Estado do Ativo é obrigatória.', type: 'warning' });
+      showAlert({ title: 'Campo Obrigatório', message: 'O Estado do equipamento é obrigatório.', type: 'warning' });
       return false;
     }
     if (!formData.criticality_level?.trim()) {
       setActiveTab(0);
-      showAlert({ title: 'Campo Obrigatório', message: 'O Nível de Criticidade do Ativo é obrigatório.', type: 'warning' });
-      return false;
-    }
-    if (domain === 'fleet' && !formData.asset_type.trim()) {
-      setActiveTab(0);
-      showAlert({ title: 'Campo Obrigatório', message: 'O Tipo de Equipamento é obrigatório para viaturas de frota.', type: 'warning' });
-      return false;
-    }
-    if (domain === 'fleet' && formData.asset_type === 'Outro tipo (especificar)' && !formData.custom_asset_type?.trim()) {
-      setActiveTab(0);
-      showAlert({ title: 'Campo Obrigatório', message: 'Por favor, especifique o Tipo de Equipamento.', type: 'warning' });
-      return false;
-    }
-    if (formData.asset_subtype === 'Outro (especificar)' && !formData.custom_asset_subtype?.trim()) {
-      setActiveTab(0);
-      showAlert({ title: 'Campo Obrigatório', message: 'Por favor, especifique o Subtipo / Configuração.', type: 'warning' });
+      showAlert({ title: 'Campo Obrigatório', message: 'A Criticidade do equipamento é obrigatória.', type: 'warning' });
       return false;
     }
 
-    // ---------------------------------------------------------------
-    // 2. Fabricante e Modelo (Etapa 2 / Tab 1)
-    // ---------------------------------------------------------------
-    if (!formData.brand.trim()) {
+    // Passo 2 – Identificação do fabricante
+    if (!formData.brand?.trim()) {
       setActiveTab(1);
-      showAlert({ title: 'Campo Obrigatório', message: 'A Marca / Fabricante do Ativo é obrigatória.', type: 'warning' });
+      showAlert({ title: 'Campo Obrigatório', message: 'O Fabricante / Marca é obrigatório.', type: 'warning' });
       return false;
     }
-    if (!formData.model.trim()) {
+    if (!formData.model?.trim()) {
       setActiveTab(1);
-      showAlert({ title: 'Campo Obrigatório', message: 'O Modelo do Ativo é obrigatório.', type: 'warning' });
+      showAlert({ title: 'Campo Obrigatório', message: 'O Modelo / Versão é obrigatório.', type: 'warning' });
       return false;
-    }
-
-    // Validações específicas de Veículos / Frotas
-    if (domain === 'fleet') {
-      if (!formData.license_plate.trim()) {
-        setActiveTab(1);
-        showAlert({ title: 'Campo Obrigatório', message: 'A Matrícula Regulamentar é obrigatória para viaturas de frota.', type: 'warning' });
-        return false;
-      }
-      if (!formData.chassis_vin.trim()) {
-        setActiveTab(1);
-        showAlert({ title: 'Campo Obrigatório', message: 'O Número de Chassis / VIN é obrigatório para viaturas de frota.', type: 'warning' });
-        return false;
-      }
-    }
-
-    // ---------------------------------------------------------------
-    // 3. Características Técnicas (Etapa 3 / Tab 2)
-    // ---------------------------------------------------------------
-    if (domain === 'fleet') {
-      const fuelValue = formData.technical_specs?.fuel?.trim() || formData.energy_type?.trim();
-      if (!fuelValue) {
-        setActiveTab(2);
-        showAlert({ title: 'Campo Obrigatório', message: 'O Tipo de Combustível / Energia é obrigatório para viaturas de frota.', type: 'warning' });
-        return false;
-      }
-    }
-
-    if (domain === 'plant') {
-      if (!formData.plant_sector.trim()) {
-        setActiveTab(2);
-        showAlert({ title: 'Campo Obrigatório', message: 'O Setor Fabril / Linha de Produção é obrigatório para equipamentos industriais.', type: 'warning' });
-        return false;
-      }
-      if (!formData.power_kw_kva || formData.power_kw_kva.trim() === '') {
-        setActiveTab(2);
-        showAlert({ title: 'Campo Obrigatório', message: 'A Potência (kW / kVA) é obrigatória para equipamentos industriais.', type: 'warning' });
-        return false;
-      }
-      if (!formData.voltage_specs.trim()) {
-        setActiveTab(2);
-        showAlert({ title: 'Campo Obrigatório', message: 'A Especificação de Tensão / Voltagem é obrigatória para equipamentos industriais.', type: 'warning' });
-        return false;
-      }
-    }
-
-    // ---------------------------------------------------------------
-    // 4. Operação & Medidores (Etapa 4 / Tab 3)
-    // ---------------------------------------------------------------
-    if (domain === 'fleet') {
-      if (formData.current_meter === '' || formData.current_meter === undefined || formData.current_meter === null) {
-        setActiveTab(3);
-        showAlert({ title: 'Campo Obrigatório', message: 'O Medidor / Odómetro Atual é obrigatório para viaturas de frota.', type: 'warning' });
-        return false;
-      }
-    }
-
-    if (domain === 'plant') {
-      if (formData.initial_meter === '' || formData.initial_meter === undefined || formData.initial_meter === null) {
-        setActiveTab(3);
-        showAlert({ title: 'Campo Obrigatório', message: 'O Medidor / Horímetro Inicial é obrigatório para equipamentos industriais.', type: 'warning' });
-        return false;
-      }
     }
 
     return true;
@@ -1069,21 +1200,37 @@ export const AssetsPage: React.FC = () => {
       ? formData.custom_asset_subtype.trim()
       : formData.asset_subtype;
 
+    const effectiveDomain = isPlantCategoryCode(formData.category) ? 'plant' : 'fleet';
+    const computedName = formData.name.trim() || `${formData.brand.trim()} ${formData.model.trim()}`.trim() || formData.license_plate.trim();
+
     const payload = {
       ...formData,
-      // Categoria convertida para o conjunto canónico aceite pelo backend.
-      category: modalMode === 'create' ? toBackendCategory(formData.category, domain) : undefined,
+      domain: effectiveDomain,
+      category: modalMode === 'create' ? toBackendCategory(formData.category, effectiveDomain) : undefined,
       code_tag: formData.code_tag.trim(),
       codeTag: formData.code_tag.trim(),
-      name: formData.name.trim(),
+      name: computedName,
       brand: formData.brand.trim(),
       model: formData.model.trim(),
+      license_plate: formData.license_plate.trim(),
+      licensePlate: formData.license_plate.trim(),
+      company: formData.company.trim() || undefined,
+      department: formData.department.trim() || undefined,
+      location: formData.location.trim() || undefined,
+      cost_center: formData.cost_center.trim() || undefined,
+      costCenter: formData.cost_center.trim() || undefined,
+      responsible: formData.responsible.trim() || undefined,
+      operator_name: formData.operator_driver || undefined,
+      operatorName: formData.operator_driver || undefined,
+      qr_code: formData.qr_code.trim() || undefined,
+      photo_url: formData.photo_url || undefined,
+      notes: formData.notes.trim() || undefined,
       asset_type: finalAssetType || undefined,
       assetType: finalAssetType || undefined,
       asset_subtype: finalAssetSubtype || undefined,
       assetSubtype: finalAssetSubtype || undefined,
-      energy_type: formData.technical_specs.fuel || formData.energy_type,
-      energyType: formData.technical_specs.fuel || formData.energy_type,
+      energy_type: formData.energy_type || formData.technical_specs?.fuel || 'Diesel',
+      energyType: formData.energy_type || formData.technical_specs?.fuel || 'Diesel',
       ownership_type: formData.ownership_type,
       ownershipType: formData.ownership_type,
       axle_config: axleConfig,
@@ -1092,49 +1239,62 @@ export const AssetsPage: React.FC = () => {
       criticalityLevel: formData.criticality_level,
       manufacture_year: manufactureYear,
       manufactureYear,
-      cost_center: formData.cost_center.trim(),
-      costCenter: formData.cost_center.trim(),
-      meter_kind: meterKind,
-      meterKind,
+      meter_kind: effectiveDomain === 'plant' ? 'hourmeter_hours' : 'odometer_km',
+      meterKind: effectiveDomain === 'plant' ? 'hourmeter_hours' : 'odometer_km',
       initial_meter: initialMeter,
       initialMeter,
       current_meter: currentMeter,
       currentMeter,
-      measurement_unit: formData.meter_unit || undefined,
-      measurementUnit: formData.meter_unit || undefined,
+      initial_km: toFiniteNumber(formData.initial_km) ?? 0,
+      initial_hour_meter: toFiniteNumber(formData.initial_hour_meter) ?? 0,
+      measurement_unit: formData.measurement_unit || formData.meter_unit || (effectiveDomain === 'plant' ? 'Horas' : 'Km'),
+      measurementUnit: formData.measurement_unit || formData.meter_unit || (effectiveDomain === 'plant' ? 'Horas' : 'Km'),
+      meter_unit: formData.meter_unit || formData.measurement_unit || (effectiveDomain === 'plant' ? 'Horas' : 'Km'),
+      meterUnit: formData.meter_unit || formData.measurement_unit || (effectiveDomain === 'plant' ? 'Horas' : 'Km'),
       operational_shift: formData.shift || undefined,
       operationalShift: formData.shift || undefined,
+      last_reading_date: formData.last_reading_date || undefined,
+      expected_operating_hours: toFiniteNumber(formData.expected_operating_hours),
+      acquisition_date: formData.acquisition_date || undefined,
+      operation_date: formData.operation_date || undefined,
       operation_start_date: formData.operation_date || undefined,
       operationStartDate: formData.operation_date || undefined,
-      operator_name: formData.operator_driver || undefined,
-      operatorName: formData.operator_driver || undefined,
-      color_config: formData.color || undefined,
       acquisition_value: acquisitionValue,
       acquisitionValue,
-      license_plate: formData.license_plate.trim() || undefined,
-      licensePlate: formData.license_plate.trim() || undefined,
+      currency: formData.currency || 'MZN',
+      supplier: formData.supplier || undefined,
+      local_supplier_name: formData.supplier || undefined,
+      warranty_expiry: formData.warranty_expiry || undefined,
+      insurance_company: formData.insurance_company || undefined,
+      insurance_policy_number: formData.insurance_policy_number || undefined,
+      insurance_expiry: formData.insurance_expiry || undefined,
+      inspection_expiry: formData.inspection_expiry || undefined,
+      inatro_inspection_expiry: effectiveDomain === 'fleet' ? formData.inspection_expiry || undefined : undefined,
+      innoq_calibration_expiry: effectiveDomain === 'plant' ? formData.inspection_expiry || undefined : undefined,
+      maintenance_plan_id: formData.maintenance_plan_id || undefined,
+      maintenance_type: formData.maintenance_type || undefined,
+      maintenance_periodicity: formData.maintenance_periodicity || undefined,
+      last_maintenance_date: formData.last_maintenance_date || undefined,
+      last_maintenance_meter: toFiniteNumber(formData.last_maintenance_meter),
+      next_maintenance_date: formData.next_maintenance_date || undefined,
+      next_maintenance_meter: toFiniteNumber(formData.next_maintenance_meter),
+      maintenance_notes: formData.maintenance_notes || undefined,
+      color_config: formData.color || undefined,
       chassis_vin: formData.chassis_vin.trim() || undefined,
       chassisVin: formData.chassis_vin.trim() || undefined,
       engine_number: formData.engine_number.trim() || undefined,
       engineNumber: formData.engine_number.trim() || undefined,
       fuel_tank_capacity_liters: fuelTankCapacityLiters,
       fuelTankCapacityLiters,
-      plant_sector: formData.plant_sector.trim() || undefined,
-      plantSector: formData.plant_sector.trim() || undefined,
+      plant_sector: formData.plant_sector.trim() || formData.location.trim() || undefined,
+      plantSector: formData.plant_sector.trim() || formData.location.trim() || undefined,
       voltage_specs: formData.voltage_specs.trim() || undefined,
       voltageSpecs: formData.voltage_specs.trim() || undefined,
       power_kw_kva: powerKwKva,
       powerKwKva,
-      inatro_inspection_expiry: isVehicle ? formData.inspection_expiry || undefined : undefined,
-      inatroInspectionExpiry: isVehicle ? formData.inspection_expiry || undefined : undefined,
-      innoq_calibration_expiry: !isVehicle ? formData.inspection_expiry || undefined : undefined,
-      innoqCalibrationExpiry: !isVehicle ? formData.inspection_expiry || undefined : undefined,
-      insuranceCompany: formData.insurance_company,
-      insurancePolicyNumber: formData.insurance_policy_number,
-      warrantyExpiry: formData.warranty_expiry,
-      local_supplier_name: formData.supplier || undefined,
-      localSupplierName: formData.supplier || undefined,
-      status
+      status,
+      technical_specs: formData.technical_specs,
+      safety_checks: formData.safety_checks
     };
 
     try {
@@ -1362,24 +1522,11 @@ export const AssetsPage: React.FC = () => {
       const value = keys.map((key) => assetData[key]).find((item) => item !== undefined && item !== null);
       return value === undefined ? '' : String(value);
     };
-    // Categoria inicial da edição: mantém o código de UI quando existir opção
-    // correspondente; caso contrário preserva o valor canónico vindo do backend
-    // (o <select> é bloqueado na edição e o valor nunca é reenviado ao servidor).
-    const knownUiCategory = FLEET_CATEGORIES.some((fleetCategory) => fleetCategory.code === asset.category)
-      || categories.some((item) => item.value === asset.category);
-    const initialCategory = knownUiCategory
-      ? asset.category || ''
-      : asset.category === 'vehicle_heavy'
-        ? 'CAT-03'
-        : asset.category === 'vehicle_light'
-          ? 'CAT-01'
-          : asset.category
-            || (domain === 'fleet'
-              ? FLEET_CATEGORIES[0].code
-              : categories[0]?.value || 'vehicle_light');
+
+    const initialCategory = asset.category || (domain === 'plant' ? PLANT_CATEGORIES[0].code : FLEET_CATEGORIES[0].code);
     const initialData = createInitialAssetFormData(domain, categories);
-    const technicalSpecs = assetData.technical_specs as AssetFormData['technical_specs'] | undefined;
-    const safetyChecks = assetData.safety_checks as AssetFormData['safety_checks'] | undefined;
+    const technicalSpecs = (assetData.technical_specs || {}) as Record<string, any>;
+    const safetyChecks = (assetData.safety_checks || {}) as Record<string, any>;
     const currentAssetType = read('asset_type', 'assetType');
     const currentAssetSubtype = read('asset_subtype', 'assetSubtype');
 
@@ -1390,65 +1537,106 @@ export const AssetsPage: React.FC = () => {
       custom_asset_type: '',
       asset_subtype: currentAssetSubtype,
       custom_asset_subtype: '',
-      code_tag: read('code_tag', 'codeTag'),
+      code_tag: read('code_tag', 'codeTag', 'equipment_code', 'equipmentCode'),
+      license_plate: read('license_plate', 'licensePlate'),
       name: asset.name || '',
       company: read('company'),
       department: read('department'),
+      location: read('location', 'plant_sector', 'plantSector'),
       cost_center: read('cost_center', 'costCenter'),
       status: read('status') || 'operational',
-      criticality_level: read('criticality_level', 'criticalityLevel') || 'B',
+      criticality_level: read('criticality_level', 'criticalityLevel', 'criticality') || 'B',
+      responsible: read('responsible'),
       operator_driver: read('operator_driver', 'operatorDriver', 'operator_name', 'operatorName'),
-      brand: asset.brand || '',
-      model: asset.model || '',
+      qr_code: read('qr_code', 'qrCode'),
+      photo_url: read('photo_url', 'photoUrl'),
+      notes: read('notes', 'observations'),
+
+      // Passo 2
+      brand: asset.brand || read('manufacturer'),
+      model: asset.model || read('model_version', 'modelVersion'),
       manufacture_year: read('manufacture_year', 'manufactureYear') || initialData.manufacture_year,
       serial_number: read('serial_number', 'serialNumber'),
-      license_plate: read('license_plate', 'licensePlate'),
-      chassis_vin: read('chassis_vin', 'chassisVin'),
+      chassis_vin: read('chassis_vin', 'chassisVin', 'chassis_number', 'chassisNumber'),
       engine_number: read('engine_number', 'engineNumber'),
       color: read('color', 'color_config', 'colorConfig'),
-      energy_type: read('energy_type', 'energyType') || 'Diesel',
+
+      // Passo 3
+      energy_type: read('energy_type', 'energyType') || technicalSpecs?.fuel || 'Diesel',
       ownership_type: read('ownership_type', 'ownershipType') || 'Próprio',
       axle_config: read('axle_config', 'axleConfig'),
       plant_sector: read('plant_sector', 'plantSector'),
       voltage_specs: read('voltage_specs', 'voltageSpecs'),
-      power_kw_kva: read('power_kw_kva', 'powerKwKva'),
+      power_kw_kva: read('power_kw_kva', 'powerKwKva') || technicalSpecs?.power || '',
+      fuel_tank_capacity_liters: read('fuel_tank_capacity_liters', 'fuelTankCapacityLiters') || technicalSpecs?.tank_capacity || '',
+      technical_specs: {
+        engine_type: read('engine_type', 'engineType') || technicalSpecs?.engine_type || '',
+        power: read('power_kw_kva', 'powerKwKva') || technicalSpecs?.power || '',
+        fuel: technicalSpecs?.fuel || read('energy_type', 'energyType') || 'Diesel',
+        transmission: technicalSpecs?.transmission || '',
+        traction: technicalSpecs?.traction || '',
+        axles: read('axle_config', 'axleConfig') || technicalSpecs?.axles || '',
+        weight_load: technicalSpecs?.weight_load || '',
+        payload_capacity: technicalSpecs?.payload_capacity || '',
+        tank_capacity: read('fuel_tank_capacity_liters', 'fuelTankCapacityLiters') || technicalSpecs?.tank_capacity || '',
+        consumption: technicalSpecs?.consumption || '',
+        tire_size: technicalSpecs?.tire_size || '',
+        dimensions: technicalSpecs?.dimensions || '',
+        other_specs: technicalSpecs?.other_specs || ''
+      },
+
+      // Passo 4
+      initial_km: read('initial_km', 'initialKm') || '0',
+      current_km: read('current_km', 'currentKm') || '0',
+      initial_hour_meter: read('initial_hour_meter', 'initialHourMeter') || '0',
+      current_hour_meter: read('current_hour_meter', 'currentHourMeter') || '0',
+      measurement_unit: read('measurement_unit', 'measurementUnit', 'meter_unit', 'meterUnit') || initialData.measurement_unit,
+      last_reading_date: read('last_reading_date', 'lastReadingDate', 'last_meter_reading_date'),
+      shift: read('shift', 'operational_shift', 'operationalShift'),
+      expected_operating_hours: read('expected_operating_hours', 'expectedOperatingHours'),
       initial_meter: read('initial_meter', 'initialMeter') || '0',
       current_meter: read('current_meter', 'currentMeter') || '0',
       meter_unit: read('meter_unit', 'meterUnit', 'measurement_unit', 'measurementUnit') || initialData.meter_unit,
-      shift: read('shift', 'operational_shift', 'operationalShift'),
+      operational_notes: read('operational_notes', 'operationalNotes'),
+
+      // Passo 5
       acquisition_date: read('acquisition_date', 'acquisitionDate'),
       operation_date: read('operation_date', 'operationDate', 'operation_start_date', 'operationStartDate'),
       acquisition_value: read('acquisition_value', 'acquisitionValue'),
       currency: read('currency') || 'MZN',
-      supplier: read('supplier', 'local_supplier_name', 'localSupplierName'),
-      warranty_expiry: read('warranty_expiry', 'warrantyExpiry'),
+      supplier: read('supplier', 'vendor_supplier', 'vendorSupplier', 'local_supplier_name', 'localSupplierName'),
+      warranty_expiry: read('warranty_expiry', 'warrantyExpiry', 'warranty_until', 'warrantyUntil'),
       insurance_company: read('insurance_company', 'insuranceCompany'),
       insurance_policy_number: read('insurance_policy_number', 'insurancePolicyNumber'),
       insurance_expiry: read('insurance_expiry', 'insuranceExpiry'),
-      inspection_expiry: read(
-        'inspection_expiry',
-        domain === 'fleet' ? 'inatro_inspection_expiry' : 'innoq_calibration_expiry',
-        domain === 'fleet' ? 'inatroInspectionExpiry' : 'innoqCalibrationExpiry'
-      ) || read('pressure_test_expiry', 'pressureTestExpiry'),
+      inspection_expiry: read('inspection_expiry', 'inatro_inspection_expiry', 'innoq_calibration_expiry', 'inatroInspectionExpiry', 'innoqCalibrationExpiry'),
+      licenses_certificates_notes: read('licenses_certificates_notes', 'licensesCertificatesNotes'),
+
+      // Passo 6
       maintenance_plan_id: read('maintenance_plan_id', 'maintenancePlanId'),
-      maintenance_type: read('maintenance_type', 'maintenanceType'),
-      maintenance_periodicity: read('maintenance_periodicity', 'maintenancePeriodicity'),
-      technical_specs: {
-        ...initialData.technical_specs,
-        ...technicalSpecs,
-        fuel: technicalSpecs?.fuel || read('energy_type', 'energyType') || initialData.technical_specs.fuel
-      },
+      maintenance_type: read('maintenance_type', 'maintenanceType') || 'Preventiva',
+      maintenance_periodicity: read('maintenance_periodicity', 'maintenancePeriodicity') || 'Km',
+      last_maintenance_date: read('last_maintenance_date', 'lastMaintenanceDate'),
+      last_maintenance_meter: read('last_maintenance_meter', 'lastMaintenanceMeter'),
+      next_maintenance_date: read('next_maintenance_date', 'nextMaintenanceDate'),
+      next_maintenance_meter: read('next_maintenance_meter', 'nextMaintenanceMeter'),
+      maintenance_notes: read('maintenance_notes', 'maintenanceNotes'),
+
+      // Passo 7
       safety_checks: {
-        ...initialData.safety_checks,
-        ...safetyChecks,
-        warning_triangle: safetyChecks?.warning_triangle === undefined
-          ? initialData.safety_checks.warning_triangle
-          : String(safetyChecks.warning_triangle),
-        first_aid_kit: safetyChecks?.first_aid_kit === undefined
-          ? initialData.safety_checks.first_aid_kit
-          : String(safetyChecks.first_aid_kit)
+        extinguisher_validity: read('extinguisher_validity', 'extinguisherValidity') || safetyChecks?.extinguisher_validity || '',
+        warning_triangle: read('warning_triangle', 'warningTriangle') || safetyChecks?.warning_triangle || '',
+        first_aid_kit: read('first_aid_kit', 'firstAidKit') || safetyChecks?.first_aid_kit || '',
+        ppe: read('ppe', 'reflective_vest', 'reflectiveVest') || safetyChecks?.ppe || '',
+        safety_devices: read('safety_devices', 'safetyDevices') || safetyChecks?.safety_devices || '',
+        general_condition: read('general_condition', 'generalCondition') || safetyChecks?.general_condition || 'Bom',
+        safety_observations: read('safety_observations', 'safetyObservations', 'observations') || safetyChecks?.safety_observations || ''
       }
     });
+
+    if (read('photo_url', 'photoUrl')) {
+      setAssetPhotoPreview(read('photo_url', 'photoUrl'));
+    }
 
     setIsModalOpen(true);
   };
@@ -1733,23 +1921,7 @@ export const AssetsPage: React.FC = () => {
   // AUXILIARES DE RENDERIZAÇÃO
   // ==========================================
   const formatCategory = (cat: string) => {
-    const fleetCategory = FLEET_CATEGORIES.find((item) => item.code === cat);
-    if (fleetCategory) return `${fleetCategory.code} - ${fleetCategory.name}`;
-
-    switch (cat) {
-      case 'vehicle_light':
-        return 'Veículo Ligeiro';
-      case 'vehicle_heavy':
-        return 'Frota Pesada';
-      case 'generator':
-        return 'Gerador Industrial';
-      case 'machinery':
-        return 'Maquinaria / Chão Fábrica';
-      case 'plant_equipment':
-        return 'Equipamento de Chão de Fábrica';
-      default:
-        return cat || 'Não especificado';
-    }
+    return getCleanCategoryName(cat) || cat || 'Não especificado';
   };
 
   const formatDocType = (type: string) => {
@@ -1899,10 +2071,16 @@ export const AssetsPage: React.FC = () => {
       />
     </div>
   );
-  const renderSafetyInput = (label: string, field: keyof AssetFormData['safety_checks'], type = 'text') => (
+  const renderSafetyInput = (label: string, field: keyof AssetFormData['safety_checks'], type = 'text', placeholder = '') => (
     <div>
       <label className="block text-xs font-semibold text-slate-600 mb-1.5">{label}</label>
-      <input type={type} value={formData.safety_checks[field]} onChange={(e) => updateSafetyCheck(field, e.target.value)} className={fieldClass} />
+      <input
+        type={type}
+        placeholder={placeholder}
+        value={formData.safety_checks[field] || ''}
+        onChange={(e) => updateSafetyCheck(field, e.target.value)}
+        className={fieldClass}
+      />
     </div>
   );
 
@@ -2150,7 +2328,7 @@ export const AssetsPage: React.FC = () => {
       <SecondaryView
         isOpen={isModalOpen}
         onClose={handleRequestCloseModal}
-        title={modalMode === 'create' ? 'Cadastrar Novo Ativo' : 'Editar Ativo Corporativo'}
+        title={modalMode === 'create' ? 'Novo Equipamento' : 'Editar Equipamento'}
         subtitle="Ficha Técnica & Operacional do Equipamento"
         backLabel="Voltar para a Lista"
         icon={<Wrench size={18} />}
@@ -2163,7 +2341,7 @@ export const AssetsPage: React.FC = () => {
               const target = e.target as HTMLElement;
               if (target.tagName === 'INPUT' || target.tagName === 'SELECT') {
                 e.preventDefault();
-                setActiveTab((tab) => Math.min(6, tab + 1));
+                handleNextStep();
               }
             }
           }}
@@ -2211,7 +2389,7 @@ export const AssetsPage: React.FC = () => {
                     type="button"
                     role="tab"
                     aria-selected={isActive}
-                    onClick={() => setActiveTab(index)}
+                    onClick={() => handleStepClick(index)}
                     className={`group flex items-center gap-2 px-3 py-1.5 rounded-md text-xs transition-all cursor-pointer shrink-0 ${
                       isActive
                         ? 'bg-blue-50 text-blue-900 font-bold border border-blue-200 shadow-2xs'
@@ -2242,399 +2420,557 @@ export const AssetsPage: React.FC = () => {
               })}
             </nav>
           </div>
-            <div role="tabpanel" className="min-h-[280px]">
-                {activeTab === 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {formData.category === 'CAT-06' && (
-                      <div className="md:col-span-3 p-3 bg-blue-50/90 border border-blue-200 rounded-md text-xs text-blue-900 flex items-start gap-2.5">
-                        <Info size={16} className="text-blue-700 shrink-0 mt-0.5" />
-                        <div className="space-y-1">
-                          <strong className="block font-semibold text-blue-950">Regra Operacional para Trelas e Reboques:</strong>
-                          <p className="leading-relaxed text-blue-900">
-                            Cada trela ou semirreboque deve ser registada individualmente com o seu próprio código de ativo único, chassi e matrícula. <strong>Não cadastre duas trelas num só registo de equipamento.</strong> O papel operacional no conjunto rodoviário (Líder / Leader ou Seguidora / Follower) é atribuído dinamicamente na funcionalidade <strong>Conjuntos (Camião + Trelas)</strong>.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Categoria *</label>
-                      {domain === 'fleet' ? (
-                        <select value={formData.category} disabled={modalMode === 'edit'} onChange={(e) => handleCategoryChange(e.target.value)} className={fieldClass}>
-                          {FLEET_CATEGORIES.map((item) => <option key={item.code} value={item.code}>{item.code} - {item.name}</option>)}
-                          {/* Categoria canónica vinda do backend sem código de UI equivalente */}
-                          {formData.category && !FLEET_CATEGORIES.some((item) => item.code === formData.category) && (
-                            <option key={formData.category} value={formData.category}>{formatCategory(formData.category)}</option>
-                          )}
-                        </select>
-                      ) : (
-                        <select value={formData.category} disabled={modalMode === 'edit'} onChange={(e) => handleCategoryChange(e.target.value)} className={fieldClass}>
-                          {categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                          {formData.category && !categories.some((item) => item.value === formData.category) && (
-                            <option key={formData.category} value={formData.category}>{formatCategory(formData.category)}</option>
-                          )}
-                        </select>
-                      )}
-                    </div>
-                    {domain === 'fleet' && (
-                      <>
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Tipo de equipamento *</label>
-                          <select
-                            value={formData.asset_type}
-                            onChange={(e) => {
-                              updateFormField('asset_type', e.target.value);
-                              if (e.target.value !== 'Outro tipo (especificar)') {
-                                updateFormField('custom_asset_type', '');
-                              }
-                            }}
-                            className={fieldClass}
-                          >
-                            <option value="">Selecione um tipo...</option>
-                            {selectedFleetCategory?.types.map((type) => (
-                              <option key={type} value={type}>{type}</option>
-                            ))}
-                            {/* Tipo gravado no backend sem correspondência na lista da categoria atual */}
-                            {formData.asset_type && !(selectedFleetCategory?.types ?? []).includes(formData.asset_type) && (
-                              <option key={formData.asset_type} value={formData.asset_type}>{formData.asset_type}</option>
-                            )}
-                          </select>
-                        </div>
-                        {formData.asset_type === 'Outro tipo (especificar)' && (
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Especificar tipo de equipamento *</label>
-                            <input
-                              type="text"
-                              placeholder="Digite o tipo do equipamento..."
-                              value={formData.custom_asset_type || ''}
-                              onChange={(e) => updateFormField('custom_asset_type', e.target.value)}
-                              className={fieldClass}
-                            />
-                          </div>
-                        )}
-                      </>
-                    )}
-                    {(() => {
-                      const availableSubtypes = getSubtypesForType(formData.category, formData.asset_type);
-                      if (availableSubtypes.length === 0 && !formData.asset_subtype) return null;
-                      return (
-                        <>
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Subtipo / Configuração</label>
-                            <select
-                              value={formData.asset_subtype}
-                              onChange={(e) => {
-                                updateFormField('asset_subtype', e.target.value);
-                                if (e.target.value !== 'Outro (especificar)') {
-                                  updateFormField('custom_asset_subtype', '');
-                                }
-                              }}
-                              className={fieldClass}
-                            >
-                              <option value="">Selecione um subtipo...</option>
-                              {availableSubtypes.map((subtype) => (
-                                <option key={subtype} value={subtype}>{subtype}</option>
-                              ))}
-                              {formData.asset_subtype && !availableSubtypes.includes(formData.asset_subtype) && (
-                                <option key={formData.asset_subtype} value={formData.asset_subtype}>{formData.asset_subtype}</option>
-                              )}
-                            </select>
-                          </div>
-                          {formData.asset_subtype === 'Outro (especificar)' && (
-                            <div>
-                              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Especificar subtipo / configuração *</label>
-                              <input
-                                type="text"
-                                placeholder="Digite o subtipo..."
-                                value={formData.custom_asset_subtype || ''}
-                                onChange={(e) => updateFormField('custom_asset_subtype', e.target.value)}
-                                className={fieldClass}
-                              />
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
-                    {renderInput('Código do Ativo / Tag *', 'code_tag', 'text', 'ex: CAM-001, GER-01', true)}
-                    {renderInput('Nome / Designação *', 'name', 'text', 'Nome do equipamento', true)}
-                    {renderInput('Empresa', 'company')}
-                    {renderInput('Departamento', 'department')}
-                    {renderInput('Centro de Custo *', 'cost_center', 'text', 'ex: LOG-2026, OPER-01', true)}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Estado / Situação Operacional *</label>
-                      <select value={formData.status} onChange={(e) => updateFormField('status', e.target.value)} className={fieldClass}>
-                        <option value="operational">Operacional</option><option value="under_maintenance">Em manutenção</option><option value="breakdown">Avariado</option><option value="decommissioned">Abatido</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Nível de Criticidade *</label>
-                      <select value={formData.criticality_level} onChange={(e) => updateFormField('criticality_level', e.target.value)} className={fieldClass}>
-                        <option value="A">A - Alta</option><option value="B">B - Média</option><option value="C">C - Baixa</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                        {domain === 'fleet' ? 'Motorista / Condutor' : 'Operador do Equipamento'}
-                      </label>
-                      <select
-                        value={formData.operator_driver}
-                        onChange={(e) => updateFormField('operator_driver', e.target.value)}
-                        className={fieldClass}
-                        disabled={loadingDrivers}
-                      >
-                        <option value="">
-                          {loadingDrivers ? 'A carregar lista de utilizadores...' : 'Selecione o operador / motorista...'}
-                        </option>
-                        {drivers.map((drv) => (
-                          <option key={drv.id} value={drv.full_name}>
-                            {drv.full_name} {drv.email ? `(${drv.email})` : ''}
-                          </option>
-                        ))}
-                        {/* Se o ativo já tinha um operador gravado e ele não consta na lista filtrada */}
-                        {formData.operator_driver && !drivers.some((drv) => drv.full_name === formData.operator_driver) && (
-                          <option key={formData.operator_driver} value={formData.operator_driver}>
-                            {formData.operator_driver} (atribuído atualmente)
-                          </option>
-                        )}
-                      </select>
-                      {driversError && (
-                        <p className="mt-1 text-[11px] text-amber-600">{driversError}</p>
-                      )}
-                      {!loadingDrivers && drivers.length === 0 && !driversError && (
-                        <p className="mt-1 text-[11px] text-slate-400">
-                          Nenhum utilizador com função de {domain === 'fleet' ? 'motorista' : 'operador'} registado no escopo {domain}.
-                        </p>
-                      )}
-                    </div>
+            {(() => {
+              const scopeCategories = getCategoriesForScope(user?.operational_scope || domain);
+              const selectedCategoryObj = scopeCategories.find((c) => c.code === formData.category) ||
+                [...FLEET_CATEGORIES, ...PLANT_CATEGORIES].find((c) => c.code === formData.category);
 
-                    {/* Campo QR Code / Etiqueta */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                        <QrCode size={14} className="text-blue-700" />
-                        <span>QR Code / Etiqueta</span>
-                      </label>
-                      <div className="border border-slate-200 rounded-md p-2.5 bg-slate-50/70 hover:bg-slate-50 transition-colors">
-                        {customQrPreview ? (
-                          <div className="flex items-center gap-2.5">
-                            <img
-                              src={customQrPreview}
-                              alt="Pré-visualização QR Code"
-                              className="w-10 h-10 object-contain bg-white border border-slate-200 rounded p-0.5 shrink-0"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <span className="text-[11px] font-semibold text-slate-800 block truncate">
-                                {customQrFile?.name || 'QR Code selecionado'}
-                              </span>
-                              <span className="text-[10px] text-emerald-600 font-medium block">
-                                Ficheiro pronto para upload
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setCustomQrFile(null);
-                                setCustomQrPreview(null);
-                              }}
-                              className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer shrink-0"
-                              title="Remover e usar geração automática"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ) : (
+              const isPlantCat = isPlantCategoryCode(formData.category);
+              const availableDriversForCategory = drivers.filter(drv => {
+                if (isPlantCat) {
+                  return drv.operational_scope === 'plant' || drv.operational_scope === 'mixed' || drv.operational_scope === 'both';
+                }
+                return drv.operational_scope === 'fleet' || drv.operational_scope === 'mixed' || drv.operational_scope === 'both' || !drv.operational_scope;
+              });
+
+              return (
+                <div role="tabpanel" className="min-h-[280px]">
+                  {/* PASSO 1: Identificação e dados gerais */}
+                  {activeTab === 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {formData.category === 'CAT-06' && (
+                        <div className="md:col-span-3 p-3 bg-blue-50/90 border border-blue-200 rounded-md text-xs text-blue-900 flex items-start gap-2.5">
+                          <Info size={16} className="text-blue-700 shrink-0 mt-0.5" />
                           <div className="space-y-1">
-                            <label className="flex items-center justify-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-xs font-medium cursor-pointer transition-colors shadow-2xs">
-                              <UploadCloud size={13} className="text-blue-700" />
-                              <span>Upload de QR Code existente</span>
-                              <input
-                                type="file"
-                                accept="image/*,.pdf"
-                                onChange={handleCustomQrChange}
-                                className="hidden"
-                              />
-                            </label>
-                            <span className="text-[10px] text-slate-500 block leading-tight">
-                              Se não anexar, o sistema gerará automaticamente para o ativo.
-                            </span>
+                            <strong className="block font-semibold text-blue-950">Regra Operacional para Trelas e Reboques:</strong>
+                            <p className="leading-relaxed text-blue-900">
+                              Cada trela ou semirreboque deve ser registada individualmente com o seu próprio código de ativo único, chassi e matrícula.
+                            </p>
                           </div>
-                        )}
-                      </div>
-                    </div>
+                        </div>
+                      )}
 
-                    {/* Campo Fotografia do Ativo */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                        <Camera size={14} className="text-blue-700" />
-                        <span>Fotografia do Ativo</span>
-                      </label>
-                      <div className="border border-slate-200 rounded-md p-2.5 bg-slate-50/70 hover:bg-slate-50 transition-colors">
-                        {assetPhotoPreview ? (
-                          <div className="flex items-center gap-2.5">
+                      {/* Categoria / Grupo (Obrigatório) */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                          Categoria / Grupo <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={formData.category}
+                          disabled={modalMode === 'edit'}
+                          onChange={(e) => handleCategoryChange(e.target.value)}
+                          className={fieldClass}
+                          required
+                        >
+                          <option value="">Selecione uma categoria...</option>
+                          {scopeCategories.map((item) => (
+                            <option key={item.code} value={item.code}>
+                              {item.name}
+                            </option>
+                          ))}
+                          {formData.category && !scopeCategories.some((item) => item.code === formData.category) && (
+                            <option key={formData.category} value={formData.category}>
+                              {getCleanCategoryName(formData.category)}
+                            </option>
+                          )}
+                        </select>
+                      </div>
+
+                      {/* Tipo de ativo (Obrigatório) */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                          Tipo de ativo <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={formData.asset_type}
+                          onChange={(e) => {
+                            updateFormField('asset_type', e.target.value);
+                            if (e.target.value !== 'Outro tipo (especificar)') {
+                              updateFormField('custom_asset_type', '');
+                            }
+                          }}
+                          className={fieldClass}
+                          required
+                        >
+                          <option value="">Selecione o tipo de ativo...</option>
+                          {selectedCategoryObj?.types.map((type) => (
+                            <option key={type} value={type}>{type}</option>
+                          ))}
+                          <option value="Outro tipo (especificar)">Outro tipo (especificar)</option>
+                          {formData.asset_type && !(selectedCategoryObj?.types ?? []).includes(formData.asset_type) && formData.asset_type !== 'Outro tipo (especificar)' && (
+                            <option key={formData.asset_type} value={formData.asset_type}>{formData.asset_type}</option>
+                          )}
+                        </select>
+                      </div>
+
+                      {formData.asset_type === 'Outro tipo (especificar)' && (
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                            Especificar tipo de ativo <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Digite o tipo de ativo..."
+                            value={formData.custom_asset_type || ''}
+                            onChange={(e) => updateFormField('custom_asset_type', e.target.value)}
+                            className={fieldClass}
+                            required
+                          />
+                        </div>
+                      )}
+
+                      {/* Código do equipamento (Livre / Texto) */}
+                      {renderInput('Código do equipamento', 'code_tag', 'text', 'ex: CAM-001, GER-01 (deixe vazio p/ automático)')}
+
+                      {/* Placa / Identificação (Obrigatório) */}
+                      {renderInput('Placa / Identificação', 'license_plate', 'text', 'ex: ABC 123 MC ou TAG-001', true)}
+
+                      {/* Nome / Designação (Livre / Texto) */}
+                      {renderInput('Nome / Designação', 'name', 'text', 'Designação ou apelido do equipamento')}
+
+                      {/* Empresa / Unidade (Livre / Texto) */}
+                      {renderInput('Empresa / Unidade', 'company', 'text', 'Empresa ou unidade proprietária')}
+
+                      {/* Departamento / Área (Livre / Texto) */}
+                      {renderInput('Departamento / Área', 'department', 'text', 'Área ou departamento de alocação')}
+
+                      {/* Localização / Base (Livre / Texto) */}
+                      {renderInput('Localização / Base', 'location', 'text', 'ex: Base Maputo, Fábrica Matola, Parque')}
+
+                      {/* Centro de custo (Livre / Texto) */}
+                      {renderInput('Centro de custo', 'cost_center', 'text', 'ex: CC-1020, LOG-01')}
+
+                      {/* Estado (Obrigatório | Lista suspensa: Ativo, Inativo, Em Manutenção) */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                          Estado <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={formData.status}
+                          onChange={(e) => updateFormField('status', e.target.value)}
+                          className={fieldClass}
+                          required
+                        >
+                          <option value="operational">Ativo</option>
+                          <option value="inactive">Inativo</option>
+                          <option value="under_maintenance">Em Manutenção</option>
+                        </select>
+                      </div>
+
+                      {/* Criticidade (Obrigatório | Lista suspensa: A - Alta, B - Média, C - Baixa) */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                          Criticidade <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={formData.criticality_level}
+                          onChange={(e) => updateFormField('criticality_level', e.target.value)}
+                          className={fieldClass}
+                          required
+                        >
+                          <option value="A">A - Alta</option>
+                          <option value="B">B - Média</option>
+                          <option value="C">C - Baixa</option>
+                        </select>
+                      </div>
+
+                      {/* Responsável (Livre / Texto) */}
+                      {renderInput('Responsável', 'responsible', 'text', 'Pessoa ou gestor responsável')}
+
+                      {/* Operador / Motorista (Livre | Lista suspensa com filtro dinâmico de escopo) */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                          Operador / Motorista
+                        </label>
+                        <select
+                          value={formData.operator_driver}
+                          onChange={(e) => updateFormField('operator_driver', e.target.value)}
+                          className={fieldClass}
+                          disabled={loadingDrivers}
+                        >
+                          <option value="">
+                            {loadingDrivers ? 'A carregar utilizadores...' : 'Selecione o operador ou motorista...'}
+                          </option>
+                          {availableDriversForCategory.map((drv) => (
+                            <option key={drv.id} value={drv.full_name}>
+                              {drv.full_name} ({drv.operational_scope === 'plant' ? 'Operador Fabril' : 'Motorista Frota'})
+                            </option>
+                          ))}
+                          {formData.operator_driver && !availableDriversForCategory.some((d) => d.full_name === formData.operator_driver) && (
+                            <option key={formData.operator_driver} value={formData.operator_driver}>
+                              {formData.operator_driver} (atribuído)
+                            </option>
+                          )}
+                        </select>
+                      </div>
+
+                      {/* QR Code / Etiqueta (Livre / Texto com texto orientador) */}
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                          <QrCode size={14} className="text-blue-700" />
+                          <span>QR Code / Etiqueta</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Pode inserir o código ou referência da etiqueta QR do ativo"
+                          value={formData.qr_code}
+                          onChange={(e) => updateFormField('qr_code', e.target.value)}
+                          className={fieldClass}
+                        />
+                        <p className="mt-1 text-[11px] text-slate-500 leading-tight">
+                          Pode inserir o código ou referência da etiqueta QR do ativo. Se o campo for deixado em branco, o sistema mantém a geração automática do QR Code; se for preenchido pelo utilizador, o sistema guarda e exibe para aquele ativo exclusivamente o código inserido.
+                        </p>
+                      </div>
+
+                      {/* Fotografia do ativo (Livre | Seleção de ficheiro / Choose file com preview) */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                          <Camera size={14} className="text-blue-700" />
+                          <span>Fotografia do ativo</span>
+                        </label>
+                        {formData.photo_url || assetPhotoPreview ? (
+                          <div className="flex items-center gap-3 p-2 bg-slate-50 border border-slate-200 rounded-md">
                             <img
-                              src={assetPhotoPreview}
+                              src={formData.photo_url || assetPhotoPreview || ''}
                               alt="Foto do ativo"
-                              className="w-10 h-10 object-cover bg-white border border-slate-200 rounded shrink-0"
+                              className="w-12 h-12 object-cover rounded border border-slate-300 bg-white"
                             />
                             <div className="flex-1 min-w-0">
-                              <span className="text-[11px] font-semibold text-slate-800 block truncate">
-                                {assetPhotoFile?.name || 'Foto carregada'}
+                              <span className="text-xs font-semibold text-slate-800 block truncate">
+                                Foto anexada
                               </span>
                               <span className="text-[10px] text-emerald-600 font-medium block">
-                                Foto associada ao ativo
+                                Pronta para gravação
                               </span>
                             </div>
                             <button
                               type="button"
                               onClick={() => {
-                                setAssetPhotoFile(null);
+                                updateFormField('photo_url', '');
                                 setAssetPhotoPreview(null);
+                                setAssetPhotoFile(null);
                               }}
-                              className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer shrink-0"
+                              className="text-slate-400 hover:text-red-600 p-1 cursor-pointer"
                               title="Remover fotografia"
                             >
-                              <X size={14} />
+                              <X size={15} />
                             </button>
                           </div>
                         ) : (
                           <div className="space-y-1">
-                            <label className="flex items-center justify-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-xs font-medium cursor-pointer transition-colors shadow-2xs">
-                              <Camera size={13} className="text-blue-700" />
-                              <span>Tirar foto ou carregar</span>
+                            <label className="flex items-center justify-center gap-2 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-dashed border-slate-300 rounded text-xs font-medium cursor-pointer transition-colors shadow-2xs">
+                              {uploadingPhoto ? (
+                                <>
+                                  <RefreshCw size={14} className="animate-spin text-blue-700" />
+                                  <span>A enviar foto...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Camera size={14} className="text-blue-700" />
+                                  <span>Selecionar foto do ativo</span>
+                                </>
+                              )}
                               <input
                                 type="file"
-                                accept="image/*"
+                                accept="image/jpeg,image/png,image/webp"
                                 capture="environment"
-                                onChange={handleAssetPhotoChange}
+                                onChange={handlePhotoFileChange}
                                 className="hidden"
+                                disabled={uploadingPhoto}
                               />
                             </label>
-                            <span className="text-[10px] text-slate-500 block leading-tight">
-                              No móvel aciona a câmara; no PC abre seletor de ficheiros.
+                            <span className="text-[10px] text-slate-500 block">
+                              Formatos JPG, PNG ou WebP.
                             </span>
                           </div>
                         )}
                       </div>
+
+                      {/* Observações (Livre | Texto longo) */}
+                      <div className="md:col-span-3">
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Observações</label>
+                        <textarea
+                          rows={2}
+                          value={formData.notes}
+                          onChange={(e) => updateFormField('notes', e.target.value)}
+                          placeholder="Observações e notas gerais sobre o ativo..."
+                          className={fieldClass}
+                        />
+                      </div>
                     </div>
-                  </div>
-                )}
-
-                {activeTab === 1 && <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {renderInput('Marca / Fabricante *', 'brand', 'text', 'ex: Scania, Caterpillar, Volvo', true)}
-                  {renderInput('Modelo *', 'model', 'text', 'ex: R450, 320D', true)}
-                  {renderInput('Ano de fabrico', 'manufacture_year', 'number')}
-                  {renderInput('Nº de série', 'serial_number')}
-                  {renderInput(domain === 'fleet' ? 'Chassis / VIN *' : 'Chassis / VIN', 'chassis_vin', 'text', 'ex: 9BWZZZ...', domain === 'fleet')}
-                  {renderInput('Nº do motor', 'engine_number')}
-                  {renderInput('Cor', 'color')}
-                  {renderInput(domain === 'fleet' ? 'Matrícula Regulamentar *' : 'Matrícula / Identificação', 'license_plate', 'text', 'ex: ABC 123 MC', domain === 'fleet')}
-                </div>}
-
-                {activeTab === 2 && <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {renderTechnicalInput('Motor', 'engine_type')}
-                  {renderTechnicalInput('Potência', 'power')}
-                  {renderTechnicalInput(domain === 'fleet' ? 'Combustível / Energia *' : 'Combustível', 'fuel', 'text', domain === 'fleet')}
-                  {renderTechnicalInput('Transmissão', 'transmission')}
-                  {renderTechnicalInput('Tração', 'traction')}
-                  {renderTechnicalInput('Eixos', 'axles')}
-                  {renderTechnicalInput('Peso / Carga', 'weight_load')}
-                  {renderTechnicalInput('Capacidade do tanque', 'tank_capacity', 'number')}
-                  {renderTechnicalInput('Consumo', 'consumption')}
-                  {renderTechnicalInput('Pneus', 'tire_size')}
-                  {domain === 'plant' && <>
-                    {renderInput('Setor Fabril / Linha de Produção *', 'plant_sector', 'text', 'ex: Linha de Embalamento, Moagem', true)}
-                    {renderInput('Especificação de Tensão / Voltagem *', 'voltage_specs', 'text', 'ex: 380V / 50Hz Trifásico', true)}
-                    {renderInput('Potência (kW / kVA) *', 'power_kw_kva', 'number', 'ex: 250', true)}
-                  </>}
-                </div>}
-
-                {activeTab === 3 && <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderInput(
-                    `Medidor inicial (${formData.meter_unit})${domain === 'plant' ? ' *' : ''}`,
-                    'initial_meter',
-                    'number',
-                    '0',
-                    domain === 'plant'
                   )}
-                  {renderInput(
-                    `Medidor atual (${formData.meter_unit})${domain === 'fleet' ? ' *' : ''}`,
-                    'current_meter',
-                    'number',
-                    '0',
-                    domain === 'fleet'
+
+                  {/* PASSO 2: Identificação do fabricante */}
+                  {activeTab === 1 && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {renderInput('Fabricante / Marca', 'brand', 'text', 'ex: Scania, Caterpillar, Atlas Copco', true)}
+                      {renderInput('Modelo / Versão', 'model', 'text', 'ex: R450, 320D, GA 37', true)}
+                      {renderInput('Ano de Fabrico', 'manufacture_year', 'number', 'ex: 2023')}
+                      {renderInput('Número de série', 'serial_number', 'text', 'ex: SN-9874213')}
+                      {renderInput('VIN / Número do chassis', 'chassis_vin', 'text', 'ex: 9BWZZZ...')}
+                      {renderInput('Número do motor', 'engine_number', 'text', 'ex: D13K460')}
+                      {renderInput('Cor / Configuração', 'color', 'text', 'ex: Branco polar, Amarelo')}
+                    </div>
                   )}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Unidade de medida</label>
-                    <select value={formData.meter_unit} onChange={(e) => updateFormField('meter_unit', e.target.value)} className={fieldClass}>
-                      <option value="km">Quilómetros (km)</option><option value="h">Horas (h)</option>
-                    </select>
-                  </div>
-                  {renderInput('Turno', 'shift')}
-                </div>}
 
-                {activeTab === 4 && <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {renderInput('Data de aquisição', 'acquisition_date', 'date')}
-                  {renderInput('Data de entrada em operação', 'operation_date', 'date')}
-                  {renderInput('Valor de aquisição', 'acquisition_value', 'number')}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Moeda</label>
-                    <select value={formData.currency} onChange={(e) => updateFormField('currency', e.target.value)} className={fieldClass}>
-                      {['MZN', 'USD', 'EUR', 'ZAR'].map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-                    </select>
-                  </div>
-                  {renderInput('Fornecedor', 'supplier')}
-                  {renderInput('Validade da garantia', 'warranty_expiry', 'date')}
-                  {renderInput('Seguradora', 'insurance_company')}
-                  {renderInput('Nº da apólice', 'insurance_policy_number')}
-                  {renderInput('Validade do seguro', 'insurance_expiry', 'date')}
-                  {renderInput('Validade da inspeção / calibração', 'inspection_expiry', 'date')}
-                  {modalMode === 'create' && <div
-                    onDragEnter={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDragOver={handleDrag}
-                    onDrop={handleDrop}
-                    className={`md:col-span-3 rounded-md border-2 border-dashed p-4 ${isDragActive ? 'border-blue-600 bg-blue-50' : 'border-slate-200'}`}
-                  >
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Ficha técnica inicial (opcional, até 20 MB)</label>
-                    <input type="file" onChange={handleFileChange} accept=".pdf,.png,.jpeg,.jpg,.webp" className="w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-semibold" />
-                    {wizardFile && <p className="mt-1 text-xs text-blue-700">{wizardFile.name} ({(wizardFile.size / 1024 / 1024).toFixed(2)} MB)</p>}
-                  </div>}
-                </div>}
+                  {/* PASSO 3: Características técnicas */}
+                  {activeTab === 2 && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {renderTechnicalInput('Tipo de motor / Motorização', 'engine_type')}
+                      {renderTechnicalInput('Potência / Unidade', 'power')}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Combustível / Energia</label>
+                        <select
+                          value={formData.energy_type}
+                          onChange={(e) => {
+                            updateFormField('energy_type', e.target.value);
+                            updateTechnicalSpec('fuel', e.target.value);
+                          }}
+                          className={fieldClass}
+                        >
+                          {ENERGY_TYPES.map((energy) => (
+                            <option key={energy} value={energy}>{energy}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {renderTechnicalInput('Transmissão', 'transmission')}
+                      {renderTechnicalInput('Tração / Configuração de eixos', 'traction')}
+                      {renderInput('N.º de eixos', 'axle_config', 'number', 'ex: 2, 3, 4')}
+                      {renderTechnicalInput('Peso bruto / tara', 'weight_load')}
+                      {renderTechnicalInput('Carga útil / Capacidade', 'payload_capacity')}
+                      {renderInput('Capacidade do tanque (L)', 'fuel_tank_capacity_liters', 'number', 'ex: 300')}
+                      {renderTechnicalInput('Consumo de referência', 'consumption')}
+                      {renderTechnicalInput('Medida dos pneus', 'tire_size')}
+                      {renderTechnicalInput('Dimensão / Configuração', 'dimensions')}
+                      <div className="md:col-span-3">
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Outras especificações técnicas</label>
+                        <textarea
+                          rows={2}
+                          value={formData.technical_specs.other_specs || ''}
+                          onChange={(e) => updateTechnicalSpec('other_specs', e.target.value)}
+                          placeholder="Detalhes mecânicos, elétricos, hidráulicos ou acessórios específicos..."
+                          className={fieldClass}
+                        />
+                      </div>
+                    </div>
+                  )}
 
-                {activeTab === 5 && <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Plano de manutenção associado</label>
-                    <select value={formData.maintenance_plan_id} onChange={(e) => updateFormField('maintenance_plan_id', e.target.value)} className={fieldClass}>
-                      <option value="">Sem plano associado</option>
-                      {maintenancePlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.title}</option>)}
-                    </select>
-                    {maintenancePlansError && <p role="alert" className="mt-1 text-xs text-red-700">{maintenancePlansError}</p>}
-                  </div>
-                  {renderInput('Tipo de manutenção', 'maintenance_type')}
-                  {renderInput('Periodicidade', 'maintenance_periodicity')}
-                </div>}
+                  {/* PASSO 4: Operação e medidores */}
+                  {activeTab === 3 && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {renderInput('Quilometragem inicial', 'initial_km', 'number', '0')}
+                      {renderInput('Quilometragem actual', 'current_km', 'number', '0')}
+                      {renderInput('Horímetro inicial', 'initial_hour_meter', 'number', '0')}
+                      {renderInput('Horímetro actual', 'current_hour_meter', 'number', '0')}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Unidade de medida</label>
+                        <select
+                          value={formData.measurement_unit}
+                          onChange={(e) => updateFormField('measurement_unit', e.target.value)}
+                          className={fieldClass}
+                        >
+                          <option value="Km">Km</option>
+                          <option value="Horas">Horas</option>
+                          <option value="Dias">Dias</option>
+                          <option value="Semanas">Semanas</option>
+                        </select>
+                      </div>
+                      {renderInput('Última leitura em', 'last_reading_date', 'date')}
+                      {renderInput('Regime / Turno de operação', 'shift', 'text', 'ex: Diurno 8h, 2 Turnos 16h')}
+                      {renderInput('Horas de operação previstas', 'expected_operating_hours', 'number', 'ex: 2000')}
+                      {renderInput('Leitura actual do medidor', 'current_meter', 'number', '0')}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Unidade do medidor</label>
+                        <select
+                          value={formData.meter_unit}
+                          onChange={(e) => updateFormField('meter_unit', e.target.value)}
+                          className={fieldClass}
+                        >
+                          <option value="Km">Km</option>
+                          <option value="Horas">Horas</option>
+                          <option value="Dias">Dias</option>
+                          <option value="Semanas">Semanas</option>
+                        </select>
+                      </div>
+                      <div className="md:col-span-3">
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Observações operacionais</label>
+                        <textarea
+                          rows={2}
+                          value={formData.operational_notes || ''}
+                          onChange={(e) => updateFormField('operational_notes', e.target.value)}
+                          placeholder="Regras de rodagem, limitações de carga, rotas ou postos de trabalho..."
+                          className={fieldClass}
+                        />
+                      </div>
+                    </div>
+                  )}
 
-                {activeTab === 6 && <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderSafetyInput('Validade do extintor', 'extinguisher_validity', 'date')}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Triângulo de sinalização</label>
-                    <select value={formData.safety_checks.warning_triangle} onChange={(e) => updateSafetyCheck('warning_triangle', e.target.value)} className={fieldClass}>
-                      <option value="">Selecione...</option><option value="true">Disponível</option><option value="false">Em falta</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Kit de primeiros socorros</label>
-                    <select value={formData.safety_checks.first_aid_kit} onChange={(e) => updateSafetyCheck('first_aid_kit', e.target.value)} className={fieldClass}>
-                      <option value="">Selecione...</option><option value="true">Disponível</option><option value="false">Em falta</option>
-                    </select>
-                  </div>
-                  {renderSafetyInput('EPIs', 'ppe')}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Condição geral</label>
-                    <select value={formData.safety_checks.general_condition} onChange={(e) => updateSafetyCheck('general_condition', e.target.value)} className={fieldClass}>
-                      <option value="">Selecione...</option><option value="good">Boa</option><option value="fair">Regular</option><option value="poor">Deficiente</option>
-                    </select>
-                  </div>
-                </div>}
-              </div>
+                  {/* PASSO 5: Conformidade, Aquisição e Documentos */}
+                  {activeTab === 4 && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {renderInput('Data de aquisição', 'acquisition_date', 'date')}
+                      {renderInput('Data de início de operação', 'operation_date', 'date')}
+                      {renderInput('Valor de aquisição', 'acquisition_value', 'number', '0.00')}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Moeda</label>
+                        <select
+                          value={formData.currency}
+                          onChange={(e) => updateFormField('currency', e.target.value)}
+                          className={fieldClass}
+                        >
+                          <option value="MZN">MZN (Metical)</option>
+                          <option value="USD">USD (Dólar Americano)</option>
+                          <option value="EUR">EUR (Euro)</option>
+                          <option value="ZAR">ZAR (Rand)</option>
+                        </select>
+                      </div>
+                      {renderInput('Fornecedor / Vendedor', 'supplier', 'text', 'ex: Entreposto, Barloworld')}
+                      {renderInput('Garantia até', 'warranty_expiry', 'date')}
+                      {renderInput('Validade do seguro', 'insurance_expiry', 'date')}
+                      {renderInput('Próxima inspecção periódica', 'inspection_expiry', 'date')}
+                      <div className="md:col-span-3">
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Outras licenças / certificados</label>
+                        <textarea
+                          rows={2}
+                          value={formData.licenses_certificates_notes || ''}
+                          onChange={(e) => updateFormField('licenses_certificates_notes', e.target.value)}
+                          placeholder="Licenças de circulação, certificados de calibração INNOQ, licenças ambientais..."
+                          className={fieldClass}
+                        />
+                      </div>
+                      {modalMode === 'create' && (
+                        <div
+                          onDragEnter={handleDrag}
+                          onDragLeave={handleDrag}
+                          onDragOver={handleDrag}
+                          onDrop={handleDrop}
+                          className={`md:col-span-3 rounded-md border-2 border-dashed p-4 transition-colors ${
+                            isDragActive ? 'border-blue-600 bg-blue-50' : 'border-slate-200 bg-slate-50/50'
+                          }`}
+                        >
+                          <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                            Ficha técnica inicial ou documento comprovativo (opcional, até 20 MB)
+                          </label>
+                          <input
+                            type="file"
+                            onChange={handleFileChange}
+                            accept=".pdf,.png,.jpeg,.jpg,.webp"
+                            className="w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-200 file:px-3 file:py-1.5 file:text-xs file:font-semibold cursor-pointer"
+                          />
+                          {wizardFile && (
+                            <p className="mt-1 text-xs text-blue-700 font-medium">
+                              Ficheiro selecionado: {wizardFile.name} ({(wizardFile.size / 1024 / 1024).toFixed(2)} MB)
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* PASSO 6: Manutenção */}
+                  {activeTab === 5 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                          Plano de manutenção associado
+                        </label>
+                        <select
+                          value={formData.maintenance_plan_id}
+                          onChange={(e) => updateFormField('maintenance_plan_id', e.target.value)}
+                          className={fieldClass}
+                        >
+                          <option value="">Sem plano associado</option>
+                          {maintenancePlans.map((plan) => (
+                            <option key={plan.id} value={plan.id}>{plan.title}</option>
+                          ))}
+                        </select>
+                        {maintenancePlansError && (
+                          <p role="alert" className="mt-1 text-xs text-red-600">{maintenancePlansError}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tipo de manutenção</label>
+                        <select
+                          value={formData.maintenance_type}
+                          onChange={(e) => updateFormField('maintenance_type', e.target.value)}
+                          className={fieldClass}
+                        >
+                          <option value="Preventiva">Preventiva</option>
+                          <option value="Preditiva">Preditiva</option>
+                          <option value="Correctiva">Correctiva</option>
+                          <option value="Inspecção">Inspecção</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Periodicidade / Unidade</label>
+                        <select
+                          value={formData.maintenance_periodicity}
+                          onChange={(e) => updateFormField('maintenance_periodicity', e.target.value)}
+                          className={fieldClass}
+                        >
+                          <option value="Km">Km</option>
+                          <option value="Horas">Horas</option>
+                          <option value="Dias">Dias</option>
+                          <option value="Semanas">Semanas</option>
+                        </select>
+                      </div>
+
+                      {renderInput('Última manutenção - data', 'last_maintenance_date', 'date')}
+                      {renderInput('Última manutenção – leitura', 'last_maintenance_meter', 'number', 'ex: 25000')}
+                      {renderInput('Próxima manutenção prevista', 'next_maintenance_date', 'date')}
+                      {renderInput('Próxima manutenção – leitura', 'next_maintenance_meter', 'number', 'ex: 35000')}
+
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Notas de manutenção</label>
+                        <textarea
+                          rows={2}
+                          value={formData.maintenance_notes || ''}
+                          onChange={(e) => updateFormField('maintenance_notes', e.target.value)}
+                          placeholder="Instruções de lubrificação, filtros, kits de revisão ou recomendações de oficina..."
+                          className={fieldClass}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* PASSO 7: Segurança e condições de utilização */}
+                  {activeTab === 6 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {renderSafetyInput('Extintor / validade', 'extinguisher_validity', 'text', 'ex: Válido até 12/2026')}
+                      {renderSafetyInput('Triângulo / sinalização', 'warning_triangle', 'text', 'ex: 2 unidades conformes')}
+                      {renderSafetyInput('Kit de primeiros socorros', 'first_aid_kit', 'text', 'ex: Completo e selado')}
+                      {renderSafetyInput('Colete refletor / EPI', 'ppe', 'text', 'ex: 2 coletes + capacete')}
+                      {renderSafetyInput('Dispositivos de segurança', 'safety_devices', 'text', 'ex: Alarme de marcha-atrás, cinto')}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Condição geral do ativo</label>
+                        <select
+                          value={formData.safety_checks.general_condition}
+                          onChange={(e) => updateSafetyCheck('general_condition', e.target.value)}
+                          className={fieldClass}
+                        >
+                          <option value="Bom">Bom</option>
+                          <option value="Atenção Necessária">Atenção Necessária</option>
+                          <option value="Deficiente">Deficiente</option>
+                          <option value="Não Verificado">Não Verificado</option>
+                        </select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Estado / Observações</label>
+                        <textarea
+                          rows={2}
+                          value={formData.safety_checks.safety_observations || ''}
+                          onChange={(e) => updateSafetyCheck('safety_observations', e.target.value)}
+                          placeholder="Observações sobre o estado da cabine, cintos de segurança, iluminação, pneus ou travas..."
+                          className={fieldClass}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
               <div className="flex justify-between items-center border-t border-slate-200 pt-6 mt-8">
                 <button
@@ -2672,12 +3008,9 @@ export const AssetsPage: React.FC = () => {
                     <button
                       key="btn-wizard-next"
                       type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setActiveTab((tab) => Math.min(6, tab + 1));
-                      }}
-                      className="px-5 py-2 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white rounded-md text-xs font-semibold cursor-pointer transition-colors shadow-xs"
+                      onClick={handleNextStep}
+                      disabled={!isStepValid(activeTab)}
+                      className="px-5 py-2 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white rounded-md text-xs font-semibold cursor-pointer transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Seguinte
                     </button>
@@ -2691,12 +3024,12 @@ export const AssetsPage: React.FC = () => {
                       {submitting ? (
                         <>
                           <Loader2 size={14} className="animate-spin" />
-                          <span>A processar...</span>
+                          <span>A guardar equipamento...</span>
                         </>
                       ) : (
                         <>
                           <CheckCircle2 size={14} />
-                          <span>{modalMode === 'create' ? 'Salvar Novo Ativo' : 'Guardar Alterações'}</span>
+                          <span>Guardar equipamento</span>
                         </>
                       )}
                     </button>
