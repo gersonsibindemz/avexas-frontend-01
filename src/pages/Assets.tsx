@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { api, getApiErrorMessage, toFiniteNumber } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,7 +14,8 @@ import {
   toBackendCategory,
   isPlantCategoryCode,
   getCleanCategoryName,
-  getCategoriesForScope
+  getCategoriesForScope,
+  UI_CATEGORY_TO_BACKEND
 } from '../config/fleetCategories';
 import { SecondaryView } from '../components/SecondaryView';
 import { TablePagination } from '../components/TablePagination';
@@ -310,7 +311,7 @@ interface AssetFormData {
 }
 
 const createInitialAssetFormData = (domain: string, categories: { value: string }[]): AssetFormData => ({
-  category: domain === 'plant' ? PLANT_CATEGORIES[0].code : FLEET_CATEGORIES[0].code,
+  category: '',
   asset_type: '',
   custom_asset_type: '',
   asset_subtype: '',
@@ -422,6 +423,12 @@ export const AssetsPage: React.FC = () => {
   const domainConfig = useCurrentDomain();
   const { categories, complianceDocTypes, counterLabel, counterUnit, searchPlaceholder, domain, assetNamePlural } = domainConfig;
   const { showAlert } = useAlert();
+
+  // Determina o escopo operacional efetivo para exibição de categorias
+  const effectiveScope = isMixedScope
+    ? (user?.role === 'supervisor' && user?.operational_scope ? user.operational_scope : 'mixed')
+    : (user?.operational_scope || (isPlant ? 'plant' : domain));
+  const scopeCategories = useMemo(() => getCategoriesForScope(effectiveScope), [effectiveScope]);
 
   const [assets, setAssets] = useState<Asset[]>(() => dataCache.get<Asset[]>('assets_list') || []);
   const [loading, setLoading] = useState<boolean>(() => !dataCache.has('assets_list'));
@@ -634,7 +641,8 @@ export const AssetsPage: React.FC = () => {
   const [formData, setFormData] = useState<AssetFormData>(() => createInitialAssetFormData(domain, categories));
   const [maintenancePlans, setMaintenancePlans] = useState<{ id: string; title: string }[]>([]);
   const [maintenancePlansError, setMaintenancePlansError] = useState<string | null>(null);
-  const selectedFleetCategory = FLEET_CATEGORIES.find((fleetCategory) => fleetCategory.code === formData.category);
+  const selectedCategory = scopeCategories.find((cat) => cat.code === formData.category) ||
+    [...FLEET_CATEGORIES, ...PLANT_CATEGORIES].find((cat) => cat.code === formData.category);
 
   // Lista de Operadores / Motoristas disponíveis no tenant e escopo atual
   const [drivers, setDrivers] = useState<DriverUser[]>([]);
@@ -1250,13 +1258,16 @@ export const AssetsPage: React.FC = () => {
   };
 
   const handleCategoryChange = (nextCategory: string) => {
+    const isPlant = isPlantCategoryCode(nextCategory);
     setFormData((previous) => ({
       ...previous,
       category: nextCategory,
       asset_type: '',
       custom_asset_type: '',
       asset_subtype: '',
-      custom_asset_subtype: ''
+      custom_asset_subtype: '',
+      measurement_unit: isPlant ? 'Horas' : (previous.measurement_unit || 'Km'),
+      meter_unit: isPlant ? 'Horas' : (previous.meter_unit || 'Km')
     }));
   };
 
@@ -2089,14 +2100,24 @@ export const AssetsPage: React.FC = () => {
     // Compara sempre a categoria canónica (o backend guarda vehicle_light,
     // vehicle_heavy, machinery, plant_equipment ou generator) com o filtro
     // escolhido na UI (código CAT-xx ou valor canónico).
+    const assetDomain = asset.domain || (isPlantCategoryCode(asset.category) ? 'plant' : 'fleet');
+    const filterDomain = isPlantCategoryCode(categoryFilter) ? 'plant' : 'fleet';
+
     const matchesCategory = categoryFilter === 'all'
-      || toBackendCategory(asset.category, domain) === toBackendCategory(categoryFilter, domain);
+      || asset.category === categoryFilter
+      || (categoryFilter.startsWith('CAT-') || categoryFilter.startsWith('PLANT-')
+          ? asset.category === UI_CATEGORY_TO_BACKEND[categoryFilter] && assetDomain === filterDomain
+          : assetDomain === filterDomain && toBackendCategory(asset.category, assetDomain) === toBackendCategory(categoryFilter, filterDomain));
 
     // Regras de isolamento e unificação de escopo operacional
     let matchesScope = true;
     if (user?.role === 'supervisor') {
       // supervisor: visualiza exclusivamente dentro do seu operational_scope atribuído
-      matchesScope = asset.domain === user.operational_scope || asset.operational_scope === user.operational_scope;
+      if (user.operational_scope === 'mixed' || user.operational_scope === 'both' || !user.operational_scope) {
+        matchesScope = true;
+      } else {
+        matchesScope = asset.domain === user.operational_scope || asset.operational_scope === user.operational_scope;
+      }
     } else if (isMixedScope) {
       // Unificação da Vista de Frota e Fábrica: lista todo o material por padrão
       if (scopeFilter === 'fleet') {
@@ -2476,17 +2497,34 @@ export const AssetsPage: React.FC = () => {
               className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-700 focus:outline-none cursor-pointer"
             >
               <option value="all">Todas as Categorias</option>
-              {domain === 'fleet'
-                ? FLEET_CATEGORIES.map((fleetCategory) => (
-                    <option key={fleetCategory.code} value={fleetCategory.code}>
-                      {fleetCategory.code} - {fleetCategory.name}
-                    </option>
-                  ))
-                : categories.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.label}
-                    </option>
-                  ))}
+              {isMixedScope ? (
+                <>
+                  <optgroup label="Frota / Equipamentos Móveis">
+                    {scopeCategories
+                      .filter((c) => c.domain === 'fleet' || !isPlantCategoryCode(c.code))
+                      .map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code} - {c.name}
+                        </option>
+                      ))}
+                  </optgroup>
+                  <optgroup label="Fábrica / Equipamentos Fabris">
+                    {scopeCategories
+                      .filter((c) => c.domain === 'plant' || isPlantCategoryCode(c.code))
+                      .map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code} - {c.name}
+                        </option>
+                      ))}
+                  </optgroup>
+                </>
+              ) : (
+                scopeCategories.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.code} - {c.name}
+                  </option>
+                ))
+              )}
             </select>
           )}
         </div>
@@ -2877,7 +2915,6 @@ export const AssetsPage: React.FC = () => {
             </nav>
           </div>
             {(() => {
-              const scopeCategories = getCategoriesForScope(user?.operational_scope || domain);
               const selectedCategoryObj = scopeCategories.find((c) => c.code === formData.category) ||
                 [...FLEET_CATEGORIES, ...PLANT_CATEGORIES].find((c) => c.code === formData.category);
 
@@ -2919,11 +2956,34 @@ export const AssetsPage: React.FC = () => {
                           required
                         >
                           <option value="">Selecione uma categoria...</option>
-                          {scopeCategories.map((item) => (
-                            <option key={item.code} value={item.code}>
-                              {item.name}
-                            </option>
-                          ))}
+                          {isMixedScope ? (
+                            <>
+                              <optgroup label="Frota / Equipamentos Móveis">
+                                {scopeCategories
+                                  .filter((item) => item.domain === 'fleet' || !isPlantCategoryCode(item.code))
+                                  .map((item) => (
+                                    <option key={item.code} value={item.code}>
+                                      {item.name}
+                                    </option>
+                                  ))}
+                              </optgroup>
+                              <optgroup label="Fábrica / Equipamentos Fabris">
+                                {scopeCategories
+                                  .filter((item) => item.domain === 'plant' || isPlantCategoryCode(item.code))
+                                  .map((item) => (
+                                    <option key={item.code} value={item.code}>
+                                      {item.name}
+                                    </option>
+                                  ))}
+                              </optgroup>
+                            </>
+                          ) : (
+                            scopeCategories.map((item) => (
+                              <option key={item.code} value={item.code}>
+                                {item.name}
+                              </option>
+                            ))
+                          )}
                           {formData.category && !scopeCategories.some((item) => item.code === formData.category) && (
                             <option key={formData.category} value={formData.category}>
                               {getCleanCategoryName(formData.category)}
@@ -2949,13 +3009,28 @@ export const AssetsPage: React.FC = () => {
                           required
                         >
                           <option value="">Selecione o tipo de ativo...</option>
-                          {selectedCategoryObj?.types.map((type) => (
-                            <option key={type} value={type}>{type}</option>
-                          ))}
-                          <option value="Outro tipo (especificar)">Outro tipo (especificar)</option>
-                          {formData.asset_type && !(selectedCategoryObj?.types ?? []).includes(formData.asset_type) && formData.asset_type !== 'Outro tipo (especificar)' && (
-                            <option key={formData.asset_type} value={formData.asset_type}>{formData.asset_type}</option>
-                          )}
+                          {(() => {
+                            const rawTypes = selectedCategoryObj?.types ?? [];
+                            const baseTypes = rawTypes.filter(
+                              (t) => {
+                                const lower = t.trim().toLowerCase();
+                                return lower !== 'outro tipo (especificar)' && lower !== 'outro (especificar)';
+                              }
+                            );
+                            return (
+                              <>
+                                {baseTypes.map((type) => (
+                                  <option key={type} value={type}>{type}</option>
+                                ))}
+                                <option value="Outro tipo (especificar)">Outro tipo (especificar)</option>
+                                {formData.asset_type &&
+                                  !baseTypes.includes(formData.asset_type) &&
+                                  formData.asset_type !== 'Outro tipo (especificar)' && (
+                                    <option key={formData.asset_type} value={formData.asset_type}>{formData.asset_type}</option>
+                                  )}
+                              </>
+                            );
+                          })()}
                         </select>
                       </div>
 
@@ -3172,32 +3247,60 @@ export const AssetsPage: React.FC = () => {
                   {/* PASSO 3: Características técnicas */}
                   {activeTab === 2 && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {renderTechnicalInput('Tipo de motor / Motorização', 'engine_type')}
-                      {renderTechnicalInput('Potência / Unidade', 'power')}
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Combustível / Energia</label>
-                        <select
-                          value={formData.energy_type}
-                          onChange={(e) => {
-                            updateFormField('energy_type', e.target.value);
-                            updateTechnicalSpec('fuel', e.target.value);
-                          }}
-                          className={fieldClass}
-                        >
-                          {ENERGY_TYPES.map((energy) => (
-                            <option key={energy} value={energy}>{energy}</option>
-                          ))}
-                        </select>
-                      </div>
-                      {renderTechnicalInput('Transmissão', 'transmission')}
-                      {renderTechnicalInput('Tração / Configuração de eixos', 'traction')}
-                      {renderInput('N.º de eixos', 'axle_config', 'number', 'ex: 2, 3, 4')}
-                      {renderTechnicalInput('Peso bruto / tara', 'weight_load')}
-                      {renderTechnicalInput('Carga útil / Capacidade', 'payload_capacity')}
-                      {renderInput('Capacidade do tanque (L)', 'fuel_tank_capacity_liters', 'number', 'ex: 300')}
-                      {renderTechnicalInput('Consumo de referência', 'consumption')}
-                      {renderTechnicalInput('Medida dos pneus', 'tire_size')}
-                      {renderTechnicalInput('Dimensão / Configuração', 'dimensions')}
+                      {isPlantCat ? (
+                        <>
+                          {renderInput('Setor Fabril / Linha', 'plant_sector', 'text', 'ex: Linha de Enchimento, Moagem, Caldeiras')}
+                          {renderInput('Tensão / Voltagem (V)', 'voltage_specs', 'text', 'ex: 380V Trifásico, 220V')}
+                          {renderInput('Potência (kW / kVA)', 'power_kw_kva', 'number', 'ex: 75, 250')}
+                          {renderTechnicalInput('Tipo de motor / Acionamento', 'engine_type')}
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Combustível / Fonte de Energia</label>
+                            <select
+                              value={formData.energy_type}
+                              onChange={(e) => {
+                                updateFormField('energy_type', e.target.value);
+                                updateTechnicalSpec('fuel', e.target.value);
+                              }}
+                              className={fieldClass}
+                            >
+                              {ENERGY_TYPES.map((energy) => (
+                                <option key={energy} value={energy}>{energy}</option>
+                              ))}
+                            </select>
+                          </div>
+                          {renderTechnicalInput('Dimensões / Instalação', 'dimensions')}
+                          {renderTechnicalInput('Peso total / Carga', 'weight_load')}
+                        </>
+                      ) : (
+                        <>
+                          {renderTechnicalInput('Tipo de motor / Motorização', 'engine_type')}
+                          {renderTechnicalInput('Potência / Unidade', 'power')}
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Combustível / Energia</label>
+                            <select
+                              value={formData.energy_type}
+                              onChange={(e) => {
+                                updateFormField('energy_type', e.target.value);
+                                updateTechnicalSpec('fuel', e.target.value);
+                              }}
+                              className={fieldClass}
+                            >
+                              {ENERGY_TYPES.map((energy) => (
+                                <option key={energy} value={energy}>{energy}</option>
+                              ))}
+                            </select>
+                          </div>
+                          {renderTechnicalInput('Transmissão', 'transmission')}
+                          {renderTechnicalInput('Tração / Configuração de eixos', 'traction')}
+                          {renderInput('N.º de eixos', 'axle_config', 'number', 'ex: 2, 3, 4')}
+                          {renderTechnicalInput('Peso bruto / tara', 'weight_load')}
+                          {renderTechnicalInput('Carga útil / Capacidade', 'payload_capacity')}
+                          {renderInput('Capacidade do tanque (L)', 'fuel_tank_capacity_liters', 'number', 'ex: 300')}
+                          {renderTechnicalInput('Consumo de referência', 'consumption')}
+                          {renderTechnicalInput('Medida dos pneus', 'tire_size')}
+                          {renderTechnicalInput('Dimensão / Configuração', 'dimensions')}
+                        </>
+                      )}
                       <div className="md:col-span-3">
                         <label className="block text-xs font-semibold text-slate-700 mb-1.5">Outras especificações técnicas</label>
                         <textarea

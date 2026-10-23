@@ -132,7 +132,7 @@ export const FLEET_CATEGORIES: FleetCategory[] = [
   {
     code: 'CAT-14',
     name: 'Outros equipamentos móveis terrestres',
-    types: ['Equipamento móvel especial', 'Outro tipo (especificar)']
+    types: ['Equipamento móvel especial']
   }
 ];
 
