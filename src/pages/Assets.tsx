@@ -1816,7 +1816,14 @@ export const AssetsPage: React.FC = () => {
   const handleDeleteAsset = async () => {
     if (!deletingAsset) return;
     try {
-      await api.delete(`/assets/${deletingAsset.id}`);
+      const assetDomain = deletingAsset.domain || (isPlantCategoryCode(deletingAsset.category) ? 'plant' : 'fleet');
+      await api.delete(`/assets/${deletingAsset.id}`, {
+        params: { domain: assetDomain },
+        headers: {
+          'x-domain': assetDomain,
+          'x-operational-scope': assetDomain,
+        },
+      });
       setSuccessMessage(`Ativo "${deletingAsset.code_tag || deletingAsset.codeTag}" arquivado com sucesso.`);
       setIsDeleteModalOpen(false);
       setDeletingAsset(null);
