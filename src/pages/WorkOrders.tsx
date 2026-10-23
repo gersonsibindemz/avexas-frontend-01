@@ -152,7 +152,7 @@ interface WorkOrder {
 }
 
 export const WorkOrdersPage: React.FC = () => {
-  const { user, currentScope } = useAuth();
+  const { user, currentScope, isTechnician, isDriverOperator } = useAuth();
   const { checkSuspension, handleActionClick } = useSuspensionGuard();
   const { counterLabel, failureCauses, technicianSpecialties, domain } = useCurrentDomain();
   const [orders, setOrders] = useState<WorkOrder[]>(() => dataCache.get<WorkOrder[]>('work_orders') || []);
@@ -182,7 +182,9 @@ export const WorkOrdersPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [quickTab, setQuickTab] = useState<'all' | 'my_tasks' | 'pending' | 'in_progress' | 'completed' | 'maintenance_requests' | 'drafts'>('all');
+  const [quickTab, setQuickTab] = useState<'all' | 'my_tasks' | 'pending' | 'in_progress' | 'completed' | 'maintenance_requests' | 'drafts'>(
+    user?.role === 'technician' ? 'my_tasks' : 'all'
+  );
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   
   // Dropdown de Ações por Linha via Portal (Camada Superior z-[9999] conforme padrão do Inventário)
@@ -1784,7 +1786,7 @@ export const WorkOrdersPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-in">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-            <span>Ordens de Serviço</span>
+            <span>{isTechnician ? 'Minhas Ordens de Serviço Atribuídas' : 'Ordens de Serviço'}</span>
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
         </div>
@@ -1872,13 +1874,15 @@ export const WorkOrdersPage: React.FC = () => {
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
-          <button
-            onClick={() => handleActionClick(handleOpenCreateModal)}
-            className="bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
-          >
-            <Plus size={16} />
-            <span>Nova Ordem de Serviço</span>
-          </button>
+          {!isTechnician && !isDriverOperator && (
+            <button
+              onClick={() => handleActionClick(handleOpenCreateModal)}
+              className="bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
+            >
+              <Plus size={16} />
+              <span>Nova Ordem de Serviço</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1935,27 +1939,31 @@ export const WorkOrdersPage: React.FC = () => {
 
       {/* Abas/Filtros Rápidos no Topo (Requisito 3) */}
       <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-none shrink-0 -mx-4 px-4 md:mx-0 md:px-0">
-        <button
-          onClick={() => setQuickTab('all')}
-          className={`px-4 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap cursor-pointer border ${
-            quickTab === 'all'
-              ? 'bg-blue-700 text-white border-blue-700 shadow-none font-semibold'
-              : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-          }`}
-        >
-          Todas ({domainFilteredOrders.length})
-        </button>
-        <button
-          onClick={() => setQuickTab('maintenance_requests')}
-          className={`px-4 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap cursor-pointer border flex items-center gap-1.5 ${
-            quickTab === 'maintenance_requests'
-              ? 'bg-blue-700 text-white border-blue-700 shadow-none font-semibold'
-              : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-          }`}
-        >
-          <Wrench size={13} />
-          <span>Solicitações Pendentes ({maintenanceRequests.length})</span>
-        </button>
+        {!isTechnician && (
+          <>
+            <button
+              onClick={() => setQuickTab('all')}
+              className={`px-4 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap cursor-pointer border ${
+                quickTab === 'all'
+                  ? 'bg-blue-700 text-white border-blue-700 shadow-none font-semibold'
+                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              Todas ({domainFilteredOrders.length})
+            </button>
+            <button
+              onClick={() => setQuickTab('maintenance_requests')}
+              className={`px-4 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap cursor-pointer border flex items-center gap-1.5 ${
+                quickTab === 'maintenance_requests'
+                  ? 'bg-blue-700 text-white border-blue-700 shadow-none font-semibold'
+                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <Wrench size={13} />
+              <span>Solicitações Pendentes ({maintenanceRequests.length})</span>
+            </button>
+          </>
+        )}
         <button
           onClick={() => setQuickTab('my_tasks')}
           className={`px-4 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap cursor-pointer border ${
@@ -1974,7 +1982,7 @@ export const WorkOrdersPage: React.FC = () => {
               : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          Pendentes de Início ({domainFilteredOrders.filter(o => o.status === 'open').length})
+          Pendentes de Início ({domainFilteredOrders.filter(isTechnician ? isAssignedToMe : () => true).filter(o => o.status === 'open').length})
         </button>
         <button
           onClick={() => setQuickTab('in_progress')}
@@ -1984,7 +1992,7 @@ export const WorkOrdersPage: React.FC = () => {
               : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          Em Andamento ({domainFilteredOrders.filter(o => o.status === 'in_progress').length})
+          Em Andamento ({domainFilteredOrders.filter(isTechnician ? isAssignedToMe : () => true).filter(o => o.status === 'in_progress').length})
         </button>
         <button
           onClick={() => setQuickTab('completed')}
@@ -1994,19 +2002,21 @@ export const WorkOrdersPage: React.FC = () => {
               : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
           }`}
         >
-          Concluídas ({domainFilteredOrders.filter(o => o.status === 'completed').length})
+          Concluídas ({domainFilteredOrders.filter(isTechnician ? isAssignedToMe : () => true).filter(o => o.status === 'completed').length})
         </button>
-        <button
-          onClick={() => setQuickTab('drafts')}
-          className={`px-4 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap cursor-pointer border flex items-center gap-1.5 ${
-            quickTab === 'drafts'
-              ? 'bg-blue-700 text-white border-blue-700 shadow-none font-semibold'
-              : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-          }`}
-        >
-          <FileText size={13} />
-          <span>Rascunhos ({woDrafts.length})</span>
-        </button>
+        {!isTechnician && (
+          <button
+            onClick={() => setQuickTab('drafts')}
+            className={`px-4 py-2 rounded-md text-xs font-medium transition-all whitespace-nowrap cursor-pointer border flex items-center gap-1.5 ${
+              quickTab === 'drafts'
+                ? 'bg-blue-700 text-white border-blue-700 shadow-none font-semibold'
+                : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+            }`}
+          >
+            <FileText size={13} />
+            <span>Rascunhos ({woDrafts.length})</span>
+          </button>
+        )}
       </div>
 
       {/* Grid de Ordens de Serviço, Rascunhos ou Lista de Solicitações Pendentes (Triagem) */}

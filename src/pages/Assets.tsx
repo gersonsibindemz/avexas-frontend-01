@@ -37,7 +37,9 @@ import {
   Save,
   BarChart3,
   History,
-  ShieldAlert
+  ShieldAlert,
+  Layers,
+  Truck
 } from 'lucide-react';
 import { draftService, DraftItem } from '../services/draftService';
 import { DraftConfirmModal } from '../components/DraftConfirmModal';
@@ -65,6 +67,8 @@ interface Asset {
   codeTag?: string;
   name: string;
   domain?: string;
+  operational_scope?: string;
+  operationalScope?: string;
   brand?: string;
   model: string;
   category: 'vehicle_light' | 'vehicle_heavy' | 'generator' | 'machinery' | string;
@@ -277,7 +281,8 @@ const ASSET_WIZARD_STEPS = [
 ];
 
 export const AssetsPage: React.FC = () => {
-  const { user, isTechnician, isDriverOperator, isFleet, isPlant, currentScope } = useAuth();
+  const { user, isTechnician, isDriverOperator, isFleet, isPlant, isMixedScope, currentScope } = useAuth();
+  const [scopeFilter, setScopeFilter] = useState<'all' | 'fleet' | 'plant'>('all');
   const domainConfig = useCurrentDomain();
   const { categories, complianceDocTypes, counterLabel, counterUnit, searchPlaceholder, domain, assetNamePlural } = domainConfig;
   const { showAlert } = useAlert();
@@ -1805,19 +1810,31 @@ export const AssetsPage: React.FC = () => {
     const matchesCategory = categoryFilter === 'all'
       || toBackendCategory(asset.category, domain) === toBackendCategory(categoryFilter, domain);
 
-    // Filtro baseado no escopo ativo ('fleet' ou 'plant').
-    // Prioriza o domínio gravado no backend (coluna domain) e usa a categoria
-    // apenas como fallback para registos antigos sem domínio.
+    // Regras de isolamento e unificação de escopo operacional
     let matchesScope = true;
-    const assetScope = asset.domain === 'fleet' || asset.domain === 'plant' ? asset.domain : undefined;
-    if (assetScope) {
-      matchesScope = assetScope === currentScope;
-    } else if (currentScope === 'plant') {
-      matchesScope = asset.category !== 'vehicle_light' && asset.category !== 'vehicle_heavy';
-    } else if (currentScope === 'fleet') {
-      matchesScope = asset.category !== 'generator'
-        && asset.category !== 'machinery'
-        && asset.category !== 'plant_equipment';
+    if (user?.role === 'supervisor') {
+      // supervisor: visualiza exclusivamente dentro do seu operational_scope atribuído
+      matchesScope = asset.domain === user.operational_scope || asset.operational_scope === user.operational_scope;
+    } else if (isMixedScope) {
+      // Unificação da Vista de Frota e Fábrica: lista todo o material por padrão
+      if (scopeFilter === 'fleet') {
+        matchesScope = asset.domain === 'fleet' || asset.category === 'vehicle_light' || asset.category === 'vehicle_heavy';
+      } else if (scopeFilter === 'plant') {
+        matchesScope = asset.domain === 'plant' || asset.category === 'generator' || asset.category === 'machinery' || asset.category === 'plant_equipment';
+      } else {
+        matchesScope = true; // UNIFICADO!
+      }
+    } else {
+      const assetScope = asset.domain === 'fleet' || asset.domain === 'plant' ? asset.domain : undefined;
+      if (assetScope) {
+        matchesScope = assetScope === currentScope;
+      } else if (currentScope === 'plant') {
+        matchesScope = asset.category !== 'vehicle_light' && asset.category !== 'vehicle_heavy';
+      } else if (currentScope === 'fleet') {
+        matchesScope = asset.category !== 'generator'
+          && asset.category !== 'machinery'
+          && asset.category !== 'plant_equipment';
+      }
     }
 
     return matchesSearch && matchesCategory && matchesScope;
@@ -1914,8 +1931,12 @@ export const AssetsPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
-            {domain === 'plant' && <Wrench className="text-blue-700" size={24} />}
-            <span>{domain === 'plant' ? 'Equipamentos Fabris' : 'Frota'}</span>
+            {isMixedScope ? <Layers className="text-blue-700" size={24} /> : (domain === 'plant' ? <Wrench className="text-blue-700" size={24} /> : <Truck className="text-blue-700" size={24} />)}
+            <span>
+              {isMixedScope
+                ? (user?.role === 'supervisor' ? (user.operational_scope === 'plant' ? 'Equipamentos Fabris' : 'Frota') : 'Ativos e Frotas (Vista Unificada)')
+                : (domain === 'plant' ? 'Equipamentos Fabris' : 'Frota')}
+            </span>
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
         </div>
@@ -1972,6 +1993,19 @@ export const AssetsPage: React.FC = () => {
             <option value="active">Ativos Cadastrados ({filteredAssets.length})</option>
             <option value="drafts">Rascunhos Salvos ({assetDrafts.length})</option>
           </select>
+
+          {/* Filtro de Âmbito Operacional para Empresas Mistas */}
+          {isMixedScope && user?.role !== 'supervisor' && (
+            <select
+              value={scopeFilter}
+              onChange={(e) => setScopeFilter(e.target.value as 'all' | 'fleet' | 'plant')}
+              className="bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3 py-2 text-xs text-slate-800 focus:outline-none cursor-pointer font-medium"
+            >
+              <option value="all">Âmbito: Todos (Frota + Fábrica)</option>
+              <option value="fleet">Âmbito: Apenas Frota</option>
+              <option value="plant">Âmbito: Apenas Fábrica</option>
+            </select>
+          )}
 
           {assetsViewMode === 'active' && (
             <select
@@ -2045,7 +2079,20 @@ export const AssetsPage: React.FC = () => {
                   const level = asset.criticality_level || asset.criticalityLevel || 'B';
                     return (
                     <tr key={asset.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-4 font-mono font-bold text-blue-700">{tag}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-blue-700">{tag}</span>
+                          {isMixedScope && (
+                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${
+                              asset.domain === 'plant' || asset.category === 'generator' || asset.category === 'machinery' || asset.category === 'plant_equipment'
+                                ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                : 'bg-blue-50 text-blue-700 border-blue-200'
+                            }`}>
+                              {asset.domain === 'plant' || asset.category === 'generator' || asset.category === 'machinery' || asset.category === 'plant_equipment' ? 'Fábrica' : 'Frota'}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-3 px-4">
                         <div className="flex flex-col">
                           <span className="text-slate-900 font-medium text-sm">{asset.name}</span>
@@ -3823,13 +3870,24 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
   const [isAnomalyModalOpen, setIsAnomalyModalOpen] = useState(false);
   const [anomalyTitle, setAnomalyTitle] = useState('');
   const [anomalyDesc, setAnomalyDesc] = useState('');
-  const [anomalyPriority, setAnomalyPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
+  const [anomalyPriority, setAnomalyPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('high');
   const [currentOdometer, setCurrentOdometer] = useState<number | ''>('');
   const [submittingAnomaly, setSubmittingAnomaly] = useState(false);
   const [anomalySuccess, setAnomalySuccess] = useState(false);
 
-  // Filter out non-vehicles for drivers
-  const vehicles = assets.filter(a => a.category === 'vehicle_light' || a.category === 'vehicle_heavy' || a.category?.startsWith('vehicle') || FLEET_CATEGORIES.some((fleetCategory) => fleetCategory.code === a.category));
+  // Fotografias da anomalia (integração obrigatória com Supabase Storage via backend)
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const photoFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Identificação do escopo do operador (fabril vs frota)
+  const isPlantOperator = user?.operational_scope === 'plant';
+  const vehicles = assets.filter(a => {
+    if (isPlantOperator) {
+      return a.domain === 'plant' || a.category === 'generator' || a.category === 'machinery' || a.category === 'plant_equipment';
+    }
+    return a.category === 'vehicle_light' || a.category === 'vehicle_heavy' || a.category?.startsWith('vehicle') || FLEET_CATEGORIES.some((fleetCategory) => fleetCategory.code === a.category) || a.domain === 'fleet';
+  });
 
   useEffect(() => {
     if (vehicles.length > 0 && !selectedAssetId) {
@@ -3846,13 +3904,47 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
       const m = selected.current_meter ?? selected.currentMeter ?? '';
       setCurrentOdometer(m);
     }
-    // reset checklist
     setFluids(false);
     setBrakes(false);
     setLights(false);
     setTires(false);
     setSafety(false);
     setChecklistSuccess(false);
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    if (photoUrls.length + files.length > 5) {
+      alert('Pode anexar no máximo 5 fotografias da ocorrência.');
+      return;
+    }
+
+    setUploadingPhotos(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('photo', file);
+        const res = await api.post('/notifications/maintenance/upload-photo', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        if (res.data?.url) {
+          uploaded.push(res.data.url);
+        }
+      }
+      setPhotoUrls(prev => [...prev, ...uploaded]);
+    } catch (err: any) {
+      console.error('Erro no upload de fotografia:', err);
+      alert(err.response?.data?.error || err.message || 'Erro ao carregar fotografia da avaria.');
+    } finally {
+      setUploadingPhotos(false);
+      if (photoFileInputRef.current) photoFileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemovePhoto = (indexToRemove: number) => {
+    setPhotoUrls(prev => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   const handleChecklistSubmit = (e: React.FormEvent) => {
@@ -3862,39 +3954,45 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
     setTimeout(() => setChecklistSuccess(false), 5000);
   };
 
+  // Submissão da anomalia / avaria pelo condutor/operador:
+  // Notifica diretamente o supervisor e envia as fotos para o storage
   const handleAnomalySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAssetId || !anomalyTitle.trim() || !anomalyDesc.trim()) {
       alert('Por favor, preencha todos os campos obrigatórios.');
       return;
     }
+    if (photoUrls.length === 0) {
+      alert('É obrigatório anexar pelo menos uma fotografia demonstrativa da avaria ou anomalia.');
+      return;
+    }
 
     setSubmittingAnomaly(true);
     const payload = {
       assetId: selectedAssetId,
-      asset_id: selectedAssetId,
-      title: anomalyTitle,
-      description: anomalyDesc,
-      orderType: 'corrective',
-      order_type: 'corrective',
+      requesterName: user?.fullName || 'Condutor / Operador',
+      problemDescription: `${anomalyTitle.trim()} - ${anomalyDesc.trim()}`,
       priority: anomalyPriority,
-      meterAtService: currentOdometer !== '' ? Number(currentOdometer) : undefined,
-      meter_at_service: currentOdometer !== '' ? Number(currentOdometer) : undefined,
-      status: 'open'
+      maintenanceType: 'corrective',
+      meterReading: currentOdometer !== '' ? Number(currentOdometer) : undefined,
+      operationalStatus: anomalyPriority === 'urgent' ? 'stopped_unavailable' : 'operational_with_restriction',
+      attachmentUrls: photoUrls,
+      status: 'pending_triage'
     };
 
     try {
-      await api.post('/work-orders', payload);
+      await api.post('/notifications/maintenance', payload);
       setAnomalySuccess(true);
       setAnomalyTitle('');
       setAnomalyDesc('');
+      setPhotoUrls([]);
       setTimeout(() => {
         setAnomalySuccess(false);
         setIsAnomalyModalOpen(false);
-      }, 2500);
+      }, 3000);
     } catch (err: any) {
-      console.error('Erro ao submeter anomalia:', err);
-      alert(err.response?.data?.message || err.message || 'Erro ao submeter anomalia.');
+      console.error('Erro ao reportar anomalia:', err);
+      alert(err.response?.data?.error || err.response?.data?.message || err.message || 'Erro ao comunicar avaria.');
     } finally {
       setSubmittingAnomaly(false);
     }
@@ -3912,7 +4010,7 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
             {user?.fullName.substring(0, 2).toUpperCase() || 'OP'}
           </div>
           <div>
-            <span className="text-[10px] text-blue-700 font-bold uppercase tracking-wider block">CMMS Moçambique · Portal do Condutor</span>
+            <span className="text-[10px] text-blue-700 font-bold uppercase tracking-wider block">{isPlantOperator ? 'CMMS Moçambique · Portal do Operador Fabril' : 'CMMS Moçambique · Portal do Condutor / Operador'}</span>
             <h1 className="text-lg font-bold text-slate-900 mt-0.5">Olá, {user?.fullName}!</h1>
             <p className="text-slate-600 text-xs">Efetue vistorias de segurança e reporte avarias de campo rapidamente.</p>
           </div>
@@ -3922,13 +4020,13 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
       {loading ? (
         <div className="bg-white border border-slate-200 rounded-md p-12 text-center">
           <RefreshCw className="animate-spin text-blue-700 mx-auto" size={24} />
-          <p className="text-xs text-slate-500 mt-2 font-medium">A carregar viaturas corporativas...</p>
+          <p className="text-xs text-slate-500 mt-2 font-medium">A carregar viaturas e equipamentos operacionais...</p>
         </div>
       ) : vehicles.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-md p-8 text-center text-slate-500 shadow-sm">
           <AlertTriangle className="text-amber-500 mx-auto mb-2" size={24} />
-          <p className="text-xs font-semibold text-slate-800">Nenhuma viatura disponível para o seu utilizador.</p>
-          <p className="text-[11px] text-slate-500 mt-1">Contacte o supervisor ou gestor para associar viaturas ao seu escopo.</p>
+          <p className="text-xs font-semibold text-slate-800">Nenhum veículo ou equipamento fabril associado ao seu perfil.</p>
+          <p className="text-[11px] text-slate-500 mt-1">Contacte o supervisor ou gestor para associar recursos ao seu escopo.</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -3936,7 +4034,7 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
           {/* SELETOR DE VIATURA */}
           <div className="bg-white border border-slate-200 rounded-md p-5 space-y-3 shadow-sm">
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
-              Selecione a Viatura em Serviço:
+              {isPlantOperator ? 'Selecione o Equipamento em Serviço:' : 'Selecione o Veículo em Serviço:'}
             </label>
             <select
               value={selectedAssetId}
@@ -4096,7 +4194,7 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
         isOpen={isAnomalyModalOpen}
         onClose={() => setIsAnomalyModalOpen(false)}
         title="Reportar Ocorrência em Campo"
-        subtitle="Abertura de OS Corretiva para a viatura selecionada"
+        subtitle="Comunicação de avaria com notificação direta ao supervisor e anexação de fotos"
         icon={<AlertTriangle size={18} className="text-red-600" />}
         maxWidth="max-w-2xl"
       >
@@ -4107,8 +4205,8 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
                 <CheckCircle2 size={24} />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-slate-900">Ocorrência Registada!</h4>
-                <p className="text-xs text-slate-600 mt-1">A equipa de manutenção foi notificada e uma OS Corretiva foi aberta.</p>
+                <h4 className="text-sm font-bold text-slate-900">Avaria Comunicada com Sucesso!</h4>
+                <p className="text-xs text-slate-600 mt-1">O supervisor responsável foi notificado diretamente e as fotografias anexadas foram arquivadas.</p>
               </div>
               <div className="pt-4">
                 <button
@@ -4123,7 +4221,7 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
           ) : (
             <form onSubmit={handleAnomalySubmit} className="space-y-4 text-xs">
               <div className="bg-slate-50 border border-slate-200 rounded-md p-3">
-                <span className="text-slate-500 font-semibold block">Viatura Selecionada:</span>
+                <span className="text-slate-500 font-semibold block">{isPlantOperator ? 'Equipamento Selecionado:' : 'Viatura Selecionada:'}</span>
                 <span className="text-slate-900 font-bold font-mono mt-1 block">
                   {selectedVehicle?.code_tag || selectedVehicle?.codeTag} - {selectedVehicle?.name}
                 </span>
@@ -4188,6 +4286,81 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
                 </div>
               </div>
 
+              {/* FOTOGRAFIAS OBRIGATÓRIAS DO PROBLEMA */}
+              <div className="space-y-2.5 pt-3 border-t border-slate-200">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                    <Camera size={14} className="text-red-600" />
+                    <span>Fotografias do Problema Mecânico *</span>
+                  </label>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
+                    photoUrls.length > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+                  }`}>
+                    {photoUrls.length === 0 ? 'Obrigatório anexar foto' : `${photoUrls.length}/5 fotos anexadas`}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-slate-500">
+                  Tire fotografias nítidas da anomalia, peça danificada ou painel para que o supervisor possa avaliar a ocorrência.
+                </p>
+
+                {/* Previews das Fotos */}
+                {photoUrls.length > 0 && (
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 pt-1">
+                    {photoUrls.map((url, idx) => (
+                      <div key={idx} className="relative group aspect-square rounded-md overflow-hidden border border-slate-300 bg-slate-100 shadow-2xs">
+                        <img src={url} alt={`Evidência ${idx + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePhoto(idx)}
+                          className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 shadow-sm transition-transform hover:scale-110 cursor-pointer"
+                          title="Remover fotografia"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Botão de Upload com suporte a Câmera */}
+                {photoUrls.length < 5 && (
+                  <div className="flex items-center gap-3 pt-1">
+                    <input
+                      type="file"
+                      ref={photoFileInputRef}
+                      onChange={handlePhotoUpload}
+                      accept="image/jpeg,image/png,image/webp"
+                      capture="environment"
+                      multiple
+                      className="hidden"
+                      id="operator-anomaly-photo-input"
+                      disabled={uploadingPhotos}
+                    />
+                    <label
+                      htmlFor="operator-anomaly-photo-input"
+                      className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold border border-dashed transition-all cursor-pointer ${
+                        uploadingPhotos
+                          ? 'bg-slate-100 border-slate-300 text-slate-400 cursor-not-allowed'
+                          : 'bg-red-50 hover:bg-red-100 border-red-300 text-red-700'
+                      }`}
+                    >
+                      {uploadingPhotos ? (
+                        <>
+                          <RefreshCw size={14} className="animate-spin text-red-600" />
+                          <span>A enviar imagem para o storage...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Camera size={15} />
+                          <span>{photoUrls.length === 0 ? 'Tirar Foto / Carregar da Galeria' : 'Adicionar Mais Fotografias'}</span>
+                        </>
+                      )}
+                    </label>
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
@@ -4198,16 +4371,16 @@ const DriverOperatorPortal: React.FC<DriverOperatorPortalProps> = ({ assets, fet
                 </button>
                 <button
                   type="submit"
-                  disabled={submittingAnomaly}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-md text-xs font-medium transition-colors shadow-none flex items-center gap-1.5 cursor-pointer"
+                  disabled={submittingAnomaly || uploadingPhotos || photoUrls.length === 0}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-md text-xs font-medium transition-colors shadow-none flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submittingAnomaly ? (
                     <>
                       <RefreshCw className="animate-spin" size={13} />
-                      <span>A reportar...</span>
+                      <span>A comunicar avaria...</span>
                     </>
                   ) : (
-                    <span>Submeter Ocorrência</span>
+                    <span>Comunicar Avaria ao Supervisor</span>
                   )}
                 </button>
               </div>

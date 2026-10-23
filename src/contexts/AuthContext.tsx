@@ -80,6 +80,7 @@ interface AuthContextType {
   isDriverOperator: boolean;
   isFleet: boolean;
   isPlant: boolean;
+  isMixedScope: boolean;
   currentScope: 'fleet' | 'plant';
   setCurrentScope: React.Dispatch<React.SetStateAction<'fleet' | 'plant'>>;
 }
@@ -199,6 +200,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isFleet = currentScope === 'fleet';
   const isPlant = currentScope === 'plant';
+  const isMixedScope = Boolean(
+    user?.tenant?.operational_scope === 'mixed' ||
+    user?.tenant?.operationalScope === 'mixed' ||
+    (user as any)?.tenant_scope === 'mixed' ||
+    user?.operational_scope === 'mixed' ||
+    user?.operational_scope === 'both'
+  );
 
   return (
     <AuthContext.Provider
@@ -215,6 +223,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isDriverOperator,
         isFleet,
         isPlant,
+        isMixedScope,
         currentScope,
         setCurrentScope
       }}

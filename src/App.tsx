@@ -188,7 +188,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requiresSuperAdmin?:
   return <>{children}</>;
 };
 
-// Componente Guard para redirecionar super_admin ao tentar aceder a /app/dashboard
+// Componente Guard para redirecionar super_admin, technician e driver_operator ao tentar aceder a /app/dashboard
 const DashboardGuard: React.FC = () => {
   const { user, loading } = useAuth();
 
@@ -196,6 +196,12 @@ const DashboardGuard: React.FC = () => {
 
   if (user?.role === 'super_admin') {
     return <Navigate to="/super-admin" replace />;
+  }
+  if (user?.role === 'driver_operator') {
+    return <Navigate to="/app/assets" replace />;
+  }
+  if (user?.role === 'technician') {
+    return <Navigate to="/app/work-orders" replace />;
   }
 
   return <DashboardPage />;
@@ -211,8 +217,45 @@ const RootRedirect: React.FC = () => {
   if (user.role === 'super_admin') {
     return <Navigate to="/super-admin" replace />;
   }
+  if (user.role === 'driver_operator') {
+    return <Navigate to="/app/assets" replace />;
+  }
+  if (user.role === 'technician') {
+    return <Navigate to="/app/work-orders" replace />;
+  }
 
   return <Navigate to="/app/dashboard" replace />;
+};
+
+// Guard para proteger módulos de gestão contra driver_operator e technician
+const ManagementGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) return <LoadingFallback />;
+  if (!user) return <Navigate to="/login" replace />;
+
+  if (user.role === 'driver_operator') {
+    return <Navigate to="/app/assets" replace />;
+  }
+  if (user.role === 'technician') {
+    return <Navigate to="/app/work-orders" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// Guard específico para Ordens de Serviço (bloqueia driver_operator)
+const WorkOrdersGuard: React.FC = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) return <LoadingFallback />;
+  if (!user) return <Navigate to="/login" replace />;
+
+  if (user.role === 'driver_operator') {
+    return <Navigate to="/app/assets" replace />;
+  }
+
+  return <WorkOrdersPage />;
 };
 
 // Componente para proteger estritamente o módulo de Gestão de Utilizadores para super_admin
@@ -255,14 +298,14 @@ export default function App() {
               <Route index element={<RootRedirect />} />
               <Route path="dashboard" element={<DashboardGuard />} />
               <Route path="assets" element={<AssetsPage />} />
-              <Route path="work-orders" element={<WorkOrdersPage />} />
-              <Route path="teams" element={<TeamsPage />} />
-              <Route path="maintenance-plans" element={<MaintenancePlansPage />} />
-              <Route path="fuel" element={<FuelPage />} />
-              <Route path="inventory" element={<InventoryPage />} />
+              <Route path="work-orders" element={<WorkOrdersGuard />} />
+              <Route path="teams" element={<ManagementGuard><TeamsPage /></ManagementGuard>} />
+              <Route path="maintenance-plans" element={<ManagementGuard><MaintenancePlansPage /></ManagementGuard>} />
+              <Route path="fuel" element={<ManagementGuard><FuelPage /></ManagementGuard>} />
+              <Route path="inventory" element={<ManagementGuard><InventoryPage /></ManagementGuard>} />
               <Route path="users" element={<SuperAdminUsersGuard />} />
-              <Route path="company" element={<CompanyDetailsPage />} />
-              <Route path="it-logs" element={<ItLogsPage />} />
+              <Route path="company" element={<ManagementGuard><CompanyDetailsPage /></ManagementGuard>} />
+              <Route path="it-logs" element={<ManagementGuard><ItLogsPage /></ManagementGuard>} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="settings" element={<Navigate to="/app/dashboard" replace />} />
             </Route>

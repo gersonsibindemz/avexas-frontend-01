@@ -71,7 +71,8 @@ export const Layout: React.FC = () => {
     isTechnician,
     isDriverOperator,
     isFleet,
-    isPlant
+    isPlant,
+    isMixedScope
   } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -301,19 +302,12 @@ export const Layout: React.FC = () => {
   // Regra de Perfil do Botão Escanear: Apenas para roles DIFERENTES de tenant_admin e super_admin (Prompt 3 - Requisito 1)
   const canScan = user?.role !== 'tenant_admin' && user?.role !== 'super_admin';
 
-  // Isolamento Operacional: Apenas super_admin ou utilizadores explicitamente mistos/both podem alternar escopo (Prompt 4 - Requisito 1 & 2)
-  const canSwitchScope = user?.role === 'super_admin' || (
-    user?.role !== 'tenant_admin' && (
-      user?.operational_scope === 'both' ||
-      user?.operational_scope === 'mixed' ||
-      user?.operationalScope === 'both' ||
-      user?.operationalScope === 'mixed'
-    )
-  );
-
-  // Definição dos links de navegação com base na role
+  // Definição dos links de navegação estritamente com base na matriz de permissões por perfil (role)
   const getNavigationItems = () => {
-    if (user?.role === 'super_admin') {
+    if (!user) return [];
+
+    // 1. super_admin: Mantém todos os privilégios globais intactos
+    if (user.role === 'super_admin') {
       return [
         {
           name: 'Empresas & Contratos',
@@ -330,10 +324,37 @@ export const Layout: React.FC = () => {
       ];
     }
 
-    const items: any[] = [];
-    const isPlantView = currentScope === 'plant';
+    // 2. driver_operator: Não tem permissão para aceder a áreas de gestão ou criar ordens de serviço.
+    // A sua única ação permitida no sistema é o portal tátil de vistoria e reporte de anomalias/avarias.
+    if (user.role === 'driver_operator') {
+      return [
+        {
+          name: 'Vistoria & Avarias',
+          path: '/app/assets',
+          icon: AlertTriangle,
+          description: 'Portal de vistoria e reporte de anomalias em campo'
+        }
+      ];
+    }
 
-    // Primeiro elemento para todos os utilizadores operacionais
+    // 3. technician: Visualiza exclusivamente as Ordens de Serviço que foram atribuídas diretamente à sua pessoa.
+    // Bloqueia o acesso à listagem geral de todas as Ordens de Serviço da empresa e áreas de gestão.
+    if (user.role === 'technician') {
+      return [
+        {
+          name: 'Ordens de Serviço',
+          path: '/app/work-orders',
+          icon: ClipboardList,
+          description: 'Minhas ordens de serviço atribuídas'
+        }
+      ];
+    }
+
+    // 4. supervisor e tenant_admin
+    const items: any[] = [];
+    const isPlantSupervisor = user.role === 'supervisor' && user.operational_scope === 'plant';
+    const isPlantTenant = !isMixedScope && (user.operational_scope === 'plant' || user.tenant?.operational_scope === 'plant' || currentScope === 'plant');
+
     items.push({
       name: 'Dashboard',
       path: '/app/dashboard',
@@ -341,15 +362,22 @@ export const Layout: React.FC = () => {
       description: 'Indicadores e estado operacional'
     });
 
-    // Todos os escopos têm acesso aos Ativos
+    // Unificação da Vista de Frota e Fábrica para tenants com escopo misto
+    const assetsLabel = isMixedScope
+      ? (user.role === 'supervisor' ? (isPlantSupervisor ? 'Equipamentos Fabris' : 'Frota') : 'Ativos e Frotas')
+      : (isPlantSupervisor || isPlantTenant ? 'Equipamentos Fabris' : 'Frota');
+    const assetsIcon = (isPlantSupervisor || isPlantTenant) ? Wrench : Truck;
+
     items.push({
-      name: isPlantView ? 'Equipamentos Fabris' : 'Frota',
+      name: assetsLabel,
       path: '/app/assets',
-      icon: isPlantView ? Wrench : Truck,
-      description: isPlantView ? 'Equipamentos industriais' : 'Registo e frotas de viaturas'
+      icon: assetsIcon,
+      description: isMixedScope && user.role === 'tenant_admin'
+        ? 'Vista unificada de viaturas e equipamentos fabris'
+        : (assetsLabel === 'Equipamentos Fabris' ? 'Equipamentos industriais' : 'Registo e frotas de viaturas')
     });
 
-    // Grupo Manutenção (Acordeão com Ordens de Serviço, Equipes e Plano de Manutenção)
+    // Grupo Manutenção (Planos, Equipes e Ordens de Serviço)
     items.push({
       name: 'Manutenção',
       type: 'accordion',
@@ -373,8 +401,8 @@ export const Layout: React.FC = () => {
       ]
     });
 
-    // Combustível disponível para tenant_admin e supervisor apenas se NÃO for plant
-    if ((user.role === 'tenant_admin' || user.role === 'supervisor') && !isPlantView) {
+    // Combustível disponível apenas se a empresa/escopo opera com viaturas (não fabril exclusivo)
+    if (!isPlantSupervisor && !isPlantTenant) {
       items.push({
         name: 'Combustível',
         path: '/app/fuel',
@@ -383,14 +411,13 @@ export const Layout: React.FC = () => {
       });
     }
 
-    if (user.role === 'tenant_admin' || user.role === 'supervisor') {
-      items.push({
-        name: 'Inventário',
-        path: '/app/inventory',
-        icon: Layers,
-        description: 'Gestão de peças e consumíveis'
-      });
-    }
+    // Inventário
+    items.push({
+      name: 'Inventário',
+      path: '/app/inventory',
+      icon: Layers,
+      description: 'Gestão de peças e consumíveis'
+    });
 
     return items;
   };
@@ -745,31 +772,15 @@ export const Layout: React.FC = () => {
           {/* Lado direito: Notificações, Perfil, Info de Localização Moçambique */}
           <div className="flex items-center gap-3">
             
-            {/* Alternador de Escopo de Negócio (Isolamento rígido - Prompt 4 Requisito 1 & 2) */}
-            {canSwitchScope && (
-              <div className="flex bg-slate-100 p-1 rounded-md border border-slate-200">
-                <button
-                  onClick={() => setCurrentScope('fleet')}
-                  className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all cursor-pointer ${
-                    currentScope === 'fleet'
-                      ? 'bg-blue-700 text-white shadow-none'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Frota
-                </button>
-                <button
-                  onClick={() => setCurrentScope('plant')}
-                  className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all cursor-pointer ${
-                    currentScope === 'plant'
-                      ? 'bg-blue-700 text-white shadow-none'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Fábrica
-                </button>
-              </div>
-            )}
+            {/* Indicador Informativo de Âmbito Operacional */}
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-md border border-slate-200 text-xs font-semibold text-slate-700">
+              <span className={`w-2 h-2 rounded-full ${isMixedScope ? 'bg-indigo-600' : currentScope === 'plant' ? 'bg-amber-600' : 'bg-blue-600'}`}></span>
+              <span>
+                {isMixedScope
+                  ? 'Frota & Fábrica (Vista Unificada)'
+                  : (currentScope === 'plant' || user?.operational_scope === 'plant' ? 'Fábrica / Fabril' : 'Frota')}
+              </span>
+            </div>
 
 
 
