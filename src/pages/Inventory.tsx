@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { TablePagination } from '../components/TablePagination';
 import { createPortal } from 'react-dom';
 import { api, getApiErrorMessage } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -80,6 +81,8 @@ export const InventoryPage: React.FC = () => {
   const [deletingPart, setDeletingPart] = useState<Part | null>(null);
 
   const [activePartForMenu, setActivePartForMenu] = useState<Part | null>(null);
+  const [invPage, setInvPage] = useState(1);
+  const [invItemsPerPage, setInvItemsPerPage] = useState(10);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
 
   const handleToggleMenu = (e: React.MouseEvent<HTMLButtonElement>, part: Part) => {
@@ -646,7 +649,7 @@ export const InventoryPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredParts.map((part) => {
+                {filteredParts.slice((invPage - 1) * invItemsPerPage, invPage * invItemsPerPage).map((part) => {
                   const oemRef = part.part_number || part.oem_reference || part.oemReference || 'S/N';
                   const loc = part.location || part.warehouse_location || part.warehouseLocation || 'Geral';
                   const currentStock = Number(part.current_stock ?? part.currentStock ?? 0);
@@ -656,7 +659,7 @@ export const InventoryPage: React.FC = () => {
                   
                   return (
                     <tr key={part.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-semibold text-blue-700">
+                      <td className="py-3.5 px-4 font-mono font-semibold text-slate-900">
                         {oemRef}
                       </td>
                       <td className="py-3.5 px-4">
@@ -672,16 +675,9 @@ export const InventoryPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        {isLowStock ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200">
-                            <AlertTriangle size={10} className="animate-pulse text-red-600" />
-                            <span>{currentStock} un</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                            {currentStock} un
-                          </span>
-                        )}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-800 border border-slate-200">
+                          {currentStock} un
+                        </span>
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono text-slate-900 font-bold">
                         {formatMZN(unitCost)}
@@ -707,6 +703,13 @@ export const InventoryPage: React.FC = () => {
                 })}
               </tbody>
             </table>
+            <TablePagination
+              currentPage={invPage}
+              totalItems={filteredParts.length}
+              itemsPerPage={invItemsPerPage}
+              onPageChange={setInvPage}
+              onItemsPerPageChange={setInvItemsPerPage}
+            />
           </div>
         )}
       </div>

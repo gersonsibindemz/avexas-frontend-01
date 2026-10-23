@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { TablePagination } from '../components/TablePagination';
 import { api, getApiErrorMessage } from '../services/api';
 import { useAuth, useSuspensionGuard } from '../contexts/AuthContext';
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -76,6 +77,8 @@ export const FuelPage: React.FC = () => {
 
   // Estados de pesquisa e filtragem
   const [searchQuery, setSearchQuery] = useState('');
+  const [fuelPage, setFuelPage] = useState(1);
+  const [fuelItemsPerPage, setFuelItemsPerPage] = useState(10);
   const [fuelTypeFilter, setFuelTypeFilter] = useState('all');
 
   // Modais e Toasts
@@ -635,7 +638,7 @@ export const FuelPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredLogs.map((log) => {
+                {filteredLogs.slice((fuelPage - 1) * fuelItemsPerPage, fuelPage * fuelItemsPerPage).map((log) => {
                   const matchingAsset = assets.find(a => a.id === log.asset_id || a.id === log.assetId);
                   
                   let assetCode = log.asset_code_tag || log.asset?.code_tag || log.asset_id?.substring(0, 8) || '---';
@@ -661,7 +664,7 @@ export const FuelPage: React.FC = () => {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex flex-col">
-                          <span className="font-mono text-blue-700 text-xs font-bold">{assetCode}</span>
+                          <span className="font-mono text-slate-900 text-xs font-bold">{assetCode}</span>
                           <span className="text-xs text-slate-500">{assetLabel}</span>
                         </div>
                       </td>
@@ -674,7 +677,7 @@ export const FuelPage: React.FC = () => {
                       <td className="py-3 px-4 text-right font-mono text-xs text-slate-500">
                         {formatMZN(price)}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono text-xs text-blue-700 font-bold">
+                      <td className="py-3 px-4 text-right font-mono text-xs text-slate-900 font-bold">
                         {formatMZN(cost)}
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-xs text-slate-700 tabular-nums">
@@ -691,6 +694,13 @@ export const FuelPage: React.FC = () => {
                 })}
               </tbody>
             </table>
+            <TablePagination
+              currentPage={fuelPage}
+              totalItems={filteredLogs.length}
+              itemsPerPage={fuelItemsPerPage}
+              onPageChange={setFuelPage}
+              onItemsPerPageChange={setFuelItemsPerPage}
+            />
           </div>
         )}
       </div>

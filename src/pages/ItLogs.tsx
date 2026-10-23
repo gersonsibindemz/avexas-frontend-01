@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { TablePagination } from '../components/TablePagination';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import SecondaryView from '../components/SecondaryView';
@@ -56,6 +57,8 @@ export const ItLogsPage: React.FC = () => {
 
   // Filtros
   const [searchQuery, setSearchQuery] = useState('');
+  const [logPage, setLogPage] = useState(1);
+  const [logItemsPerPage, setLogItemsPerPage] = useState(10);
   const [typeFilter, setTypeFilter] = useState<'all' | 'success' | 'error'>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -440,7 +443,7 @@ export const ItLogsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredLogs.map((log) => {
+                {filteredLogs.slice((logPage - 1) * logItemsPerPage, logPage * logItemsPerPage).map((log) => {
                   const isSelected = selectedLogIds.includes(log.id);
                   const isError = log.log_type === 'error';
 
@@ -543,6 +546,13 @@ export const ItLogsPage: React.FC = () => {
                 })}
               </tbody>
             </table>
+            <TablePagination
+              currentPage={logPage}
+              totalItems={filteredLogs.length}
+              itemsPerPage={logItemsPerPage}
+              onPageChange={setLogPage}
+              onItemsPerPageChange={setLogItemsPerPage}
+            />
           </div>
         </div>
       )}

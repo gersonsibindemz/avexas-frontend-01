@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { TablePagination } from '../components/TablePagination';
 import { createPortal } from 'react-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -97,6 +98,8 @@ export interface MaintenancePlan {
 }
 
 export const MaintenancePlansPage: React.FC = () => {
+  const [planPage, setPlanPage] = useState(1);
+  const [planItemsPerPage, setPlanItemsPerPage] = useState(10);
   const { user, isTechnician, currentScope } = useAuth();
   const domainConfig = useCurrentDomain();
   const { domain } = domainConfig;
@@ -789,7 +792,7 @@ export const MaintenancePlansPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-800">
-                {filteredPlans.map((plan) => {
+                {filteredPlans.slice((planPage - 1) * planItemsPerPage, planPage * planItemsPerPage).map((plan) => {
                   const isActive = plan.is_active ?? plan.status === 'active';
                   const tType = plan.trigger_type || plan.triggerType;
                   const intDays = plan.interval_days || plan.intervalDays;
@@ -805,7 +808,7 @@ export const MaintenancePlansPage: React.FC = () => {
                   return (
                     <tr key={plan.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-4 font-medium">
-                        <span className="text-[10px] text-blue-700 font-mono font-bold block">{plan.code || `PLN-${plan.id.substring(0, 5)}`}</span>
+                        <span className="text-[10px] text-slate-900 font-mono font-bold block">{plan.code || `PLN-${plan.id.substring(0, 5)}`}</span>
                         <span className="text-xs text-slate-900 font-semibold">{plan.title}</span>
                       </td>
 
@@ -873,6 +876,13 @@ export const MaintenancePlansPage: React.FC = () => {
                 })}
               </tbody>
             </table>
+            <TablePagination
+              currentPage={planPage}
+              totalItems={filteredPlans.length}
+              itemsPerPage={planItemsPerPage}
+              onPageChange={setPlanPage}
+              onItemsPerPageChange={setPlanItemsPerPage}
+            />
           </div>
         )}
       </div>

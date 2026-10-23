@@ -17,6 +17,14 @@ import {
   getCategoriesForScope
 } from '../config/fleetCategories';
 import { SecondaryView } from '../components/SecondaryView';
+import { TablePagination } from '../components/TablePagination';
+import { CustomizeColumnsModal, ColumnDefinition } from '../components/CustomizeColumnsModal';
+import { AssetDetailsModal } from '../components/AssetDetailsModal';
+import { RegisterMaintenanceModal } from '../components/RegisterMaintenanceModal';
+import { UpdateMeterModal } from '../components/UpdateMeterModal';
+import { MaintenanceHistoryModal } from '../components/MaintenanceHistoryModal';
+import { exportAssetsListToExcel, exportAssetTechSheetToExcel } from '../utils/excelExport';
+import { Filter, ChevronDown } from 'lucide-react';
 import { useAlert, triggerGlobalConfirm } from '../contexts/AlertContext';
 import QRCode from 'qrcode';
 import {
@@ -146,9 +154,15 @@ interface Asset {
   photo_url?: string;
   photoUrl?: string;
   company?: string;
+  department?: string;
   location?: string;
   responsible?: string;
+  operator_driver?: string;
   notes?: string;
+  operational_notes?: string;
+  licenses_certificates_notes?: string;
+  meter_unit?: string;
+  meterUnit?: string;
   initial_km?: number;
   initialKm?: number;
   current_km?: number;
@@ -458,6 +472,102 @@ export const AssetsPage: React.FC = () => {
   useEscapeKey(() => setIsDeleteModalOpen(false), isDeleteModalOpen);
   useEscapeKey(() => setIsCombinationsModalOpen(false), isCombinationsModalOpen);
   useEscapeKey(() => setIsReportsModalOpen(false), isReportsModalOpen);
+
+  // ==========================================
+  // CONFIGURAÇÃO DE COLUNAS PERSONALIZÁVEIS
+  // ==========================================
+  const DEFAULT_ASSET_COLUMNS: ColumnDefinition[] = [
+    { id: 'code_tag', label: 'Código / Tag', visible: true },
+    { id: 'name', label: 'Ativo / Equipamento', visible: true },
+    { id: 'category', label: 'Categoria', visible: true },
+    { id: 'cost_center', label: 'Centro de Custo', visible: true },
+    { id: 'criticality_level', label: 'Criticidade', visible: true },
+    { id: 'status', label: 'Estado', visible: true },
+    { id: 'license_plate', label: 'Placa / Identificação', visible: false },
+    { id: 'brand_model', label: 'Marca / Modelo', visible: false },
+    { id: 'location', label: 'Localização / Base', visible: false },
+    { id: 'department', label: 'Departamento', visible: false },
+    { id: 'current_meter', label: 'Medidor Atual', visible: false },
+    { id: 'operator_driver', label: 'Operador / Motorista', visible: false },
+    { id: 'responsible', label: 'Responsável', visible: false },
+  ];
+
+  const [tableColumns, setTableColumns] = useState<ColumnDefinition[]>(() => {
+    try {
+      const saved = localStorage.getItem('avexas_assets_columns');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar colunas salvas:', e);
+    }
+    return DEFAULT_ASSET_COLUMNS;
+  });
+
+  const [isCustomizeColumnsOpen, setIsCustomizeColumnsOpen] = useState(false);
+  const handleApplyColumnLayout = (newCols: ColumnDefinition[]) => {
+    setTableColumns(newCols);
+    try {
+      localStorage.setItem('avexas_assets_columns', JSON.stringify(newCols));
+    } catch (e) {
+      console.warn('Erro ao guardar colunas:', e);
+    }
+  };
+  const handleResetColumnLayout = () => {
+    setTableColumns(DEFAULT_ASSET_COLUMNS);
+    try {
+      localStorage.removeItem('avexas_assets_columns');
+    } catch (e) {
+      console.warn('Erro ao limpar colunas:', e);
+    }
+  };
+
+  // ==========================================
+  // FILTRAGEM DIRETA POR COLUNA
+  // ==========================================
+  const [showColumnFilters, setShowColumnFilters] = useState(false);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+
+  // ==========================================
+  // FERRAMENTAS DA LISTA (MENU SUSPENSO)
+  // ==========================================
+  const [isListToolsOpen, setIsListToolsOpen] = useState(false);
+  const listToolsRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (listToolsRef.current && !listToolsRef.current.contains(e.target as Node)) {
+        setIsListToolsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  // ==========================================
+  // PAGINAÇÃO DA TABELA (10, 20, 50 ITENS)
+  // ==========================================
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // ==========================================
+  // MODAIS DAS 8 AÇÕES POR LINHA
+  // ==========================================
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedDetailAsset, setSelectedDetailAsset] = useState<Asset | null>(null);
+
+  const [isRegisterMaintenanceOpen, setIsRegisterMaintenanceOpen] = useState(false);
+  const [selectedMaintenanceAsset, setSelectedMaintenanceAsset] = useState<Asset | null>(null);
+
+  const [isUpdateMeterOpen, setIsUpdateMeterOpen] = useState(false);
+  const [selectedMeterAsset, setSelectedMeterAsset] = useState<Asset | null>(null);
+
+  const [isMaintenanceHistoryOpen, setIsMaintenanceHistoryOpen] = useState(false);
+  const [selectedHistoryAsset, setSelectedHistoryAsset] = useState<Asset | null>(null);
+
+  // Permissão de acesso exclusivo a Ferramentas da Lista e Menu de Ações
+  const canAccessListTools = user?.role === 'tenant_admin' || user?.role === 'supervisor' || user?.role === 'super_admin';
+  const canAccessActionMenu = user?.role === 'tenant_admin' || user?.role === 'supervisor' || user?.role === 'super_admin';
 
   // Dropdown de Ações por Linha via Portal (Camada Superior z-[9999] conforme padrão do Inventário)
   const [activeAssetForMenu, setActiveAssetForMenu] = useState<Asset | null>(null);
@@ -2009,8 +2119,85 @@ export const AssetsPage: React.FC = () => {
       }
     }
 
+    // Filtragem direta por coluna (em tempo real)
+    for (const [colId, filterVal] of Object.entries(columnFilters)) {
+      if (!filterVal || !filterVal.trim()) continue;
+      const term = filterVal.trim().toLowerCase();
+      let cellText = '';
+      switch (colId) {
+        case 'code_tag':
+          cellText = (asset.code_tag || asset.codeTag || '').toLowerCase();
+          break;
+        case 'name':
+          cellText = (asset.name || '').toLowerCase();
+          break;
+        case 'category':
+          cellText = (formatCategory(asset.category) || '').toLowerCase();
+          break;
+        case 'license_plate':
+          cellText = (asset.license_plate || asset.licensePlate || '').toLowerCase();
+          break;
+        case 'brand_model':
+          cellText = `${asset.brand || ''} ${asset.model || ''}`.toLowerCase();
+          break;
+        case 'cost_center':
+          cellText = (asset.cost_center || asset.costCenter || '').toLowerCase();
+          break;
+        case 'department':
+          cellText = (asset.department || '').toLowerCase();
+          break;
+        case 'location':
+          cellText = (asset.location || '').toLowerCase();
+          break;
+        case 'current_meter':
+          cellText = String(asset.current_meter ?? asset.currentMeter ?? '').toLowerCase();
+          break;
+        case 'operator_driver':
+          cellText = (asset.operator_driver || '').toLowerCase();
+          break;
+        case 'responsible':
+          cellText = (asset.responsible || '').toLowerCase();
+          break;
+        case 'criticality_level':
+          cellText = (asset.criticality_level || asset.criticalityLevel || '').toLowerCase();
+          break;
+        case 'status':
+          cellText = (asset.status || '').toLowerCase();
+          break;
+        default:
+          cellText = String((asset as any)[colId] || '').toLowerCase();
+      }
+      if (!cellText.includes(term)) return false;
+    }
+
     return matchesSearch && matchesCategory && matchesScope;
   });
+
+  const handleToggleAssetStatus = async (asset: Asset) => {
+    const newStatus = asset.status === 'inactive' ? 'operational' : 'inactive';
+    const label = newStatus === 'inactive' ? 'inativo' : 'operacional';
+    try {
+      await api.patch(`/assets/${asset.id}`, { status: newStatus });
+      showAlert({
+        title: 'Estado Atualizado',
+        message: `Equipamento ${asset.code_tag || asset.name} marcado como ${label}.`,
+        type: 'success',
+      });
+      fetchAssets(true);
+    } catch (err: any) {
+      console.error('Erro ao alternar status do ativo:', err);
+      showAlert({
+        title: 'Erro ao Atualizar',
+        message: err.response?.data?.message || err.response?.data?.error || 'Não foi possível alterar o estado do ativo.',
+        type: 'error',
+      });
+    }
+  };
+
+  const paginatedAssets = filteredAssets.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const tractorAssets = assets.filter((asset) => {
     const type = (asset.asset_type || asset.assetType || '').toLowerCase();
@@ -2118,7 +2305,104 @@ export const AssetsPage: React.FC = () => {
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {/* Botão Ferramentas da Lista (Exclusivo tenant_admin e supervisor) */}
+          {canAccessListTools && (
+            <div className="relative" ref={listToolsRef}>
+              <button
+                type="button"
+                onClick={() => setIsListToolsOpen((prev) => !prev)}
+                className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs font-semibold py-2.5 px-3.5 rounded-md flex items-center gap-2 transition-colors cursor-pointer shadow-2xs"
+                title="Ferramentas da Lista"
+              >
+                <SlidersHorizontal size={14} className="text-slate-600" />
+                <span>Ferramentas da Lista</span>
+                <ChevronDown size={13} className={`text-slate-500 transition-transform ${isListToolsOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Menu Suspenso de Ferramentas da Lista */}
+              {isListToolsOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-64 bg-white border border-slate-200 rounded-lg shadow-xl z-30 py-2 divide-y divide-slate-100 text-xs text-left animate-in fade-in zoom-in-95 duration-100">
+                  <div className="pb-1.5">
+                    <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Exportação (Excel)
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsListToolsOpen(false);
+                        exportAssetsListToExcel(
+                          filteredAssets,
+                          `Ativos_Filtrados_${new Date().toISOString().split('T')[0]}`,
+                          formatCategory
+                        );
+                        showAlert({
+                          title: 'Exportação Concluída',
+                          message: `${filteredAssets.length} registos filtrados exportados para Excel com sucesso.`,
+                          type: 'success',
+                        });
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 text-slate-700 flex items-center gap-2.5 cursor-pointer transition-colors"
+                    >
+                      <FileSpreadsheet size={14} className="text-emerald-600" />
+                      <span>Exportar lista filtrada ({filteredAssets.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsListToolsOpen(false);
+                        exportAssetsListToExcel(
+                          assets,
+                          `Todos_Equipamentos_${new Date().toISOString().split('T')[0]}`,
+                          formatCategory
+                        );
+                        showAlert({
+                          title: 'Exportação Concluída',
+                          message: `${assets.length} equipamentos exportados para Excel com sucesso.`,
+                          type: 'success',
+                        });
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 text-slate-700 flex items-center gap-2.5 cursor-pointer transition-colors"
+                    >
+                      <FileSpreadsheet size={14} className="text-blue-600" />
+                      <span>Exportar todos os equipamentos ({assets.length})</span>
+                    </button>
+                  </div>
+
+                  <div className="pt-1.5">
+                    <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Personalização
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsListToolsOpen(false);
+                        setIsCustomizeColumnsOpen(true);
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 text-slate-700 flex items-center gap-2.5 cursor-pointer transition-colors"
+                    >
+                      <SlidersHorizontal size={14} className="text-slate-500" />
+                      <span>Personalizar colunas</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsListToolsOpen(false);
+                        setShowColumnFilters((prev) => !prev);
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 text-slate-700 flex items-center gap-2.5 cursor-pointer transition-colors"
+                    >
+                      <Filter size={14} className="text-slate-500" />
+                      <span>{showColumnFilters ? 'Ocultar filtros por coluna' : 'Exibir filtros por coluna'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <button
             onClick={fetchAssets}
             disabled={loading}
@@ -2208,6 +2492,61 @@ export const AssetsPage: React.FC = () => {
         </div>
       </div>
 
+      {/* 1. Resumo Numérico no Topo da Página de Ativos */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+        <div className="bg-white border border-slate-200 rounded-md p-3.5 shadow-none">
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+            Total de Ativos
+          </span>
+          <span className="text-xl font-bold text-slate-900 mt-1 block">
+            {filteredAssets.length}
+          </span>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">
+            {assets.length !== filteredAssets.length ? `de ${assets.length} no total` : 'visíveis no momento'}
+          </span>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-md p-3.5 shadow-none">
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+            Operacionais / Ativos
+          </span>
+          <span className="text-xl font-bold text-slate-900 mt-1 block">
+            {filteredAssets.filter((a) => a.status === 'operational' || a.status === 'active').length}
+          </span>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">Em serviço normal</span>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-md p-3.5 shadow-none">
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+            Em Manutenção
+          </span>
+          <span className="text-xl font-bold text-slate-900 mt-1 block">
+            {filteredAssets.filter((a) => a.status === 'under_maintenance').length}
+          </span>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">Na oficina / revisão</span>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-md p-3.5 shadow-none">
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+            Avariados
+          </span>
+          <span className="text-xl font-bold text-slate-900 mt-1 block">
+            {filteredAssets.filter((a) => a.status === 'breakdown').length}
+          </span>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">Paragens forçadas</span>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-md p-3.5 shadow-none">
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+            Inativos / Abatidos
+          </span>
+          <span className="text-xl font-bold text-slate-900 mt-1 block">
+            {filteredAssets.filter((a) => a.status === 'inactive' || a.status === 'decommissioned').length}
+          </span>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">Fora de escala</span>
+        </div>
+      </div>
+
       {/* Exibição condicional: Rascunhos Salvos ou Tabela de Ativos Oficiais */}
       {assetsViewMode === 'drafts' ? (
         <DraftsListView
@@ -2242,83 +2581,200 @@ export const AssetsPage: React.FC = () => {
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-600 text-xs uppercase bg-slate-50">
-                  <th className="py-3 px-4 font-semibold">Código / Tag</th>
-                  <th className="py-3 px-4 font-semibold">Ativo / Equipamento</th>
-                  <th className="py-3 px-4 font-semibold">Categoria</th>
-                  <th className="py-3 px-4 font-semibold">Centro de Custo</th>
-                  <th className="py-3 px-4 font-semibold text-center">Criticidade</th>
-                  <th className="py-3 px-4 font-semibold text-center">Estado</th>
-                  <th className="py-3 px-4 font-semibold text-center">Ações</th>
+                  {tableColumns.filter((c) => c.visible).map((col) => (
+                    <th
+                      key={col.id}
+                      className={`py-3 px-4 font-semibold ${
+                        col.id === 'criticality_level' || col.id === 'status' ? 'text-center' : 'text-left'
+                      }`}
+                    >
+                      {col.label}
+                    </th>
+                  ))}
+                  {canAccessActionMenu && (
+                    <th className="py-3 px-4 font-semibold text-center w-20">Ações</th>
+                  )}
                 </tr>
+
+                {/* 3. Linha de Filtragem Direta por Coluna */}
+                {showColumnFilters && (
+                  <tr className="bg-slate-50/90 border-b border-slate-200">
+                    {tableColumns.filter((c) => c.visible).map((col) => (
+                      <th key={`filter-${col.id}`} className="py-2 px-3 font-normal">
+                        <input
+                          type="text"
+                          placeholder="Filtrar..."
+                          value={columnFilters[col.id] || ''}
+                          onChange={(e) => {
+                            setColumnFilters((prev) => ({ ...prev, [col.id]: e.target.value }));
+                            setCurrentPage(1);
+                          }}
+                          className="w-full bg-white border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 shadow-2xs font-normal"
+                        />
+                      </th>
+                    ))}
+                    {canAccessActionMenu && (
+                      <th className="py-2 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setColumnFilters({});
+                            setCurrentPage(1);
+                          }}
+                          className="text-xs font-semibold text-blue-700 hover:text-blue-900 underline cursor-pointer"
+                        >
+                          Limpar
+                        </button>
+                      </th>
+                    )}
+                  </tr>
+                )}
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredAssets.map((asset, index) => {
+                {paginatedAssets.map((asset) => {
                   const tag = asset.code_tag || asset.codeTag || 'AUTO-TAG';
                   const level = asset.criticality_level || asset.criticalityLevel || 'B';
-                    return (
+                  const visibleCols = tableColumns.filter((c) => c.visible);
+
+                  return (
                     <tr key={asset.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-blue-700">{tag}</span>
-                          {isMixedScope && (
-                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${
-                              asset.domain === 'plant' || asset.category === 'generator' || asset.category === 'machinery' || asset.category === 'plant_equipment'
-                                ? 'bg-purple-50 text-purple-700 border-purple-200'
-                                : 'bg-blue-50 text-blue-700 border-blue-200'
-                            }`}>
-                              {asset.domain === 'plant' || asset.category === 'generator' || asset.category === 'machinery' || asset.category === 'plant_equipment' ? 'Fábrica' : 'Frota'}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex flex-col">
-                          <span className="text-slate-900 font-medium text-sm">{asset.name}</span>
-                          <span className="text-xs text-slate-500 mt-0.5">{asset.brand} {asset.model}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-xs text-slate-600">
-                        {formatCategory(asset.category)}
-                      </td>
-                      <td className="py-3 px-4 text-xs text-slate-600">
-                        {asset.cost_center || asset.costCenter}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium border ${
-                          level === 'A' 
-                            ? 'bg-red-50 text-red-700 border-red-200' 
-                            : level === 'B' 
-                            ? 'bg-amber-50 text-amber-700 border-amber-200' 
-                            : 'bg-blue-50 text-blue-700 border-blue-200'
-                        }`}>
-                          Nível {level}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        {renderStatusBadge(asset.status)}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <div className="flex items-center justify-center">
-                          <button
-                            type="button"
-                            onClick={(e) => handleToggleAssetMenu(e, asset)}
-                            className={`p-1.5 rounded-md transition-all cursor-pointer flex items-center justify-center border ${
-                              activeAssetForMenu?.id === asset.id
-                                ? 'bg-blue-100 text-blue-700 border-blue-300 shadow-sm'
-                                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 border-transparent hover:border-slate-200'
-                            }`}
-                            title="Ações do Ativo"
-                            aria-label="Ações do Ativo"
-                          >
-                            <MoreVertical size={16} />
-                          </button>
-                        </div>
-                      </td>
+                      {visibleCols.map((col) => {
+                        switch (col.id) {
+                          case 'code_tag':
+                            return (
+                              <td key={col.id} className="py-3 px-4">
+                                <div className="flex items-center gap-2">
+                                  {/* Cor neutra estrita conforme regra 4b */}
+                                  <span className="font-mono font-bold text-slate-900">{tag}</span>
+                                  {isMixedScope && (
+                                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border bg-slate-100 text-slate-700 border-slate-200">
+                                      {asset.domain === 'plant' || asset.category === 'generator' || asset.category === 'machinery' || asset.category === 'plant_equipment' ? 'Fábrica' : 'Frota'}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          case 'name':
+                            return (
+                              <td key={col.id} className="py-3 px-4">
+                                <div className="flex flex-col">
+                                  <span className="text-slate-900 font-medium text-sm">{asset.name}</span>
+                                  <span className="text-xs text-slate-500 mt-0.5">{asset.brand} {asset.model}</span>
+                                </div>
+                              </td>
+                            );
+                          case 'category':
+                            return (
+                              <td key={col.id} className="py-3 px-4 text-xs text-slate-700">
+                                {formatCategory(asset.category)}
+                              </td>
+                            );
+                          case 'cost_center':
+                            return (
+                              <td key={col.id} className="py-3 px-4 text-xs text-slate-700">
+                                {asset.cost_center || asset.costCenter || '—'}
+                              </td>
+                            );
+                          case 'criticality_level':
+                            return (
+                              <td key={col.id} className="py-3 px-4 text-center">
+                                {/* Cor neutra estrita conforme regra 4b */}
+                                <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-800 border border-slate-200">
+                                  Nível {level}
+                                </span>
+                              </td>
+                            );
+                          case 'status':
+                            return (
+                              <td key={col.id} className="py-3 px-4 text-center">
+                                {/* Exceção única autorizada para cores na coluna Estado */}
+                                {renderStatusBadge(asset.status)}
+                              </td>
+                            );
+                          case 'license_plate':
+                            return (
+                              <td key={col.id} className="py-3 px-4 text-xs text-slate-800 font-medium">
+                                {asset.license_plate || asset.licensePlate || '—'}
+                              </td>
+                            );
+                          case 'brand_model':
+                            return (
+                              <td key={col.id} className="py-3 px-4 text-xs text-slate-700">
+                                {asset.brand} {asset.model}
+                              </td>
+                            );
+                          case 'location':
+                            return (
+                              <td key={col.id} className="py-3 px-4 text-xs text-slate-700">
+                                {asset.location || '—'}
+                              </td>
+                            );
+                          case 'department':
+                            return (
+                              <td key={col.id} className="py-3 px-4 text-xs text-slate-700">
+                                {asset.department || '—'}
+                              </td>
+                            );
+                          case 'current_meter':
+                            return (
+                              <td key={col.id} className="py-3 px-4 text-xs font-mono text-slate-800">
+                                {asset.current_meter ?? asset.currentMeter ?? '—'} {asset.meter_unit || 'Km'}
+                              </td>
+                            );
+                          case 'operator_driver':
+                            return (
+                              <td key={col.id} className="py-3 px-4 text-xs text-slate-700">
+                                {asset.operator_driver || '—'}
+                              </td>
+                            );
+                          case 'responsible':
+                            return (
+                              <td key={col.id} className="py-3 px-4 text-xs text-slate-700">
+                                {asset.responsible || '—'}
+                              </td>
+                            );
+                          default:
+                            return (
+                              <td key={col.id} className="py-3 px-4 text-xs text-slate-700">
+                                {String((asset as any)[col.id] || '—')}
+                              </td>
+                            );
+                        }
+                      })}
+
+                      {canAccessActionMenu && (
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={(e) => handleToggleAssetMenu(e, asset)}
+                              className={`p-1.5 rounded-md transition-all cursor-pointer flex items-center justify-center border ${
+                                activeAssetForMenu?.id === asset.id
+                                  ? 'bg-blue-100 text-blue-700 border-blue-300 shadow-sm'
+                                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 border-transparent hover:border-slate-200'
+                              }`}
+                              title="Ações do Ativo"
+                              aria-label="Ações do Ativo"
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+
+            {/* 4a. Paginação Padrão (10, 20, 50 itens por página) */}
+            <TablePagination
+              currentPage={currentPage}
+              totalItems={filteredAssets.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={setItemsPerPage}
+            />
           </div>
         )}
       </div>
@@ -4085,8 +4541,9 @@ export const AssetsPage: React.FC = () => {
         onCancel={() => setIsDraftConfirmOpen(false)}
       />
 
-      {/* Menu Flutuante de Ações Rápidas do Ativo via Portal (Camada Mais Alta z-[9999]) */}
-      {activeAssetForMenu && assetMenuPosition && createPortal(
+      {/* 5. Menu Flutuante de Ações Rápidas do Ativo via Portal (Camada Mais Alta z-[9999])
+          Exclusivo para tenant_admin e supervisor, exatamente 8 opções, sem ícones, vermelho apenas em Eliminar */}
+      {canAccessActionMenu && activeAssetForMenu && assetMenuPosition && createPortal(
         <>
           <div
             className="fixed inset-0 z-[9998]"
@@ -4101,78 +4558,179 @@ export const AssetsPage: React.FC = () => {
               top: `${assetMenuPosition.top}px`,
               left: `${assetMenuPosition.left}px`,
             }}
-            className="w-48 bg-white border border-slate-200 rounded-lg shadow-2xl z-[9999] py-1 divide-y divide-slate-100 text-xs text-left animate-in fade-in zoom-in-95 duration-100"
+            className="w-56 bg-white border border-slate-200 rounded-lg shadow-2xl z-[9999] py-1 text-xs text-left animate-in fade-in zoom-in-95 duration-100"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="py-1">
-              <button
-                type="button"
-                onClick={() => {
-                  const target = activeAssetForMenu;
-                  setActiveAssetForMenu(null);
-                  setAssetMenuPosition(null);
-                  setSelectedDocAsset(target);
-                  setIsDocModalOpen(true);
-                  loadDocuments(target.id);
-                }}
-                className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-              >
-                <FileText size={14} className="text-slate-400" />
-                <span>Documentos</span>
-              </button>
+            <button
+              type="button"
+              onClick={() => {
+                const target = activeAssetForMenu;
+                setActiveAssetForMenu(null);
+                setAssetMenuPosition(null);
+                setSelectedDetailAsset(target);
+                setIsDetailModalOpen(true);
+              }}
+              className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              Ver ficha do equipamento
+            </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  const target = activeAssetForMenu;
-                  setActiveAssetForMenu(null);
-                  setAssetMenuPosition(null);
-                  setSelectedQrAsset(target);
-                  setIsQrModalOpen(true);
-                }}
-                className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-              >
-                <QrCode size={14} className="text-slate-400" />
-                <span>Código QR / Etiqueta</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const target = activeAssetForMenu;
+                setActiveAssetForMenu(null);
+                setAssetMenuPosition(null);
+                exportAssetTechSheetToExcel(target, formatCategory);
+                showAlert({
+                  title: 'Ficha Técnica Exportada',
+                  message: `Ficha técnica em Excel de ${target.code_tag || target.name} gerada com sucesso.`,
+                  type: 'success',
+                });
+              }}
+              className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              Baixar ficha técnica (Excel)
+            </button>
 
-            {!isTechnician && !isDriverOperator && (
-              <div className="py-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const target = activeAssetForMenu;
-                    setActiveAssetForMenu(null);
-                    setAssetMenuPosition(null);
-                    handleOpenEditModal(target);
-                  }}
-                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-                >
-                  <Edit2 size={14} className="text-slate-400" />
-                  <span>Editar Ativo</span>
-                </button>
+            <button
+              type="button"
+              onClick={() => {
+                const target = activeAssetForMenu;
+                setActiveAssetForMenu(null);
+                setAssetMenuPosition(null);
+                handleOpenEditModal(target);
+              }}
+              className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              Editar equipamento
+            </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    const target = activeAssetForMenu;
-                    setActiveAssetForMenu(null);
-                    setAssetMenuPosition(null);
-                    setDeletingAsset(target);
-                    setIsDeleteModalOpen(true);
-                  }}
-                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer"
-                >
-                  <Trash2 size={14} className="text-rose-500" />
-                  <span>Arquivar Ativo</span>
-                </button>
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                const target = activeAssetForMenu;
+                setActiveAssetForMenu(null);
+                setAssetMenuPosition(null);
+                setSelectedMaintenanceAsset(target);
+                setIsRegisterMaintenanceOpen(true);
+              }}
+              className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              Registar manutenção
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const target = activeAssetForMenu;
+                setActiveAssetForMenu(null);
+                setAssetMenuPosition(null);
+                setSelectedMeterAsset(target);
+                setIsUpdateMeterOpen(true);
+              }}
+              className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              Atualizar hodómetro/horímetro
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const target = activeAssetForMenu;
+                setActiveAssetForMenu(null);
+                setAssetMenuPosition(null);
+                setSelectedHistoryAsset(target);
+                setIsMaintenanceHistoryOpen(true);
+              }}
+              className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              Histórico de manutenção
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const target = activeAssetForMenu;
+                setActiveAssetForMenu(null);
+                setAssetMenuPosition(null);
+                handleToggleAssetStatus(target);
+              }}
+              className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              {activeAssetForMenu.status === 'inactive' ? 'Marcar como activo' : 'Marcar como inactivo'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const target = activeAssetForMenu;
+                setActiveAssetForMenu(null);
+                setAssetMenuPosition(null);
+                setDeletingAsset(target);
+                setIsDeleteModalOpen(true);
+              }}
+              className="w-full text-left px-4 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer border-t border-slate-100"
+            >
+              Eliminar equipamento
+            </button>
           </div>
         </>,
         document.body
       )}
+
+      {/* Modais de Suporte às 8 Ações e Personalização */}
+      <CustomizeColumnsModal
+        isOpen={isCustomizeColumnsOpen}
+        onClose={() => setIsCustomizeColumnsOpen(false)}
+        availableColumns={tableColumns}
+        onApplyLayout={handleApplyColumnLayout}
+        onResetDefault={handleResetColumnLayout}
+      />
+
+      <AssetDetailsModal
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedDetailAsset(null);
+        }}
+        asset={selectedDetailAsset}
+        formatCategory={formatCategory}
+        onEdit={(asset) => handleOpenEditModal(asset)}
+      />
+
+      <RegisterMaintenanceModal
+        isOpen={isRegisterMaintenanceOpen}
+        onClose={() => {
+          setIsRegisterMaintenanceOpen(false);
+          setSelectedMaintenanceAsset(null);
+        }}
+        asset={selectedMaintenanceAsset}
+        onSuccess={() => fetchAssets(true)}
+      />
+
+      <UpdateMeterModal
+        isOpen={isUpdateMeterOpen}
+        onClose={() => {
+          setIsUpdateMeterOpen(false);
+          setSelectedMeterAsset(null);
+        }}
+        asset={selectedMeterAsset}
+        onSuccess={() => fetchAssets(true)}
+      />
+
+      <MaintenanceHistoryModal
+        isOpen={isMaintenanceHistoryOpen}
+        onClose={() => {
+          setIsMaintenanceHistoryOpen(false);
+          setSelectedHistoryAsset(null);
+        }}
+        asset={selectedHistoryAsset}
+        onNewMaintenance={(asset) => {
+          setSelectedMaintenanceAsset(asset);
+          setIsRegisterMaintenanceOpen(true);
+        }}
+      />
 
     </div>
   );

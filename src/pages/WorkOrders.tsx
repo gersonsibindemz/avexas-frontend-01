@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { TablePagination } from '../components/TablePagination';
 import { createPortal } from 'react-dom';
 import { api, toFiniteNumber } from '../services/api';
 import { useAuth, useSuspensionGuard } from '../contexts/AuthContext';
@@ -152,6 +153,8 @@ interface WorkOrder {
 }
 
 export const WorkOrdersPage: React.FC = () => {
+  const [tablePage, setTablePage] = useState(1);
+  const [tableItemsPerPage, setTableItemsPerPage] = useState(10);
   const { user, currentScope, isTechnician, isDriverOperator } = useAuth();
   const { checkSuspension, handleActionClick } = useSuspensionGuard();
   const { counterLabel, failureCauses, technicianSpecialties, domain } = useCurrentDomain();
@@ -2204,7 +2207,7 @@ export const WorkOrdersPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredOrders.map((order, index) => {
+                  {(viewMode === 'table' ? filteredOrders.slice((tablePage - 1) * tableItemsPerPage, tablePage * tableItemsPerPage) : filteredOrders).map((order, index) => {
                     const matchingAsset = assets.find(a => a.id === order.asset_id || a.id === order.assetId);
                     const assetTag = matchingAsset ? (matchingAsset.code_tag || matchingAsset.codeTag) : 'EQ-GERAL';
                     const assetName = matchingAsset ? matchingAsset.name : (order.asset_name || order.asset?.name || 'Equipamento Geral');
@@ -2222,7 +2225,7 @@ export const WorkOrdersPage: React.FC = () => {
                         onClick={() => handleOpenDrawer(order)}
                         className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                       >
-                        <td className="py-3 px-4 font-mono font-bold text-blue-700 whitespace-nowrap">
+                        <td className="py-3 px-4 font-mono font-bold text-slate-900 whitespace-nowrap">
                           {order.wo_number || order.woNumber || `OS-${order.id.substring(0, 4)}`}
                         </td>
                         <td className="py-3 px-4 max-w-xs">
@@ -2258,7 +2261,9 @@ export const WorkOrdersPage: React.FC = () => {
                           {techDisplay}
                         </td>
                         <td className="py-3 px-4 text-center whitespace-nowrap">
-                          {renderPriorityBadge(priority)}
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-800 border border-slate-200">
+                            {priority === 'urgent' || priority === 'critical' ? 'Urgente' : priority === 'high' ? 'Alta' : priority === 'medium' ? 'Média' : 'Baixa'}
+                          </span>
                         </td>
                         <td className="py-3 px-4 font-mono text-xs text-slate-700 whitespace-nowrap">
                           {formatMeterReading(meterVal, meterUnit)}
@@ -2281,6 +2286,13 @@ export const WorkOrdersPage: React.FC = () => {
                   })}
                 </tbody>
               </table>
+              <TablePagination
+                currentPage={tablePage}
+                totalItems={filteredOrders.length}
+                itemsPerPage={tableItemsPerPage}
+                onPageChange={setTablePage}
+                onItemsPerPageChange={setTableItemsPerPage}
+              />
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

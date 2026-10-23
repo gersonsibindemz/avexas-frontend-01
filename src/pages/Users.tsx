@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { TablePagination } from '../components/TablePagination';
 import { useNavigate } from 'react-router-dom';
 import { api, getApiErrorMessage } from '../services/api';
 import { useAuth, useSuspensionGuard } from '../contexts/AuthContext';
@@ -75,6 +76,8 @@ export const UsersPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [userPage, setUserPage] = useState(1);
+  const [userItemsPerPage, setUserItemsPerPage] = useState(10);
   const [roleFilter, setRoleFilter] = useState('all');
   const [scopeFilter, setScopeFilter] = useState('all');
   const [activityFilter, setActivityFilter] = useState<'all' | 'recent' | 'new_pending'>('all');
@@ -671,11 +674,11 @@ export const UsersPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
-                {filteredUsers.map((u) => (
+                {filteredUsers.slice((userPage - 1) * userItemsPerPage, userPage * userItemsPerPage).map((u) => (
                   <tr key={u.id} className={`hover:bg-slate-50/80 transition-colors ${u.is_active ? '' : 'opacity-60'}`}>
                     <td className="py-3.5 px-4 font-semibold text-slate-900">
                       <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-md bg-blue-50 text-blue-700 font-bold flex items-center justify-center text-xs border border-blue-200">
+                      <div className="w-7 h-7 rounded-md bg-slate-100 text-slate-800 font-bold flex items-center justify-center text-xs border border-slate-200">
                         {u.fullName.substring(0, 2).toUpperCase()}
                       </div>
                       {u.fullName}
@@ -684,7 +687,7 @@ export const UsersPage: React.FC = () => {
                     <td className="py-3.5 px-4 font-mono text-slate-600">{u.email}</td>
                     <td className="py-3.5 px-4">
                       <div className="flex flex-col gap-0.5">
-                        <span className={`inline-flex items-center w-fit px-2 py-0.5 rounded-md text-[10px] font-medium ${getRoleBadgeColor(u.role)}`}>
+                        <span className="inline-flex items-center w-fit px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-800 border border-slate-200">
                           {formatRoleName(u.role)}
                         </span>
                         {u.role === 'technician' && u.specialty && (
@@ -756,6 +759,13 @@ export const UsersPage: React.FC = () => {
                 ))}
               </tbody>
             </table>
+            <TablePagination
+              currentPage={userPage}
+              totalItems={filteredUsers.length}
+              itemsPerPage={userItemsPerPage}
+              onPageChange={setUserPage}
+              onItemsPerPageChange={setUserItemsPerPage}
+            />
           </div>
         </div>
       )}

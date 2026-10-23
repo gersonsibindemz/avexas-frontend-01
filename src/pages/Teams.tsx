@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { TablePagination } from '../components/TablePagination';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Technician } from '../types/technician';
@@ -20,6 +21,8 @@ import {
 } from 'lucide-react';
 
 export const TeamsPage: React.FC = () => {
+  const [teamPage, setTeamPage] = useState(1);
+  const [teamItemsPerPage, setTeamItemsPerPage] = useState(10);
   const [technicians, setTechnicians] = useState<Technician[]>(() => {
     return dataCache.get<Technician[]>('teams') || [];
   });
@@ -123,7 +126,7 @@ export const TeamsPage: React.FC = () => {
       {/* CARDS DE MÉTRICAS REAIS NO TOPO */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white border border-slate-200 rounded-md p-5 flex items-center gap-4 shadow-none">
-          <div className="w-10 h-10 rounded-md bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-md bg-slate-100 text-slate-800 border border-slate-200 flex items-center justify-center shrink-0">
             <Users size={20} />
           </div>
           <div>
@@ -239,7 +242,7 @@ export const TeamsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredTechnicians.map((tech) => {
+                {filteredTechnicians.slice((teamPage - 1) * teamItemsPerPage, teamPage * teamItemsPerPage).map((tech) => {
                   const techName = tech.name || tech.full_name || 'Técnico';
                   const initials = techName
                     .split(' ')
@@ -335,6 +338,13 @@ export const TeamsPage: React.FC = () => {
                 })}
               </tbody>
             </table>
+            <TablePagination
+              currentPage={teamPage}
+              totalItems={filteredTechnicians.length}
+              itemsPerPage={teamItemsPerPage}
+              onPageChange={setTeamPage}
+              onItemsPerPageChange={setTeamItemsPerPage}
+            />
           </div>
         </div>
       )}
