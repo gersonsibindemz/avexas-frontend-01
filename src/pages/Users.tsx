@@ -479,15 +479,7 @@ export const UsersPage: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => selectedTenantId && fetchUsers(selectedTenantId)}
-            disabled={loading}
-            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
-            title="Atualizar lista"
-          >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            <span>Atualizar</span>
-          </button>
+
           <button
             onClick={() => handleActionClick(handleOpenCreateModal)}
             className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
@@ -617,14 +609,6 @@ export const UsersPage: React.FC = () => {
             <option value="recent">Ativos Recentes (&lt; 24h)</option>
             <option value="new_pending">1.º Acesso Pendente (Novos)</option>
           </select>
-          <button
-            onClick={() => fetchUsers(selectedTenantId)}
-            disabled={!selectedTenantId}
-            className="p-2 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 rounded-md border border-slate-300 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Recarregar Lista"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          </button>
         </div>
       </div>
 

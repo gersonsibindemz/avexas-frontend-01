@@ -224,18 +224,6 @@ export const ItLogsPage: React.FC = () => {
             Monitorização operacional, diagnóstico de erros e encaminhamento de fluxos de suporte para todas as empresas e utilizadores ancorados.
           </p>
         </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={fetchLogs}
-            disabled={loading}
-            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
-            title="Atualizar Logs"
-          >
-            <RefreshCw size={15} className={loading ? 'animate-spin text-blue-700' : ''} />
-            <span>Atualizar</span>
-          </button>
-        </div>
       </div>
 
       {/* FEEDBACK DE SUCESSO */}

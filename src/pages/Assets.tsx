@@ -2317,12 +2317,8 @@ export const AssetsPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
-            {isMixedScope ? <Layers className="text-blue-700" size={24} /> : (domain === 'plant' ? <Wrench className="text-blue-700" size={24} /> : <Truck className="text-blue-700" size={24} />)}
-            <span>
-              {isMixedScope
-                ? (user?.role === 'supervisor' ? (user.operational_scope === 'plant' ? 'Equipamentos Fabris' : 'Frota') : 'Ativos e Frotas (Vista Unificada)')
-                : (domain === 'plant' ? 'Equipamentos Fabris' : 'Frota')}
-            </span>
+            <Layers className="text-blue-700" size={24} />
+            <span>Todos os Ativos</span>
             {loading && <Loader2 size={18} className="animate-spin text-slate-400" />}
           </h1>
         </div>
@@ -2424,13 +2420,7 @@ export const AssetsPage: React.FC = () => {
             </div>
           )}
 
-          <button
-            onClick={fetchAssets}
-            disabled={loading}
-            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-colors cursor-pointer"
-          >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          </button>
+
           {!isTechnician && !isDriverOperator && (
             <button
               onClick={handleOpenCreateModal}

@@ -110,17 +110,7 @@ export const TeamsPage: React.FC = () => {
           </h1>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => fetchTeam(true)}
-            disabled={loading}
-            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2 text-xs font-medium"
-            title="Atualizar dados"
-          >
-            <RefreshCw size={15} className={loading ? 'animate-spin text-blue-700' : ''} />
-            <span>Atualizar Equipes</span>
-          </button>
-        </div>
+
       </div>
 
       {/* CARDS DE MÉTRICAS REAIS NO TOPO */}

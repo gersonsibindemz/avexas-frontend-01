@@ -224,7 +224,7 @@ const RootRedirect: React.FC = () => {
     return <Navigate to="/app/work-orders" replace />;
   }
 
-  return <Navigate to="/app/dashboard" replace />;
+  return <Navigate to="/app/assets" replace />;
 };
 
 // Guard para proteger módulos de gestão contra driver_operator e technician

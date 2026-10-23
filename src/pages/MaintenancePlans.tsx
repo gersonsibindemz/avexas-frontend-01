@@ -665,15 +665,6 @@ export const MaintenancePlansPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={fetchPlans}
-            disabled={loading}
-            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer disabled:opacity-50"
-            title="Recarregar"
-          >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          </button>
-
           {!isTechnician && (
             <button
               onClick={handleOpenCreateModal}

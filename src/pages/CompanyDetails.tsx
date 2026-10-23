@@ -130,15 +130,6 @@ export const CompanyDetailsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={fetchCompanyData}
-            disabled={loading}
-            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-colors cursor-pointer"
-            title="Atualizar dados"
-          >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-          </button>
-
           {/* Botão de Exportação Completa de Dados da Empresa */}
           <button
             onClick={handleExportCompanyData}

@@ -514,15 +514,6 @@ export const InventoryPage: React.FC = () => {
         </div>
         <div className="flex gap-2 shrink-0">
           <button
-            onClick={fetchInventory}
-            disabled={loading}
-            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer"
-            title="Recarregar"
-          >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          </button>
-          
-          <button
             onClick={handleOpenCreateModal}
             className="bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
           >

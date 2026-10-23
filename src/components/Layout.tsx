@@ -355,53 +355,47 @@ export const Layout: React.FC = () => {
     const isPlantSupervisor = user.role === 'supervisor' && user.operational_scope === 'plant';
     const isPlantTenant = !isMixedScope && (user.operational_scope === 'plant' || user.tenant?.operational_scope === 'plant' || currentScope === 'plant');
 
+    // 1. Nome dinâmico do botão no menu lateral conforme o operational_scope da empresa:
+    // Se forem ambos os dois (misto) -> "Frota e Equipamentos"
+    // Se for apenas fábrica -> "Equipamentos"
+    // Se for apenas frota -> "Frota"
+    const assetsLabel = isMixedScope
+      ? (user.role === 'supervisor' && user.operational_scope
+          ? (isPlantSupervisor ? 'Equipamentos' : 'Frota')
+          : 'Frota e Equipamentos')
+      : (isPlantSupervisor || isPlantTenant ? 'Equipamentos' : 'Frota');
+    const assetsIcon = (isPlantSupervisor || isPlantTenant) ? Wrench : (isMixedScope ? Layers : Truck);
+
     items.push({
+      name: assetsLabel,
+      path: '/app/assets',
+      icon: assetsIcon,
+      description: isMixedScope
+        ? 'Gestão de viaturas da frota e equipamentos fabris'
+        : (assetsLabel === 'Equipamentos' ? 'Gestão de equipamentos industriais' : 'Registo e controlo de frotas de viaturas')
+    });
+
+    // Desativados temporariamente no menu a pedido do utilizador (Dashboard, Manutenção, Combustível, Inventário):
+    // Reativar depois conforme instrução.
+    /*
+    items.unshift({
       name: 'Dashboard',
       path: '/app/dashboard',
       icon: LayoutDashboard,
       description: 'Indicadores e estado operacional'
     });
 
-    // Unificação da Vista de Frota e Fábrica para tenants com escopo misto
-    const assetsLabel = isMixedScope
-      ? (user.role === 'supervisor' ? (isPlantSupervisor ? 'Equipamentos Fabris' : 'Frota') : 'Ativos e Frotas')
-      : (isPlantSupervisor || isPlantTenant ? 'Equipamentos Fabris' : 'Frota');
-    const assetsIcon = (isPlantSupervisor || isPlantTenant) ? Wrench : Truck;
-
-    items.push({
-      name: assetsLabel,
-      path: '/app/assets',
-      icon: assetsIcon,
-      description: isMixedScope && user.role === 'tenant_admin'
-        ? 'Vista unificada de viaturas e equipamentos fabris'
-        : (assetsLabel === 'Equipamentos Fabris' ? 'Equipamentos industriais' : 'Registo e frotas de viaturas')
-    });
-
-    // Grupo Manutenção (Planos, Equipes e Ordens de Serviço)
     items.push({
       name: 'Manutenção',
       type: 'accordion',
       icon: Wrench,
       subItems: [
-        {
-          name: 'Planos',
-          path: '/app/maintenance-plans',
-          icon: Calendar
-        },
-        {
-          name: 'Equipes',
-          path: '/app/teams',
-          icon: Users
-        },
-        {
-          name: 'Ordens',
-          path: '/app/work-orders',
-          icon: ClipboardList
-        }
+        { name: 'Planos', path: '/app/maintenance-plans', icon: Calendar },
+        { name: 'Equipes', path: '/app/teams', icon: Users },
+        { name: 'Ordens', path: '/app/work-orders', icon: ClipboardList }
       ]
     });
 
-    // Combustível disponível apenas se a empresa/escopo opera com viaturas (não fabril exclusivo)
     if (!isPlantSupervisor && !isPlantTenant) {
       items.push({
         name: 'Combustível',
@@ -411,13 +405,13 @@ export const Layout: React.FC = () => {
       });
     }
 
-    // Inventário
     items.push({
       name: 'Inventário',
       path: '/app/inventory',
       icon: Layers,
       description: 'Gestão de peças e consumíveis'
     });
+    */
 
     return items;
   };
@@ -772,15 +766,7 @@ export const Layout: React.FC = () => {
           {/* Lado direito: Notificações, Perfil, Info de Localização Moçambique */}
           <div className="flex items-center gap-3">
             
-            {/* Indicador Informativo de Âmbito Operacional */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-md border border-slate-200 text-xs font-semibold text-slate-700">
-              <span className={`w-2 h-2 rounded-full ${isMixedScope ? 'bg-indigo-600' : currentScope === 'plant' ? 'bg-amber-600' : 'bg-blue-600'}`}></span>
-              <span>
-                {isMixedScope
-                  ? 'Frota & Fábrica (Vista Unificada)'
-                  : (currentScope === 'plant' || user?.operational_scope === 'plant' ? 'Fábrica / Fabril' : 'Frota')}
-              </span>
-            </div>
+
 
 
 

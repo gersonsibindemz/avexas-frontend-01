@@ -45,7 +45,6 @@ import {
   CheckCircle2,
   Search,
   X,
-  RefreshCw,
   Loader2,
   Calendar,
   Layers,
@@ -67,7 +66,6 @@ import {
   GitCommit,
   Phone,
   UserCheck,
-  Bell,
   Printer,
   FileText,
   MoreVertical,
@@ -81,7 +79,6 @@ import { DraftConfirmModal } from '../components/DraftConfirmModal';
 import { DraftBanner } from '../components/DraftBanner';
 import { dataCache } from '../services/dataCacheService';
 import { DraftsListView } from '../components/DraftsListView';
-import { deduplicateNotifications } from '../services/notificationService';
 
 interface Asset {
   id: string;
@@ -278,11 +275,6 @@ export const WorkOrdersPage: React.FC = () => {
     setSelectedPartsList([]);
     setIsFormModalOpen(true);
   };
-
-  // Estados de Notificações
-  const [isBellOpen, setIsBellOpen] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   // Toasts / Feedback
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -874,44 +866,6 @@ export const WorkOrdersPage: React.FC = () => {
     const hours = totalMs / (1000 * 60 * 60);
     return Number(hours.toFixed(2));
   };
-
-  const fetchNotifications = async () => {
-    setLoadingNotifications(true);
-    try {
-      const response = await api.get('/notifications');
-      const data = Array.isArray(response.data) ? response.data : response.data?.notifications || response.data?.data || [];
-      setNotifications(deduplicateNotifications(data));
-    } catch (err) {
-      console.warn('Endpoint /notifications não encontrado, gerando pendentes locais:', err);
-      // Fallback: Gerar notificações virtuais a partir de ordens abertas atribuídas ao técnico atual
-      const pendingOS = orders.filter(o => o.status === 'open' && isAssignedToMe(o));
-      const fallbackNotes = pendingOS.map(os => ({
-        id: `virtual-${os.id}`,
-        title: `Nova OS Atribuída: ${os.wo_number || os.woNumber || `OS-${os.id.substring(0, 4)}`}`,
-        message: os.title,
-        order: os,
-        createdAt: os.opened_at || os.openedAt || new Date().toISOString()
-      }));
-      setNotifications(fallbackNotes);
-    } finally {
-      setLoadingNotifications(false);
-    }
-  };
-
-  // Atualiza as notificações assim que orders ou technicians forem carregados
-  useEffect(() => {
-    if (orders.length > 0) {
-      const pendingOS = orders.filter(o => o.status === 'open' && isAssignedToMe(o));
-      const fallbackNotes = pendingOS.map(os => ({
-        id: `virtual-${os.id}`,
-        title: `Nova OS Atribuída: ${os.wo_number || os.woNumber || `OS-${os.id.substring(0, 4)}`}`,
-        message: os.title,
-        order: os,
-        createdAt: os.opened_at || os.openedAt || new Date().toISOString()
-      }));
-      setNotifications(fallbackNotes);
-    }
-  }, [orders, technicians]);
 
   useEffect(() => {
     if (!dataCache.has('work_orders')) {
@@ -1795,88 +1749,7 @@ export const WorkOrdersPage: React.FC = () => {
         </div>
         <div className="flex gap-2 relative">
           
-          {/* Sino de Notificações para Técnicos (Requisito 2) */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setIsBellOpen(!isBellOpen);
-                fetchNotifications();
-              }}
-              className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer relative"
-              title="Notificações de Tarefas Pendentes"
-            >
-              <Bell size={16} />
-              {notifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center animate-pulse">
-                  {notifications.length}
-                </span>
-              )}
-            </button>
 
-            {/* Dropdown Flutuante de Notificações */}
-            {isBellOpen && (
-              <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-md shadow-xl z-50 overflow-hidden animate-fade-in text-left">
-                <div className="p-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                    <Bell size={13} className="text-blue-700" />
-                    <span>Tarefas Atribuídas ({notifications.length})</span>
-                  </span>
-                  <button 
-                    onClick={() => setIsBellOpen(false)}
-                    className="text-[10px] text-slate-500 hover:text-slate-800"
-                  >
-                    Fechar
-                  </button>
-                </div>
-
-                <div className="max-h-[280px] overflow-y-auto divide-y divide-slate-100">
-                  {loadingNotifications ? (
-                    <div className="p-4 text-center">
-                      <Loader2 size={16} className="animate-spin text-slate-400 mx-auto" />
-                    </div>
-                  ) : notifications.length === 0 ? (
-                    <div className="p-6 text-center text-slate-500 text-xs italic">
-                      Nenhuma tarefa pendente atribuída.
-                    </div>
-                  ) : (
-                    notifications.map((note) => (
-                      <div
-                        key={note.id}
-                        onClick={() => {
-                          const targetOrder = note.order || orders.find(o => o.id === note.orderId || o.id === note.order_id);
-                          if (targetOrder) {
-                            handleOpenDrawer(targetOrder);
-                          }
-                          setIsBellOpen(false);
-                        }}
-                        className="p-3 hover:bg-slate-50 cursor-pointer transition-colors space-y-1"
-                      >
-                        <div className="text-[11px] font-bold text-slate-900 leading-tight flex items-center justify-between">
-                          <span>{note.title}</span>
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-                        </div>
-                        <p className="text-[10px] text-slate-600 line-clamp-2 leading-relaxed">
-                          {note.message}
-                        </p>
-                        <span className="text-[9px] text-slate-400 block font-mono">
-                          {new Date(note.createdAt).toLocaleString('pt-MZ')}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={fetchWorkOrders}
-            disabled={loading}
-            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-all cursor-pointer disabled:opacity-50"
-            title="Recarregar ordens"
-          >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          </button>
           {!isTechnician && !isDriverOperator && (
             <button
               onClick={() => handleActionClick(handleOpenCreateModal)}

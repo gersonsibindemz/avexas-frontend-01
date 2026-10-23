@@ -483,14 +483,6 @@ export const FuelPage: React.FC = () => {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={fetchFuelLogs}
-            disabled={loading}
-            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-colors cursor-pointer disabled:opacity-50"
-            title="Recarregar histórico"
-          >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          </button>
-          <button
             onClick={() => handleActionClick(() => handleOpenCreateModal())}
             className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-none"
           >

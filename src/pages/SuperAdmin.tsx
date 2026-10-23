@@ -471,14 +471,7 @@ export const SuperAdminPage: React.FC = () => {
         </div>
 
         <div className="flex gap-2 shrink-0">
-          <button
-            onClick={() => { fetchTenants(); fetchFuelPrices(); }}
-            disabled={loading}
-            className="p-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md transition-colors cursor-pointer disabled:opacity-50"
-            title="Recarregar dados"
-          >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          </button>
+
 
           {activeTab === 'tenants' ? (
             <button

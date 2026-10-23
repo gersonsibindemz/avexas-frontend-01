@@ -178,17 +178,6 @@ export const DashboardPage: React.FC = () => {
           </h1>
         </div>
 
-        <div className="flex items-center gap-2 self-start md:self-auto">
-          <button
-            onClick={fetchStats}
-            disabled={loading}
-            className="p-2.5 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 rounded-md border border-slate-300 transition-colors text-xs font-medium flex items-center gap-2 shadow-none cursor-pointer disabled:opacity-50"
-            title="Atualizar Indicadores"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin text-[#0066FF]' : ''} />
-            <span>Atualizar Dados</span>
-          </button>
-        </div>
       </div>
 
       {/* LINHA SUPERIOR - CARDS DE KPIs */}
