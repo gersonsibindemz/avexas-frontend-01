@@ -375,43 +375,43 @@ export const Layout: React.FC = () => {
         : (assetsLabel === 'Equipamentos' ? 'Gestão de equipamentos industriais' : 'Registo e controlo de frotas de viaturas')
     });
 
-    // Desativados temporariamente no menu a pedido do utilizador (Dashboard, Manutenção, Combustível, Inventário):
-    // Reativar depois conforme instrução.
-    /*
+    // Restaurados no menu a pedido do utilizador (Dashboard, Manutenção, Combustível, Inventário):
+    // Desativada a navegação para manter exclusivamente "Ativos" como botão funcional
     items.unshift({
       name: 'Dashboard',
       path: '/app/dashboard',
       icon: LayoutDashboard,
-      description: 'Indicadores e estado operacional'
+      description: 'Indicadores e estado operacional',
+      disabled: true
     });
 
     items.push({
       name: 'Manutenção',
       type: 'accordion',
       icon: Wrench,
+      disabled: true,
       subItems: [
-        { name: 'Planos', path: '/app/maintenance-plans', icon: Calendar },
-        { name: 'Equipes', path: '/app/teams', icon: Users },
-        { name: 'Ordens', path: '/app/work-orders', icon: ClipboardList }
+        { name: 'Planos', path: '/app/maintenance-plans', icon: Calendar, disabled: true },
+        { name: 'Equipes', path: '/app/teams', icon: Users, disabled: true },
+        { name: 'Ordens', path: '/app/work-orders', icon: ClipboardList, disabled: true }
       ]
     });
 
-    if (!isPlantSupervisor && !isPlantTenant) {
-      items.push({
-        name: 'Combustível',
-        path: '/app/fuel',
-        icon: Fuel,
-        description: 'Consumos e eficiência de combustível'
-      });
-    }
+    items.push({
+      name: 'Combustível',
+      path: '/app/fuel',
+      icon: Fuel,
+      description: 'Consumos e eficiência de combustível',
+      disabled: true
+    });
 
     items.push({
       name: 'Inventário',
       path: '/app/inventory',
       icon: Layers,
-      description: 'Gestão de peças e consumíveis'
+      description: 'Gestão de peças e consumíveis',
+      disabled: true
     });
-    */
 
     return items;
   };
@@ -423,7 +423,7 @@ export const Layout: React.FC = () => {
 
   // Identificação da página atual para exibição de breadcrumbs
   const getActivePageName = () => {
-    const activeItem = navigationItems.find(item => location.pathname.startsWith(item.path));
+    const activeItem = navigationItems.find(item => item.path && location.pathname.startsWith(item.path));
     if (activeItem) return activeItem.name;
     if (location.pathname === '/app/profile') return 'Perfil de Utilizador';
     if (location.pathname === '/app/settings') return 'Configurações do Sistema';
@@ -502,20 +502,22 @@ export const Layout: React.FC = () => {
 
               if (isCollapsed) {
                 return (
-                  <NavLink
+                  <button
                     key="maintenance-group-collapsed"
-                    to="/app/work-orders"
-                    className={({ isActive }) =>
-                      `flex items-center justify-center w-11 h-11 mx-auto rounded-md text-sm font-medium transition-colors group ${
-                        isMaintenanceActive
-                          ? 'bg-[#0066FF] text-white shadow-none'
-                          : 'text-slate-400 hover:text-white hover:bg-white/5'
-                      }`
-                    }
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    className={`flex items-center justify-center w-11 h-11 mx-auto rounded-md text-sm font-medium transition-colors group cursor-pointer ${
+                      isMaintenanceActive
+                        ? 'bg-[#0066FF] text-white shadow-none'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
                     title="Manutenção"
                   >
                     <Wrench size={18} className="shrink-0" />
-                  </NavLink>
+                  </button>
                 );
               }
 
@@ -541,6 +543,22 @@ export const Layout: React.FC = () => {
                     <div className="pl-9 border-l border-white/10 ml-4 space-y-1 my-1">
                       {item.subItems.map((sub: any) => {
                         const SubIcon = sub.icon;
+                        if (sub.disabled) {
+                          return (
+                            <button
+                              key={sub.name}
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors text-slate-400 hover:text-white hover:bg-white/5 cursor-pointer text-left"
+                            >
+                              <SubIcon size={15} className="shrink-0" />
+                              <span className="truncate">{sub.name}</span>
+                            </button>
+                          );
+                        }
                         return (
                           <NavLink
                             key={sub.path}
@@ -565,6 +583,32 @@ export const Layout: React.FC = () => {
             }
 
             const Icon = item.icon;
+
+            if (item.disabled) {
+              return (
+                <button
+                  key={item.name}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  className={`flex items-center rounded-md text-sm font-medium transition-colors group cursor-pointer text-slate-400 hover:text-white hover:bg-white/5 ${
+                    isCollapsed ? 'justify-center w-11 h-11 mx-auto px-0' : 'gap-3 px-3 py-2.5 w-full text-left'
+                  }`}
+                  title={item.name}
+                >
+                  <Icon 
+                    size={18} 
+                    className="shrink-0 transition-transform group-hover:scale-105 duration-150 text-slate-400 group-hover:text-white" 
+                  />
+                  {!isCollapsed && (
+                    <span className="truncate">{item.name}</span>
+                  )}
+                </button>
+              );
+            }
+
             return (
               <NavLink
                 key={item.path}
@@ -673,6 +717,22 @@ export const Layout: React.FC = () => {
                     <div className="pl-9 border-l border-white/10 ml-4 space-y-1 my-1">
                       {item.subItems.map((sub: any) => {
                         const SubIcon = sub.icon;
+                        if (sub.disabled) {
+                          return (
+                            <button
+                              key={sub.name}
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-xs font-medium transition-colors text-slate-400 hover:text-white hover:bg-white/5 cursor-pointer text-left"
+                            >
+                              <SubIcon size={16} className="shrink-0" />
+                              <span className="truncate">{sub.name}</span>
+                            </button>
+                          );
+                        }
                         return (
                           <NavLink
                             key={sub.path}
@@ -698,6 +758,24 @@ export const Layout: React.FC = () => {
             }
 
             const Icon = item.icon;
+
+            if (item.disabled) {
+              return (
+                <button
+                  key={item.name}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-colors text-slate-400 hover:text-white hover:bg-white/5 cursor-pointer text-left"
+                >
+                  <Icon size={18} className="shrink-0" />
+                  <span className="truncate">{item.name}</span>
+                </button>
+              );
+            }
+
             return (
               <NavLink
                 key={item.path}
